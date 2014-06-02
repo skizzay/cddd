@@ -1,13 +1,19 @@
+# Temporary editor files
+.*.swp
+*~
+
 # Compiled Object files
 *.slo
 *.lo
 *.o
 *.obj
+obj
 
 # Compiled Dynamic libraries
 *.so
 *.dylib
 *.dll
+lib
 
 # Compiled Static libraries
 *.lai
@@ -19,3 +25,9 @@
 *.exe
 *.out
 *.app
+bin
+
+# Makefiles get generated
+cqrs/Makefile
+event_engine/Makefile
+messaging/Makefile
