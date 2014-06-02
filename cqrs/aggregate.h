@@ -44,7 +44,6 @@ public:
    virtual void apply_change(std::shared_ptr<event> evt) final;
 
 protected:
-   basic_aggregate(object_id id_, std::size_t version, std::shared_ptr<event_dispatcher> dispatcher_);
    basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_);
 
    template<class Evt, class Fun>
@@ -65,7 +64,7 @@ private:
 };
 
 
-typedef std::function<std::shared_ptr<aggregate>(object_id)> aggregate_factory;
+typedef std::function<std::shared_ptr<aggregate>(object_id, std::shared_ptr<event_dispatcher>)> aggregate_factory;
 
 }
 }

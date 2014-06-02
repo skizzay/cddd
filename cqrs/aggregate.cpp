@@ -3,18 +3,12 @@
 namespace cddd {
 namespace cqrs {
 
-basic_aggregate::basic_aggregate(object_id id_, std::size_t version, std::shared_ptr<event_dispatcher> dispatcher_) :
+basic_aggregate::basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_) :
       aggregate(),
       aggregate_id(id_),
-      aggregate_version(version),
+      aggregate_version(0),
       pending_events(),
       dispatcher(dispatcher_)
-{
-}
-
-
-basic_aggregate::basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_) :
-      basic_aggregate(id_, 0, dispatcher_)
 {
 }
 

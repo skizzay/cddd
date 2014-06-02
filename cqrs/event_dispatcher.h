@@ -51,8 +51,8 @@ public:
    }
 
    virtual void dispatch(std::shared_ptr<event> evt) {
-      if (evt) {
-         auto handler = handlers.at(evt->type());
+      if (evt != nullptr) {
+         auto &handler = handlers.at(evt->type());
          handler(evt);
       }
    }
