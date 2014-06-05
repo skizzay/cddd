@@ -1,24 +1,22 @@
 #ifndef CDDD_MESSAGING_MESSAGE_H__
 #define CDDD_MESSAGING_MESSAGE_H__
 
+#include <string>
+#include <tuple>
+#include <vector>
+
 namespace cddd {
 namespace messaging {
 
+typedef std::tuple<std::string, std::string> header;
+typedef std::vector<header> header_collection;
+
+
 class message {
 public:
-   virtual ~message() = 0;
-};
+   virtual ~message() = default;
 
-
-inline message::~message() {
-}
-
-
-class message_handler {
-public:
-   virtual ~message_handler() = default;
-
-   virtual void handle(message const & msg) = 0;
+   virtual const header_collection &headers() const = 0;
 };
 
 }
