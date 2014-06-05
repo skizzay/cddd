@@ -12,26 +12,18 @@ namespace event_engine {
 
 class serial_executor : public executor {
 public:
-   serial_executor();
+   serial_executor(executor *e);
    virtual ~serial_executor();
 
    virtual void add(std::function<void()> closure);
    virtual std::size_t num_pending_closures() const;
 
-private:
-   std::queue<std::function<void()>> executions;
-   bool shutting_down;
-   mutable std::mutex lock_on_queue;
-   std::condition_variable queue_wakeup;
-   std::thread execution_thread;
+   inline executor *underlying_executor() {
+      return executor_;
+   }
 
-   void run();
-   inline bool is_queue_ready() const {
-      return !executions.empty() || is_shutting_down();
-   }
-   bool is_shutting_down() const {
-      return shutting_down;
-   }
+private:
+   executor *executor_;
 };
 
 }
