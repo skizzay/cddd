@@ -3,7 +3,6 @@
 
 #include "cddd/cqrs/copy_on_write.h"
 #include <functional>
-#include <memory>
 #include <sstream>
 #include <string>
 
@@ -30,8 +29,8 @@ class object_id {
 public:
 	template<typename T>
 	static object_id create(T &&t) {
-		object_id result;
-		result.value.reset(new Implementation<T>(std::forward(t)));
+      std::unique_ptr<Value> ptr = std::make_unique<Implementation<T>>(std::forward(t));
+		object_id result(std::move(ptr));
 		return result;
 	}
 	object_id() = default;
@@ -84,7 +83,7 @@ private:
       }
 
       virtual std::unique_ptr<Value> clone() const {
-         return std::unique_ptr<Value>(new Implementation(*this));
+         return std::make_unique<Implementation>(*this);
       }
 
       inline const T &value() const {
@@ -92,8 +91,13 @@ private:
       }
 
    private:
-      typename std::remove_reference<T>::type data;
+      std::decay_t<T> data;
    };
+
+   explicit object_id(std::unique_ptr<Value> v) :
+      value(std::move(v))
+   {
+   }
 
    copy_on_write<Value> value;
 };

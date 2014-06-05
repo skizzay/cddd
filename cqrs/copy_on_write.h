@@ -13,11 +13,20 @@ public:
 		ptr(t)
 	{
 	}
+   explicit copy_on_write(std::unique_ptr<T> t) :
+      ptr(std::move(t))
+   {
+   }
 	copy_on_write() = default;
 	copy_on_write(const copy_on_write &) = default;
 	copy_on_write(copy_on_write &&) = default;
 	template<class U>
 	explicit copy_on_write(U *u) :
+		ptr(u)
+	{
+	}
+	template<class U, class D>
+	explicit copy_on_write(std::unique_ptr<U, D> u) :
 		ptr(u)
 	{
 	}
