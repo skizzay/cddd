@@ -35,3 +35,4 @@ ifneq ($(filter $(THIS_DIR)/obj,$(CLEAN_OBJECT_DIRS)),)
 else
 	@echo "No directories to be removed."
 endif
+	rm -f $(THIS_DIR)/.*.swp $(THIS_DIR)/*~
