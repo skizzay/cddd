@@ -21,7 +21,9 @@ public:
 inline event::~event() {}
 
 
-typedef std::deque<std::shared_ptr<event>> event_collection;
+typedef std::shared_ptr<event> event_ptr;
+template<class Alloc> using basic_event_collection = std::deque<event_ptr, Alloc>;
+typedef basic_event_collection<std::allocator<event_ptr>> event_collection;
 
 
 namespace details_ {

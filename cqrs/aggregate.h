@@ -8,44 +8,48 @@
 namespace cddd {
 namespace cqrs {
 
-class aggregate {
+template<class Alloc>
+class basic_aggregate {
 public:
-   aggregate() = default;
-   aggregate(const aggregate &) = delete;
-   aggregate(aggregate &&) = default;
+   typedef typename basic_event_collection<Alloc>::allocator_type allocator_type;
 
-   virtual ~aggregate() = default;
+   virtual ~basic_aggregate() = default;
 
-   virtual const object_id & id() const = 0;
-   virtual std::size_t revision() const = 0;
-   virtual const event_collection &uncommitted_events() const = 0;
-   virtual bool has_uncommitted_events() const = 0;
-   virtual void clear_uncommitted_events() = 0;
-   virtual void apply_change(std::shared_ptr<event> evt) = 0;
+   inline const object_id & id() const {
+      return aggregate_id;
+   }
+
+   inline std::size_t revision() const {
+      return aggregate_version;
+   }
+
+   inline const basic_event_collection<Alloc> &uncommitted_events() const {
+      return pending_events;
+   }
+
+   inline bool has_uncommitted_events() const {
+      return !uncommitted_events().empty();
+   }
+
+   inline void clear_uncommitted_events() {
+      pending_events.clear();
+   }
+
+   inline void apply_change(std::shared_ptr<event> evt) {
+      apply_change(evt, true);
+   }
 
    template<class Evt>
    inline void apply_change(Evt &&e) {
       auto ptr = std::make_shared<details_::event_wrapper<Evt>>(std::forward(e));
       apply_change(std::static_pointer_cast<event>(ptr));
    }
-   template<class Alloc, class Evt>
-   inline void apply_change(const Alloc &alloc, Evt &&e) {
+
+   template<class EvtAlloc, class Evt>
+   inline void apply_change(const EvtAlloc &alloc, Evt &&e) {
       auto ptr = std::allocate_shared<details_::event_wrapper<Evt>>(alloc, std::forward(e));
       apply_change(std::static_pointer_cast<event>(ptr));
    }
-};
-
-
-class basic_aggregate : public aggregate {
-public:
-   virtual ~basic_aggregate() = default;
-
-   virtual const object_id & id() const final override;
-   virtual std::size_t revision() const final override;
-   virtual const event_collection &uncommitted_events() const final override;
-   virtual bool has_uncommitted_events() const final override;
-   virtual void clear_uncommitted_events() final override;
-   virtual void apply_change(std::shared_ptr<event> evt) final override;
 
 protected:
    basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_);
@@ -59,16 +63,24 @@ protected:
    }
 
 private:
-   void apply_change(std::shared_ptr<event> evt, bool is_new);
+   void apply_change(std::shared_ptr<event> evt, bool is_new) {
+      if (evt) {
+         dispatcher->dispatch(evt);
+         ++aggregate_version;
+         if (is_new) {
+            pending_events.push_back(evt);
+         }
+      }
+   }
 
    object_id aggregate_id;
    std::size_t aggregate_version;
-   event_collection pending_events;
+   basic_event_collection<Alloc> pending_events;
    std::shared_ptr<event_dispatcher> dispatcher;
 };
 
 
-typedef std::function<std::shared_ptr<aggregate>(object_id, std::shared_ptr<event_dispatcher>)> aggregate_factory;
+template<class Alloc> using basic_aggregate_factory = std::function<std::shared_ptr<basic_aggregate<Alloc>>(object_id, std::shared_ptr<event_dispatcher>)>;
 
 }
 }
