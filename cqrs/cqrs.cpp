@@ -2,4 +2,6 @@
 #include "cddd/cqrs/commit.h"
 #include "cddd/cqrs/event_dispatcher.h"
 #include "cddd/cqrs/event.h"
+#include "cddd/cqrs/event_store.h"
+#include "cddd/cqrs/event_stream.h"
 #include "cddd/cqrs/exceptions.h"

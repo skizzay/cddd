@@ -46,11 +46,11 @@ public:
    basic_event_dispatcher &operator =(const basic_event_dispatcher &) = delete;
    basic_event_dispatcher &operator =(basic_event_dispatcher &&) = default;
 
-   virtual void add_handler(std::type_index type, event_handler f) {
+   virtual void add_handler(std::type_index type, event_handler f) final override {
       handlers.emplace(type, std::move(f));
    }
 
-   virtual void dispatch(std::shared_ptr<event> evt) {
+   virtual void dispatch(std::shared_ptr<event> evt) final override {
       if (evt != nullptr) {
          auto &handler = handlers.at(evt->type());
          handler(evt);

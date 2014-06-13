@@ -1,5 +1,5 @@
-#ifndef CDDD_CQRS_AGGREATE_H__
-#define CDDD_CQRS_AGGREATE_H__
+#ifndef CDDD_CQRS_COMMIT_H__
+#define CDDD_CQRS_COMMIT_H__
 
 #include "cddd/cqrs/event.h"
 #include "cddd/cqrs/exceptions.h"
@@ -10,7 +10,7 @@ namespace cqrs {
 
 class commit {
 public:
-   using cddd::event_engine::clock::time_point;
+   typedef cddd::event_engine::clock::time_point time_point;
 
    explicit inline commit(object_id cid_, object_id sid_, std::size_t version, std::size_t seq,
                           event_collection evts, time_point ts_) :

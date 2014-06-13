@@ -9,7 +9,7 @@ namespace event_engine {
 
 class clock {
 public:
-   using std::chrono::system_clock::time_point;
+   typedef std::chrono::system_clock::time_point time_point;
 
    virtual ~clock() = default;
 

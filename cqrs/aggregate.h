@@ -10,6 +10,10 @@ namespace cqrs {
 
 class aggregate {
 public:
+   aggregate() = default;
+   aggregate(const aggregate &) = delete;
+   aggregate(aggregate &&) = default;
+
    virtual ~aggregate() = default;
 
    virtual const object_id & id() const = 0;
@@ -36,12 +40,12 @@ class basic_aggregate : public aggregate {
 public:
    virtual ~basic_aggregate() = default;
 
-   virtual const object_id & id() const final;
-   virtual std::size_t revision() const final;
-   virtual const event_collection &uncommitted_events() const final;
-   virtual bool has_uncommitted_events() const final;
-   virtual void clear_uncommitted_events() final;
-   virtual void apply_change(std::shared_ptr<event> evt) final;
+   virtual const object_id & id() const final override;
+   virtual std::size_t revision() const final override;
+   virtual const event_collection &uncommitted_events() const final override;
+   virtual bool has_uncommitted_events() const final override;
+   virtual void clear_uncommitted_events() final override;
+   virtual void apply_change(std::shared_ptr<event> evt) final override;
 
 protected:
    basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_);
