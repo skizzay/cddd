@@ -13,7 +13,14 @@ class basic_aggregate {
 public:
    typedef typename basic_event_collection<Alloc>::allocator_type allocator_type;
 
+   basic_aggregate() = default;
+   basic_aggregate(const basic_aggregate &) = delete;
+   basic_aggregate(basic_aggregate &&) = default;
+
    virtual ~basic_aggregate() = default;
+
+   basic_aggregate & operator =(const basic_aggregate &) = delete;
+   basic_aggregate & operator =(basic_aggregate &&) = default;
 
    inline const object_id & id() const {
       return aggregate_id;
@@ -52,7 +59,13 @@ public:
    }
 
 protected:
-   basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_);
+   inline basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_, allocator_type alloc=allocator_type()) :
+      aggregate_id(id_),
+      aggregate_version(0),
+      pending_events(alloc),
+      dispatcher(dispatcher_)
+   {
+   }
 
    template<class Evt, class Fun>
    inline void add_handler(Fun &&f) {
