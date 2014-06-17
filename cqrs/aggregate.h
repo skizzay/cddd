@@ -1,15 +1,14 @@
 #ifndef CDDD_CQRS_AGGREATE_H__
 #define CDDD_CQRS_AGGREATE_H__
 
-#include "cddd/cqrs/object_id.h"
-#include "cddd/cqrs/event_dispatcher.h"
+#include "cddd/cqrs/artifact.h"
 
 
 namespace cddd {
 namespace cqrs {
 
-template<class Alloc>
-class basic_aggregate {
+template<class Alloc=event_collection::allocator_type>
+class basic_aggregate : public basic_artifact<Alloc> {
 public:
    typedef typename basic_event_collection<Alloc>::allocator_type allocator_type;
 
@@ -26,40 +25,9 @@ public:
       return aggregate_id;
    }
 
-   inline std::size_t revision() const {
-      return aggregate_version;
-   }
-
-   inline const basic_event_collection<Alloc> &uncommitted_events() const {
-      return pending_events;
-   }
-
-   inline bool has_uncommitted_events() const {
-      return !uncommitted_events().empty();
-   }
-
-   inline void clear_uncommitted_events() {
-      pending_events.clear();
-   }
-
-   inline void apply_change(std::shared_ptr<event> evt) {
-      apply_change(evt, true);
-   }
-
-   template<class Evt>
-   inline void apply_change(Evt &&e) {
-      auto ptr = std::make_shared<details_::event_wrapper<Evt>>(std::forward(e));
-      apply_change(std::static_pointer_cast<event>(ptr));
-   }
-
-   template<class EvtAlloc, class Evt>
-   inline void apply_change(const EvtAlloc &alloc, Evt &&e) {
-      auto ptr = std::allocate_shared<details_::event_wrapper<Evt>>(alloc, std::forward(e));
-      apply_change(std::static_pointer_cast<event>(ptr));
-   }
-
 protected:
    inline basic_aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_, allocator_type alloc=allocator_type()) :
+      basic_artifact<Alloc>(dispatcher_),
       aggregate_id(id_),
       aggregate_version(0),
       pending_events(alloc),
@@ -76,7 +44,7 @@ protected:
    }
 
 private:
-   void apply_change(std::shared_ptr<event> evt, bool is_new) {
+   void apply_change(event_ptr evt, bool is_new) {
       if (evt) {
          dispatcher->dispatch(evt);
          ++aggregate_version;

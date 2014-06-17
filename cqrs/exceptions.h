@@ -1,6 +1,8 @@
 #ifndef CDDD_CQRS_EXCEPTIONS_H__
 #define CDDD_CQRS_EXCEPTIONS_H__
 
+#include "cddd/cqrs/object_id.h"
+
 #include <stdexcept>
 #include <sstream>
 
