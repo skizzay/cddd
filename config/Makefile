@@ -36,3 +36,12 @@ else
 	@echo "No directories to be removed."
 endif
 	rm -f $(THIS_DIR)/.*.swp $(THIS_DIR)/*~
+
+
+# $1 - name of third-party library
+# $2 - paths of include headers
+# $3 - linker flags
+define DEFINE_THIRD_PARTY_LIBRARY
+$(strip $1)_INCLUDE_DIRS:=$2
+$(strip $1)_LINKER_FLAGS:=$3
+endef
