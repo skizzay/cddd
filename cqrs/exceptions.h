@@ -37,6 +37,13 @@ public:
    virtual ~timed_out() = default;
 };
 
+
+class event_not_handled : public std::logic_error {
+public:
+   using std::logic_error::logic_error;
+   virtual ~event_not_handled() = default;
+};
+
 }
 }
 
