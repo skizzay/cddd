@@ -18,7 +18,7 @@ public:
    virtual ~event_dispatcher() = default;
 
    virtual void add_handler(std::type_index type, event_handler f) = 0;
-   virtual void dispatch(std::shared_ptr<event> evt) = 0;
+   virtual void dispatch(event_ptr evt) = 0;
 };
 
 
