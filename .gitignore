@@ -31,3 +31,6 @@ bin
 cqrs/Makefile
 event_engine/Makefile
 messaging/Makefile
+
+# Third-party linked areas
+sequence

@@ -1,7 +1,7 @@
 #ifndef CDDD_CQRS_EVENT_H__
 #define CDDD_CQRS_EVENT_H__
 
-#include <deque>
+#include <sequence.h>
 #include <memory>
 #include <typeindex>
 #include <utility>
@@ -22,8 +22,7 @@ inline event::~event() {}
 
 
 typedef std::shared_ptr<event> event_ptr;
-template<class Alloc> using basic_event_collection = std::deque<event_ptr, Alloc>;
-typedef basic_event_collection<std::allocator<event_ptr>> event_collection;
+typedef sequence<event_ptr> event_sequence;
 
 
 namespace details_ {

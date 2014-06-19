@@ -13,7 +13,7 @@ public:
    typedef cddd::event_engine::clock::time_point time_point;
 
    explicit inline commit(object_id cid_, object_id sid_, std::size_t version, std::size_t seq,
-                          event_collection evts, time_point ts_) :
+                          event_sequence evts, time_point ts_) :
       cid(cid_),
       sid(sid_),
       revision(version),
@@ -54,7 +54,7 @@ public:
       return sequence;
    }
 
-   inline const event_collection & events() const {
+   inline const event_sequence & events() const {
       return commit_events;
    }
 
@@ -67,7 +67,7 @@ private:
    object_id sid;
    std::size_t revision;
    std::size_t sequence;
-   event_collection commit_events;
+   event_sequence commit_events;
    time_point ts;
 };
 
