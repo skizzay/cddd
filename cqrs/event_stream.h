@@ -13,7 +13,7 @@ public:
 
    virtual const object_id & id() const = 0;
    virtual std::size_t revision() const = 0;
-   virtual void add_event(std::shared_ptr<event> evt) = 0;
+   virtual void add_event(event_ptr evt) = 0;
    virtual std::unique_ptr<commit> commit_events(object_id commit_id) = 0;
    virtual void clear_changes() = 0;
 

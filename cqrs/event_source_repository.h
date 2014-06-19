@@ -30,13 +30,15 @@ public:
       return !open_stream(id)->committed_events().empty();
    }
 
-   virtual void save(T &object) final override {
+   virtual std::unique_ptr<commit> save(T &object) final override {
       auto stream = open_stream(object.id());
       for (auto evt : object.uncommitted_events()) {
          stream->add_event(evt);
       }
-      stream->commit_events(generate_id());
+      auto result = stream->commit_events(generate_id());
       object.clear_uncommitted_events();
+
+      return result;
    }
 
    virtual std::shared_ptr<T> load(object_id id) final override {
