@@ -2,22 +2,21 @@
 #define CDDD_CQRS_EVENT_SOURCE_REPOSITORY_H__
 
 #include "cddd/cqrs/repository.h"
+#include "cddd/cqrs/event_store.h"
 
 
 namespace cddd {
 namespace cqrs {
 
 template<class T>
-class event_source_repository<T> : public repository<T> {
+class event_source_repository : public repository<T> {
 public:
    static_assert(std::is_base_of<artifact, T>::value,
                  "T must inherit from artifact.");
-   typedef ES<Alloc> event_store_type;
-   typedef std::shared_ptr<event_store_type> event_store_ptr;
-   typedef std::function<std::shared_ptr<artifact>(object_id)> artifact_factory;
+   typedef std::function<artifact_ptr(object_id)> artifact_factory;
 
    explicit inline event_source_repository(event_store_ptr es, object_id_generator id_gen, artifact_factory create_obj) :
-      repository<T>()
+      repository<T>(),
       store(es),
       generate_commit_id(std::move(id_gen)),
       create_object(std::move(create_obj))
@@ -35,7 +34,7 @@ public:
       for (auto evt : object.uncommitted_events()) {
          stream->add_event(evt);
       }
-      auto result = stream->commit_events(generate_id());
+      auto result = stream->commit_events(generate_commit_id());
       object.clear_uncommitted_events();
 
       return result;
@@ -45,7 +44,7 @@ public:
       artifact_ptr object = create_object(id);
       auto stream = open_stream(id);
       object->load_from_history(*stream);
-      return static_pointer_cast<T>(object);
+      return std::static_pointer_cast<T>(object);
    }
 
 private:

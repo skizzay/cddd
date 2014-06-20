@@ -8,7 +8,7 @@ namespace cddd {
 namespace cqrs {
 
 template<class T>
-class repository<T> {
+class repository {
 public:
    virtual ~repository() = default;
 
