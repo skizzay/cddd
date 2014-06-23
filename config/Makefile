@@ -24,6 +24,7 @@ all:
 include $(CONFIG_DIR)/objects.mk
 include $(CONFIG_DIR)/executable.mk
 include $(CONFIG_DIR)/shared.mk
+include $(CONFIG_DIR)/archive.mk
 
 include $(THIS_DIR)/software.mk
 
@@ -34,6 +35,10 @@ $(BIN_DIR)/% :
 $(LIB_DIR)/lib%.so :
 	@test -d $(@D) || mkdir -p $(@D)
 	g++-4.9 -shared -std=c++1y -g3 -ggdb -Wl,--no-allow-shlib-undefined,--no-undefined $(filter %.o,$^) -L$(LIB_DIR) $(addprefix -L,$($*_SHARED_LIBRARY_LOCATIONS)) $(addprefix -l,$($*_SHARED_LIBRARIES)) $(filter .a, $+) -o $@
+
+$(LIB_DIR)/lib%.a :
+	@test -d $(@D) || mkdir -p $(@D)
+	ar rs $(filter %.o,$^)
 
 $(BIN_DIR) $(LIB_DIR) :
 	@test -d $@ || mkdir -p $@
