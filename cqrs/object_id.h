@@ -28,7 +28,7 @@ inline std::string to_string(const U &value) {
 class object_id {
 public:
 	template<typename T>
-	static object_id create(T &&t) {
+	static object_id create(std::remove_reference_t<T> &&t) {
       std::unique_ptr<Value> ptr = std::make_unique<Implementation<T>>(std::forward(t));
 		object_id result(std::move(ptr));
 		return result;

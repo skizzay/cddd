@@ -7,9 +7,9 @@
 namespace cddd {
 namespace cqrs {
 
-class aggregate : public artifact {
+class aggregate : public basic_artifact {
 public:
-   aggregate() = default;
+   aggregate() = delete;
    aggregate(const aggregate &) = delete;
    aggregate(aggregate &&) = default;
 
@@ -23,8 +23,8 @@ public:
    }
 
 protected:
-   inline aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_) :
-      artifact(dispatcher_),
+   inline aggregate(object_id id_, std::shared_ptr<event_dispatcher> dispatcher_, event_container_ptr events) :
+      basic_artifact(dispatcher_, events),
       aggregate_id(id_)
    {
    }

@@ -14,10 +14,11 @@ public:
    virtual const object_id & id() const = 0;
    virtual std::size_t revision() const = 0;
    virtual void add_event(event_ptr evt) = 0;
-   virtual std::unique_ptr<commit> commit_events(object_id commit_id) = 0;
+   virtual std::shared_ptr<commit> commit_events(object_id commit_id) = 0;
    virtual void clear_changes() = 0;
 
    virtual event_sequence committed_events() const = 0;
+   virtual bool has_committed_events() const = 0;
 };
 
 

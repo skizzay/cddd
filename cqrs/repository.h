@@ -13,7 +13,7 @@ public:
    virtual ~repository() = default;
 
    virtual bool has(object_id) const = 0;
-   virtual std::unique_ptr<commit> save(T &) = 0;
+   virtual std::shared_ptr<commit> save(T &) = 0;
    virtual std::shared_ptr<T> load(object_id) = 0;
 };
 
