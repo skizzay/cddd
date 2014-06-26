@@ -29,6 +29,7 @@ bin
 
 # Makefiles get generated
 cqrs/Makefile
+cqrs/test/unit/Makefile
 event_engine/Makefile
 messaging/Makefile
 application/unit_tests/Makefile

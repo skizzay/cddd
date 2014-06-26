@@ -18,6 +18,7 @@ public:
 
    MOCK_CONST_METHOD0(uncommitted_events, cddd::cqrs::event_sequence());
    MOCK_CONST_METHOD0(has_uncommitted_events, bool());
+   MOCK_CONST_METHOD0(size_uncommitted_events, size_type());
    MOCK_METHOD0(clear_uncommitted_events, void());
    MOCK_METHOD1(add_pending_event, void(cddd::cqrs::event_ptr));
 
