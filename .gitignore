@@ -31,6 +31,7 @@ bin
 cqrs/Makefile
 event_engine/Makefile
 messaging/Makefile
+application/unit_tests/Makefile
 
 # Third-party linked areas
 sequence

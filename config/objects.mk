@@ -18,4 +18,4 @@ endef
 
 # $1 - Source directory
 # $2 - Include directories
-DEFINE_OBJECTS=$(eval $(call DEFINE_OBJECTS_IMPL, $(strip $1), $2))
+DEFINE_OBJECTS=$(eval $(foreach src, $1, $(call DEFINE_OBJECTS_IMPL, $(strip $(src)), $2)))
