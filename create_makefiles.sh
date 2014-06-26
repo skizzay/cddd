@@ -16,7 +16,7 @@ abspath () {
 
 top_dir=$(dirname $(abspath $0))
 config_dir=$(cd $top_dir/config && pwd)
-for d in $(find -P . -mindepth 1 -type d) ; do
+for d in $(find -P . -type d) ; do
     if [ ! -e "$d/Makefile" -a -e "$d/software.mk" ] ; then
         cd $d
         ln -s $config_dir/Makefile .

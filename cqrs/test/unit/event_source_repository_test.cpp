@@ -10,7 +10,10 @@ namespace {
 
 using namespace cddd::cqrs;
 using ::testing::_;
+using ::testing::An;
+using ::testing::Mock;
 using ::testing::NiceMock;
+using ::testing::Ref;
 using ::testing::Return;
 
 
@@ -74,20 +77,67 @@ public:
 
    std::shared_ptr<event_store_type> store;
    std::shared_ptr<event_stream_type> stream;
-   fake_object_id_generator generator;
-   fake_entity_factory factory;
+   NiceMock<fake_object_id_generator> generator;
+   NiceMock<fake_entity_factory> factory;
 };
 
 
 TEST_F(event_source_repository_tests, has_returns_false_when_stream_has_no_committed_events) {
    // Given
    auto target = create();
+   EXPECT_CALL(*stream, has_committed_events())
+      .WillOnce(Return(false));
 
    // When
    bool actual = target->has(object_id());
 
    // Then
    ASSERT_FALSE(actual);
+}
+
+
+TEST_F(event_source_repository_tests, has_returns_true_when_stream_has_committed_events) {
+   // Given
+   auto target = create();
+   EXPECT_CALL(*stream, has_committed_events())
+      .WillOnce(Return(true));
+
+   // When
+   bool actual = target->has(object_id());
+
+   // Then
+   ASSERT_TRUE(actual);
+}
+
+
+TEST_F(event_source_repository_tests, load_uses_the_factory_to_create_object) {
+   // Given
+   auto target = create();
+   std::shared_ptr<NiceMock<fake_entity>> entity = std::make_shared<NiceMock<fake_entity>>();
+   EXPECT_CALL(factory, create_fake_entity(_))
+      .WillOnce(Return(entity));
+
+   // When
+   target->load(object_id());
+
+   // Then
+   ASSERT_TRUE(Mock::VerifyAndClear(&factory));
+}
+
+
+TEST_F(event_source_repository_tests, load_has_the_loaded_object_to_load_from_history) {
+   // Given
+   auto target = create();
+   auto entity = std::make_shared<NiceMock<fake_entity>>();
+   ON_CALL(factory, create_fake_entity(An<object_id>()))
+      .WillByDefault(Return(entity));
+   EXPECT_CALL(*entity, load_from_history(_));
+
+   // When
+   target->load(object_id());
+
+   // Then
+   ASSERT_TRUE(Mock::VerifyAndClear(&factory));
 }
 
 }

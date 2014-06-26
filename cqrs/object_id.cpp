@@ -13,7 +13,7 @@ std::size_t object_id::hash() const {
 }
 
 bool object_id::is_null() const {
-	return value.read() != nullptr;
+	return value.read() == nullptr;
 }
 
 bool operator==(const object_id &lhs, const object_id &rhs) {
