@@ -1,8 +1,6 @@
-#include "cddd/cqrs/aggregate.h"
 #include "cddd/cqrs/artifact.h"
 #include "cddd/cqrs/commit.h"
 #include "cddd/cqrs/copy_on_write.h"
-#include "cddd/cqrs/default_event_dispatcher.h"
 #include "cddd/cqrs/event_dispatcher.h"
 #include "cddd/cqrs/event.h"
 #include "cddd/cqrs/event_source_repository.h"

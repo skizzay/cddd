@@ -28,11 +28,12 @@ inline std::string to_string(const U &value) {
 class object_id {
 public:
 	template<typename T>
-	static object_id create(std::remove_reference_t<T> &&t) {
-      std::unique_ptr<Value> ptr = std::make_unique<Implementation<T>>(std::forward(t));
+	static inline object_id create(T &&t) {
+      std::unique_ptr<Value> ptr = std::make_unique<Implementation<T>>(std::forward<T>(t));
 		object_id result(std::move(ptr));
 		return result;
 	}
+
 	object_id() = default;
 	object_id(const object_id &other) = default;
 	object_id(object_id &&) = default;
@@ -69,7 +70,7 @@ private:
       virtual ~Implementation() = default;
 
       virtual std::string to_string() const {
-         return to_string(this->data);
+         return cddd::cqrs::to_string(this->data);
       }
 
       virtual std::size_t hash() const {

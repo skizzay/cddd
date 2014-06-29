@@ -36,3 +36,4 @@ sequence
 # Specific IDE settings
 .kdev4
 *.kdev4
+.kdev_include_paths
