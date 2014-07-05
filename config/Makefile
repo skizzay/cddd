@@ -47,6 +47,8 @@ $(BIN_DIR) $(LIB_DIR) :
 clean:
 ifneq ($(filter $(THIS_DIR)/obj,$(CLEAN_OBJECT_DIRS)),)
 	rm -rf $(filter $(THIS_DIR)/obj,$(CLEAN_OBJECT_DIRS))
+else ifeq ($(THIS_DIR),$(TOP_DIR))
+	rm -rf $(BIN_DIR) $(LIB_DIR)
 else
 	@echo "No directories to be removed."
 endif
