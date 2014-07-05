@@ -22,7 +22,7 @@ public:
    }
 
    inline event_sequence uncommitted_events() const {
-      return event_sequence::from(std::begin(pending_events), std::end(pending_events));
+      return from(std::begin(pending_events), std::end(pending_events));
    }
 
    inline bool has_uncommitted_events() const {

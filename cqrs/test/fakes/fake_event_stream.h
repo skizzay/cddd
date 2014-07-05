@@ -16,7 +16,7 @@ public:
    MOCK_METHOD0(clear_changes, void());
    MOCK_CONST_METHOD0(has_committed_events, bool());
    cddd::cqrs::event_sequence committed_events() const {
-      return cddd::cqrs::event_sequence::from(committed_events_script);
+      return from(committed_events_script);
    }
 
    std::vector<cddd::cqrs::event_ptr> committed_events_script;

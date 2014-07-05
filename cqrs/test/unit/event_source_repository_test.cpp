@@ -31,7 +31,7 @@ public:
    }
 
    inline event_sequence uncommitted_events() const {
-      return event_sequence::from(pending);
+      return from(pending);
    }
 
    void clear_uncommitted_events() {
