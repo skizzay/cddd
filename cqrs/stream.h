@@ -1,0 +1,24 @@
+#ifndef CDDD_CQRS_STREAM_H__
+#define CDDD_CQRS_STREAM_H__
+
+#include "sequence.h"
+
+
+namespace cddd {
+namespace cqrs {
+
+template<class T>
+class stream {
+public:
+   typedef std::shared_ptr<T> pointer;
+
+   virtual ~stream() = default;
+
+   virtual sequence<pointer> load() const = 0;
+   virtual void save(sequence<pointer> objects) = 0;
+};
+
+}
+}
+
+#endif

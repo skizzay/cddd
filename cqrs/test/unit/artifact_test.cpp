@@ -55,9 +55,12 @@ public:
 
 class event_collection_spy {
 public:
+   typedef std::size_t size_type;
+
    MOCK_CONST_METHOD0(begin, void());
    MOCK_CONST_METHOD0(end, void());
    MOCK_CONST_METHOD0(empty, void());
+   MOCK_CONST_METHOD0(size, size_type());
    MOCK_METHOD0(clear, void());
    MOCK_METHOD1(push_back, void(event_ptr));
 };
@@ -68,6 +71,7 @@ public:
    typedef std::deque<event_ptr>::const_iterator const_iterator;
    typedef std::shared_ptr<NiceMock<event_collection_spy>> spy_ptr;
    typedef std::shared_ptr<std::deque<event_ptr>> impl_ptr;
+   typedef std::size_t size_type;
 
    inline fake_event_collection(spy_ptr s, impl_ptr i) :
       spy(s),
@@ -91,6 +95,11 @@ public:
    inline bool empty() const {
       spy->empty();
       return impl->empty();
+   }
+
+   inline size_type size() const {
+      spy->size();
+      return impl->size();
    }
 
    inline void clear() {
@@ -228,19 +237,6 @@ TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
 }
 
 
-TEST_F(artifact_test, revision_returns_1_after_applying_an_event) {
-   // Given
-   fake_event e;
-   target.apply_change(std::move(e));
-
-   // When
-   auto actual = target.revision();
-
-   // Then
-   ASSERT_EQ(1, actual);
-}
-
-
 TEST_F(artifact_test, has_uncommitted_events_returns_true_after_applying_an_event) {
    // Given
    fake_event e;
@@ -261,20 +257,6 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event)
 
    // When
    auto actual = target.uncommitted_events() >> count();
-
-   // Then
-   ASSERT_EQ(1, actual);
-}
-
-
-TEST_F(artifact_test, revision_returns_1_after_applying_an_event_and_clearing) {
-   // Given
-   fake_event e;
-   target.apply_change(std::move(e));
-   target.clear_uncommitted_events();
-
-   // When
-   auto actual = target.revision();
 
    // Then
    ASSERT_EQ(1, actual);

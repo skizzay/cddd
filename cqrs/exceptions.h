@@ -21,6 +21,17 @@ public:
 };
 
 
+class null_pointer_exception : public std::invalid_argument {
+public:
+   explicit null_pointer_exception(const std::string &variable_name) :
+      std::invalid_argument('\'' + variable_name + "' cannot be a null pointer.")
+   {
+   }
+
+   virtual ~null_pointer_exception() = default;
+};
+
+
 class aggregate_not_found : public std::out_of_range {
 public:
    explicit aggregate_not_found(const object_id &id) :

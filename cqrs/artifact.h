@@ -13,7 +13,7 @@ class basic_artifact {
 public:
    typedef EventDispatcher event_dispatcher_type;
    typedef EventContainer event_container_type;
-   typedef std::size_t size_type;
+   typedef typename EventContainer::size_type size_type;
 
    basic_artifact() = delete;
 
@@ -33,8 +33,12 @@ public:
       pending_events.clear();
    }
 
+   inline size_type size_uncommitted_events() const {
+      return pending_events.size();
+   }
+
    inline void load_from_history(const event_stream &stream) {
-      for (auto evt : stream.committed_events()) {
+      for (auto evt : stream.load(next_revision())) {
          apply_change(evt, false);
       }
    }
@@ -45,13 +49,13 @@ public:
 
    template<class Evt>
    inline void apply_change(Evt &&e) {
-      auto ptr = std::make_shared<details_::event_wrapper<Evt>>(std::forward<Evt>(e));
+      auto ptr = std::make_shared<details_::event_wrapper<Evt>>(std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<event>(ptr));
    }
 
    template<class EvtAlloc, class Evt>
    inline void apply_change(const EvtAlloc &alloc, Evt &&e) {
-      auto ptr = std::allocate_shared<details_::event_wrapper<Evt>>(alloc, std::forward<Evt>(e));
+      auto ptr = std::allocate_shared<details_::event_wrapper<Evt>>(alloc, std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<event>(ptr));
    }
 
@@ -79,11 +83,14 @@ private:
    inline void apply_change(event_ptr evt, bool is_new) {
       if (evt) {
          dispatcher.dispatch(*evt);
-         ++artifact_version;
          if (is_new) {
             pending_events.push_back(evt);
          }
       }
+   }
+
+   inline size_type next_revision() const {
+      return revision() + size_uncommitted_events() + 1;
    }
 
    size_type artifact_version;

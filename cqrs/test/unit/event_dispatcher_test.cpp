@@ -87,7 +87,7 @@ TEST_F(event_dispatcher_test, has_handler_templated_returns_after_handler_has_be
 TEST_F(event_dispatcher_test, dispatch_fires_event_handler) {
    // Given
    bool handler_fired = false;
-   event_ptr evt = std::make_shared<cddd::cqrs::details_::event_wrapper<fake_event>>(fake_event());
+   event_ptr evt = std::make_shared<cddd::cqrs::details_::event_wrapper<fake_event>>(fake_event(), 1);
    target.add_handler<fake_event>([&handler_fired](const fake_event &){ handler_fired = true; });
 
    // When
