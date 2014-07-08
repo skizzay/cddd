@@ -10,6 +10,7 @@ namespace cqrs {
 template<class T>
 class stream {
 public:
+   typedef T value_type;
    typedef std::shared_ptr<T> pointer;
 
    virtual ~stream() = default;

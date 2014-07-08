@@ -3,7 +3,6 @@
 #include "cddd/cqrs/copy_on_write.h"
 #include "cddd/cqrs/event_dispatcher.h"
 #include "cddd/cqrs/event.h"
-#include "cddd/cqrs/event_source_repository.h"
 #include "cddd/cqrs/event_source.h"
 #include "cddd/cqrs/event_store.h"
 #include "cddd/cqrs/event_stream.h"

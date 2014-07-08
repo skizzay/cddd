@@ -11,7 +11,11 @@ namespace cqrs {
 template<class T, class Store=store<stream<T>>>
 class source : public Store {
 public:
-   typedef std::shared_ptr<T> pointer;
+   using Store::has;
+   using Store::get;
+   using Store::put;
+
+   typedef T value_type;
    typedef typename Store::value_type stream_type;
 
    virtual ~source() = default;

@@ -8,7 +8,7 @@
 namespace cddd {
 namespace cqrs {
 
-typedef source<event, stream<event_stream>> event_source;
+typedef source<event, store<event_stream>> event_source;
 
 }
 }

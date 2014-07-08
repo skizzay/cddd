@@ -4,31 +4,38 @@
 #include "cddd/cqrs/event_stream.h"
 
 
+class event_stream_spy {
+public:
+   MOCK_CONST_METHOD0(load, void());
+   MOCK_CONST_METHOD2(load, void(std::size_t, std::size_t));
+   MOCK_METHOD0(save, void());
+};
+
+
 class fake_event_stream : public cddd::cqrs::event_stream {
 public:
+   using cddd::cqrs::event_stream::load;
+   using cddd::cqrs::event_stream::save;
+
    virtual ~fake_event_stream() = default;
 
-#if 0
-   MOCK_CONST_METHOD0(id, const cddd::cqrs::object_id &());
-   MOCK_CONST_METHOD0(revision, std::size_t());
-   MOCK_METHOD1(add_event, void(cddd::cqrs::event_ptr));
-   MOCK_METHOD1(commit_events, std::shared_ptr<cddd::cqrs::commit>(cddd::cqrs::object_id));
-   MOCK_METHOD0(clear_changes, void());
-   MOCK_CONST_METHOD0(has_committed_events, bool());
-   cddd::cqrs::event_sequence committed_events() const {
-      return from(committed_events_script);
-   }
-#else
-   virtual cddd::cqrs::event_sequence load() const {
+   virtual sequence<pointer> load() const final override {
+      spy->load();
       return from(committed_events_script);
    }
 
-   virtual void save(cddd::cqrs::event_sequence events) {
+   virtual sequence<pointer> load(std::size_t min_version, std::size_t max_version) const final override {
+      spy->load(min_version, max_version);
+      return from(committed_events_script) >> where([=](pointer evt) { return min_version <= evt->version() && evt->version() <= max_version; });
+   }
+
+   virtual void save(sequence<pointer> events) final override {
+      spy->save();
       std::copy(events.begin(), events.end(), std::back_inserter(committed_events_script));
    }
-#endif
 
-   std::deque<cddd::cqrs::event_ptr> committed_events_script;
+   std::deque<pointer> committed_events_script;
+   std::shared_ptr<event_stream_spy> spy = std::make_shared<event_stream_spy>();
 };
 
 #endif
