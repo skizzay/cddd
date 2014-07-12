@@ -4,7 +4,6 @@
 #include "cddd/cqrs/object_id.h"
 
 #include <stdexcept>
-#include <sstream>
 
 
 namespace cddd {
@@ -46,6 +45,13 @@ class timed_out : public std::runtime_error {
 public:
    using std::runtime_error::runtime_error;
    virtual ~timed_out() = default;
+};
+
+
+class concurrency_exception : public std::runtime_error {
+public:
+   using std::runtime_error::runtime_error;
+   virtual ~concurrency_exception() = default;
 };
 
 

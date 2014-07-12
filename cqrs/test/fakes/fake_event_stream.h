@@ -35,7 +35,7 @@ public:
    }
 
    std::deque<pointer> committed_events_script;
-   std::shared_ptr<event_stream_spy> spy = std::make_shared<event_stream_spy>();
+   std::shared_ptr<::testing::NiceMock<event_stream_spy>> spy = std::make_shared<::testing::NiceMock<event_stream_spy>>();
 };
 
 #endif

@@ -87,9 +87,9 @@ private:
       return events_provider->get(id)->load(0, max_revision);
    }
 
-   inline pointer load_object(object_id id, std::size_t max_revision) const {
+   inline pointer load_object(object_id id, std::size_t revision) const {
       pointer object = create_object(id);
-      object->load_from_history(load_events(id, max_revision));
+      object->load_from_history(load_events(id, revision));
       return object;
    }
 
