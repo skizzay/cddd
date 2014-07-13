@@ -322,6 +322,25 @@ TEST_F(artifact_store_test, get_will_load_event_sequence_for_all_events) {
    // Given
    auto target = create();
    object_id id = object_id::create(1);
+   std::size_t version = static_cast<std::size_t>(std::rand());
+   EXPECT_CALL(*events_provider_spy, get(id))
+      .WillOnce(Return(events_stream));
+   EXPECT_CALL(*events_stream->spy, load(0, version))
+      .Times(1);
+
+   // When
+   target->get(id, version);
+
+   // Then
+   ASSERT_TRUE(Mock::VerifyAndClear(events_provider_spy.get()));
+   ASSERT_TRUE(Mock::VerifyAndClear(events_stream->spy.get()));
+}
+
+
+TEST_F(artifact_store_test, get_with_version_will_load_event_sequence_for_requested_events) {
+   // Given
+   auto target = create();
+   object_id id = object_id::create(1);
    EXPECT_CALL(*events_provider_spy, get(id))
       .WillOnce(Return(events_stream));
    EXPECT_CALL(*events_stream->spy, load(0, std::numeric_limits<std::size_t>::max()))
