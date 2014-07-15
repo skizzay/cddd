@@ -14,9 +14,6 @@ public:
 
 class fake_event_stream : public cddd::cqrs::event_stream {
 public:
-   using cddd::cqrs::event_stream::load;
-   using cddd::cqrs::event_stream::save;
-
    virtual ~fake_event_stream() = default;
 
    virtual sequence<pointer> load() const final override {

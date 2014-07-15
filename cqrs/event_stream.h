@@ -11,8 +11,6 @@ namespace cqrs {
 
 class basic_event_stream : public stream<event> {
 public:
-   using stream<event>::load;
-
    virtual ~basic_event_stream() = default;
 
    virtual event_sequence load(std::size_t min_version, std::size_t max_version=std::numeric_limits<std::size_t>::max()) const = 0;

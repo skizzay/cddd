@@ -4,6 +4,7 @@
 #include "cddd/cqrs/event.h"
 #include "cddd/cqrs/exceptions.h"
 #include "cddd/cqrs/store.h"
+#include "cddd/cqrs/traits.h"
 
 
 namespace cddd {
@@ -12,6 +13,10 @@ namespace cqrs {
 template<class ArtifactType, class EventSource, class StreamFactory, class ObjectFactory>
 class artifact_store : public store<ArtifactType> {
 public:
+   static_assert(is_store<EventSource>::value &&
+                 std::is_same<typename EventSource::value_type, event>::value &&
+                 has_const_load<typename EventSource::stream_type, event_sequence(std::size_t, std::size_t)>::value,
+                 "EventSource must have store interface.");
    typedef ArtifactType value_type;
    typedef typename store<ArtifactType>::pointer pointer;
    typedef EventSource event_source_type;
