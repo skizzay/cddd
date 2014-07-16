@@ -88,13 +88,15 @@ private:
       return has(id) ? events_provider->get(id) : create_stream(id);
    }
 
-   inline event_sequence load_events(object_id id, std::size_t max_revision) const {
-      return events_provider->get(id)->load(0, max_revision);
+   inline event_sequence load_events(object_id id, std::size_t min_revision, std::size_t max_revision) const {
+      return events_provider->get(id)->load(min_revision, max_revision);
    }
 
    inline pointer load_object(object_id id, std::size_t revision) const {
-      pointer object = create_object(id);
-      object->load_from_history(load_events(id, revision));
+      pointer object = create_object(id, revision);
+      if (object->revision() < revision) {
+         object->load_from_history(load_events(id, object->revision() + 1, revision));
+      }
       return object;
    }
 

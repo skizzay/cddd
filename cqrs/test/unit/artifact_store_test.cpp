@@ -9,6 +9,7 @@ namespace {
 
 using namespace cddd::cqrs;
 using ::testing::_;
+using ::testing::A;
 using ::testing::An;
 using ::testing::AtLeast;
 using ::testing::Mock;
@@ -20,6 +21,7 @@ using ::testing::Return;
 class fake_entity_spy {
 public:
    MOCK_CONST_METHOD0(id, void());
+   MOCK_CONST_METHOD0(revision, void());
    MOCK_CONST_METHOD0(has_uncommitted_events, void());
    MOCK_CONST_METHOD0(uncommitted_events, void());
    MOCK_METHOD0(clear_uncommitted_events, void());
@@ -32,6 +34,11 @@ public:
    inline object_id id() const {
       spy->id();
       return id_value;
+   }
+
+   inline std::size_t revision() const {
+      spy->revision();
+      return entity_revision;
    }
 
    inline bool has_uncommitted_events() const {
@@ -53,7 +60,8 @@ public:
       spy->load_from_history();
    }
 
-   object_id id_value;
+   object_id id_value = object_id::create(1);
+   std::size_t entity_revision = 0;
    std::deque<event_ptr> pending;
    std::shared_ptr<NiceMock<fake_entity_spy>> spy = std::make_shared<NiceMock<fake_entity_spy>>();
 };
@@ -86,7 +94,7 @@ public:
 
 class entity_factory_spy {
 public:
-   MOCK_CONST_METHOD1(create_fake_entity, std::shared_ptr<entity_type>(object_id));
+   MOCK_CONST_METHOD2(create_fake_entity, std::shared_ptr<entity_type>(object_id, std::size_t));
 };
 
 
@@ -97,8 +105,8 @@ public:
    {
    }
 
-   inline std::shared_ptr<entity_type> operator()(object_id id) const {
-      return spy->create_fake_entity(id);
+   inline std::shared_ptr<entity_type> operator()(object_id id, std::size_t revision) const {
+      return spy->create_fake_entity(id, revision);
    }
 
    std::shared_ptr<NiceMock<entity_factory_spy>> spy;
@@ -125,7 +133,7 @@ public:
          .WillByDefault(Return(events_stream));
       ON_CALL(*stream_factory, create_fake_stream(An<object_id>()))
          .WillByDefault(Return(events_stream));
-      ON_CALL(*entity_factory, create_fake_entity(An<object_id>()))
+      ON_CALL(*entity_factory, create_fake_entity(An<object_id>(), A<std::size_t>()))
          .WillByDefault(Return(entity));
    }
 
@@ -194,6 +202,7 @@ TEST_F(artifact_store_test, put_throws_null_pointer_exception_when_object_is_nul
 TEST_F(artifact_store_test, put_throws_null_id_exception_when_object_id_is_null) {
    // Given
    auto target = create();
+   entity->id_value = object_id{};
 
    // When
    ASSERT_THROW(target->put(entity), null_id_exception);
@@ -203,7 +212,6 @@ TEST_F(artifact_store_test, put_throws_null_id_exception_when_object_id_is_null)
 TEST_F(artifact_store_test, put_will_not_save_the_object_when_the_object_has_no_uncommitted_events) {
    // Given
    auto target = create();
-   entity->id_value = object_id::create(1);
    EXPECT_CALL(*entity->spy, has_uncommitted_events())
       .Times(1);
    EXPECT_CALL(*entity->spy, id())
@@ -230,7 +238,6 @@ TEST_F(artifact_store_test, put_will_not_save_the_object_when_the_object_has_no_
 TEST_F(artifact_store_test, put_will_save_the_object_when_the_object_has_uncommitted_events) {
    // Given
    auto target = create();
-   entity->id_value = object_id::create(1);
    entity->pending.push_back(nullptr);
    EXPECT_CALL(*entity->spy, has_uncommitted_events())
       .Times(1);
@@ -258,7 +265,6 @@ TEST_F(artifact_store_test, put_will_save_the_object_when_the_object_has_uncommi
 TEST_F(artifact_store_test, put_will_create_a_stream_when_the_source_does_not_have_a_stream) {
    // Given
    auto target = create();
-   entity->id_value = object_id::create(1);
    entity->pending.push_back(nullptr);
    EXPECT_CALL(*events_provider_spy, has(entity->id_value))
       .WillOnce(Return(false));
@@ -279,7 +285,6 @@ TEST_F(artifact_store_test, put_will_create_a_stream_when_the_source_does_not_ha
 TEST_F(artifact_store_test, put_will_retrieve_a_stream_when_the_source_does_have_a_stream) {
    // Given
    auto target = create();
-   entity->id_value = object_id::create(1);
    entity->pending.push_back(nullptr);
    EXPECT_CALL(*events_provider_spy, has(entity->id_value))
       .WillOnce(Return(true));
@@ -325,7 +330,7 @@ TEST_F(artifact_store_test, get_will_load_event_sequence_for_all_events) {
    std::size_t version = static_cast<std::size_t>(std::rand());
    EXPECT_CALL(*events_provider_spy, get(id))
       .WillOnce(Return(events_stream));
-   EXPECT_CALL(*events_stream->spy, load(0, version))
+   EXPECT_CALL(*events_stream->spy, load(1, version))
       .Times(1);
 
    // When
@@ -343,7 +348,7 @@ TEST_F(artifact_store_test, get_with_version_will_load_event_sequence_for_reques
    object_id id = object_id::create(1);
    EXPECT_CALL(*events_provider_spy, get(id))
       .WillOnce(Return(events_stream));
-   EXPECT_CALL(*events_stream->spy, load(0, std::numeric_limits<std::size_t>::max()))
+   EXPECT_CALL(*events_stream->spy, load(1, std::numeric_limits<std::size_t>::max()))
       .Times(1);
 
    // When
@@ -359,7 +364,7 @@ TEST_F(artifact_store_test, get_invoke_the_artifact_factory_to_create_artifact_i
    // Given
    auto target = create();
    object_id id = object_id::create(1);
-   EXPECT_CALL(*entity_factory, create_fake_entity(id))
+   EXPECT_CALL(*entity_factory, create_fake_entity(id, std::numeric_limits<std::size_t>::max()))
       .WillOnce(Return(entity));
 
    // When
