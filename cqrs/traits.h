@@ -88,8 +88,8 @@ HAS_TYPEDEF(pointer);
 template<class T>
 struct is_stream : std::integral_constant<bool, has_typedef_value_type<T>::value &&
                                                 has_typedef_pointer<T>::value &&
-                                                has_save<T, void(sequence<typename T::pointer>)>::value &&
-                                                has_const_load<T, sequence<typename T::pointer>()>::value> {};
+                                                has_save<T, void(std::experimental::sequence<typename T::pointer>)>::value &&
+                                                has_const_load<T, std::experimental::sequence<typename T::pointer>()>::value> {};
 
 
 template<class T>

@@ -23,7 +23,7 @@ inline event::~event() {}
 
 
 typedef std::shared_ptr<event> event_ptr;
-typedef sequence<event_ptr> event_sequence;
+typedef std::experimental::sequence<event_ptr> event_sequence;
 
 
 namespace details_ {

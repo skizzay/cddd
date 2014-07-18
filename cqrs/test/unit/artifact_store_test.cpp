@@ -48,7 +48,7 @@ public:
 
    inline event_sequence uncommitted_events() const {
       spy->uncommitted_events();
-      return from(pending);
+      return std::experimental::from(pending);
    }
 
    void clear_uncommitted_events() {

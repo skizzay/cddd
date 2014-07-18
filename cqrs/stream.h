@@ -15,8 +15,8 @@ public:
 
    virtual ~stream() = default;
 
-   virtual sequence<pointer> load() const = 0;
-   virtual void save(sequence<pointer> objects) = 0;
+   virtual std::experimental::sequence<pointer> load() const = 0;
+   virtual void save(std::experimental::sequence<pointer> objects) = 0;
 };
 
 }

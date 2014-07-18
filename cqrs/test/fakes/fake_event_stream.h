@@ -16,17 +16,18 @@ class fake_event_stream : public cddd::cqrs::event_stream {
 public:
    virtual ~fake_event_stream() = default;
 
-   virtual sequence<pointer> load() const final override {
+   virtual std::experimental::sequence<pointer> load() const final override {
       spy->load();
-      return from(committed_events_script);
+      return std::experimental::from(committed_events_script);
    }
 
-   virtual sequence<pointer> load(std::size_t min_version, std::size_t max_version) const final override {
+   virtual std::experimental::sequence<pointer> load(std::size_t min_version, std::size_t max_version) const final override {
       spy->load(min_version, max_version);
-      return from(committed_events_script) >> where([=](pointer evt) { return min_version <= evt->version() && evt->version() <= max_version; });
+      return std::experimental::from(committed_events_script)
+               >> std::experimental::where([=](pointer evt) { return min_version <= evt->version() && evt->version() <= max_version; });
    }
 
-   virtual void save(sequence<pointer> events) final override {
+   virtual void save(std::experimental::sequence<pointer> events) final override {
       spy->save();
       std::copy(events.begin(), events.end(), std::back_inserter(committed_events_script));
    }

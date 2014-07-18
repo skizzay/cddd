@@ -256,7 +256,7 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event)
    target.apply_change(std::move(e));
 
    // When
-   auto actual = target.uncommitted_events() >> count();
+   auto actual = target.uncommitted_events() >> std::experimental::count();
 
    // Then
    ASSERT_EQ(1, actual);
@@ -284,7 +284,7 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_without_any_events_a
    target.clear_uncommitted_events();
 
    // When
-   auto actual = target.uncommitted_events() >> count();
+   auto actual = target.uncommitted_events() >> std::experimental::count();
 
    // Then
    ASSERT_EQ(0, actual);
