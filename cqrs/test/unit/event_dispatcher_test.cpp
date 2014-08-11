@@ -1,5 +1,5 @@
-#include "cddd/cqrs/event_dispatcher.h"
-#include "cddd/cqrs/test/fakes/fake_event.h"
+#include "cqrs/event_dispatcher.h"
+#include "cqrs/test/fakes/fake_event.h"
 #include <gtest/gtest.h>
 
 

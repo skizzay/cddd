@@ -1,6 +1,6 @@
-#include "cddd/cqrs/artifact_store.h"
-#include "cddd/cqrs/test/fakes/fake_event_source.h"
-#include "cddd/cqrs/test/fakes/fake_event_stream.h"
+#include "cqrs/artifact_store.h"
+#include "cqrs/test/fakes/fake_event_source.h"
+#include "cqrs/test/fakes/fake_event_stream.h"
 #include <deque>
 #include <gmock/gmock.h>
 

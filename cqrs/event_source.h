@@ -1,8 +1,8 @@
 #ifndef CDDD_CQRS_EVENT_STORE_H__
 #define CDDD_CQRS_EVENT_STORE_H__
 
-#include "cddd/cqrs/event_stream.h"
-#include "cddd/cqrs/source.h"
+#include "cqrs/event_stream.h"
+#include "cqrs/source.h"
 
 
 namespace cddd {

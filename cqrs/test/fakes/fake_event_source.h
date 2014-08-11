@@ -1,7 +1,7 @@
 #ifndef FAKE_EVENT_SOURCE_H__
 #define FAKE_EVENT_SOURCE_H__
 
-#include "cddd/cqrs/event_source.h"
+#include "cqrs/event_source.h"
 #include <gmock/gmock.h>
 
 

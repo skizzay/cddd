@@ -1,5 +1,5 @@
-#include "cddd/cqrs/artifact.h"
-#include "cddd/cqrs/test/fakes/fake_event.h"
+#include "cqrs/artifact.h"
+#include "cqrs/test/fakes/fake_event.h"
 #include <gmock/gmock.h>
 
 

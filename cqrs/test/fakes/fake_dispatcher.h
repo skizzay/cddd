@@ -1,7 +1,7 @@
 #ifndef CDDD_CQRS_FAKE_DISPATCHER_H__
 #define CDDD_CQRS_FAKE_DISPATCHER_H__
 
-#include "cddd/cqrs/event_dispatcher.h"
+#include "cqrs/event_dispatcher.h"
 #include <gmock/gmock.h>
 
 

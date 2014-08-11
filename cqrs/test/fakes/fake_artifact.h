@@ -1,8 +1,8 @@
 #ifndef CDDD_CQRS_FAKE_ARTIFACT_H__
 #define CDDD_CQRS_FAKE_ARTIFACT_H__
 
-#include "cddd/cqrs/artifact.h"
-#include "cddd/cqrs/test/fakes/fake_event.h"
+#include "cqrs/artifact.h"
+#include "cqrs/test/fakes/fake_event.h"
 #include <gmock/gmock.h>
 
 

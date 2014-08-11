@@ -1,4 +1,4 @@
-#include "cddd/cqrs/copy_on_write.h"
+#include "cqrs/copy_on_write.h"
 #include <gtest/gtest.h>
 
 using namespace cddd::cqrs;

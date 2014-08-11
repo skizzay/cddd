@@ -1,24 +1,26 @@
 #ifndef CDDD_CQRS_COMMIT_H__
 #define CDDD_CQRS_COMMIT_H__
 
-#include "cddd/cqrs/event.h"
-#include "cddd/cqrs/exceptions.h"
-#include "cddd/event_engine/clock.h"
+#include "sequence.h"
+#include "cqrs/exceptions.h"
+#include "event_engine/clock.h"
 
 namespace cddd {
 namespace cqrs {
 
+template<class T>
 class commit {
 public:
    typedef cddd::event_engine::clock::time_point time_point;
+   typedef std::experimental::sequence<T> sequence_type;
 
    explicit inline commit(object_id cid_, object_id sid_, std::size_t version, std::size_t seq,
-                          event_sequence evts, time_point ts_) :
+                          sequence_type values, time_point ts_) :
       cid(cid_),
       sid(sid_),
       revision(version),
       sequence(seq),
-      commit_events(std::move(evts)),
+      commit_values(std::move(values)),
       ts(ts_)
    {
       if (commit_id().is_null()) {
@@ -55,7 +57,7 @@ public:
    }
 
    inline const event_sequence & events() const {
-      return commit_events;
+      return commit_values;
    }
 
    inline time_point timestamp() const {
@@ -67,7 +69,7 @@ private:
    object_id sid;
    std::size_t revision;
    std::size_t sequence;
-   event_sequence commit_events;
+   sequence_type commit_values;
    time_point ts;
 };
 

@@ -1,8 +1,9 @@
 #ifndef CDDD_CQRS_EVENT_STREAM_H__
 #define CDDD_CQRS_EVENT_STREAM_H__
 
-#include "cddd/cqrs/event.h"
-#include "cddd/cqrs/stream.h"
+#include "cqrs/stream.h"
+#include "cqrs/commit.h"
+#include "cqrs/event.h"
 #include <limits>
 
 
@@ -14,6 +15,7 @@ public:
    virtual ~basic_event_stream() = default;
 
    virtual event_sequence load(std::size_t min_version, std::size_t max_version=std::numeric_limits<std::size_t>::max()) const = 0;
+   virtual commit<pointer> persist() = 0;
 };
 
 
@@ -24,7 +26,7 @@ public:
    virtual ~event_stream() = default;
 
    virtual event_sequence load() const override {
-      return load(0, std::numeric_limits<std::size_t>::max());
+      return load(1, std::numeric_limits<std::size_t>::max());
    }
 };
 

@@ -1,4 +1,4 @@
-#include "cddd/cqrs/object_id.h"
+#include "cqrs/object_id.h"
 #include <gtest/gtest.h>
 
 namespace {

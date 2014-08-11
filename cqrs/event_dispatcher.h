@@ -1,7 +1,7 @@
 #ifndef CDDD_CQRS_DEFAULT_EVENT_DISPATCHER_H__
 #define CDDD_CQRS_DEFAULT_EVENT_DISPATCHER_H__
 
-#include "cddd/cqrs/event.h"
+#include "cqrs/event.h"
 #include <functional>
 #include <unordered_map>
 

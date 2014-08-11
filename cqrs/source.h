@@ -1,8 +1,8 @@
 #ifndef CDDD_CQRS_SOURCE_H__
 #define CDDD_CQRS_SOURCE_H__
 
-#include "cddd/cqrs/store.h"
-#include "cddd/cqrs/stream.h"
+#include "cqrs/store.h"
+#include "cqrs/stream.h"
 
 
 namespace cddd {

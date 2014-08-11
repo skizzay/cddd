@@ -1,7 +1,9 @@
 #ifndef CDDD_CQRS_TRAITS_H__
 #define CDDD_CQRS_TRAITS_H__
 
+#include <sequence.h>
 #include <type_traits>
+#include <tuple>
 
 
 namespace cddd {

@@ -30,11 +30,11 @@ include $(THIS_DIR)/software.mk
 
 $(BIN_DIR)/% :
 	@test -d $(@D) || mkdir -p $(@D)
-	g++-4.9 -std=c++1y -g3 -ggdb $(filter %.o,$^) -Wl,-R,'$$ORIGIN/../lib' -L$(LIB_DIR) $(addprefix -L,$($*_SHARED_LIBRARY_LOCATIONS)) $(addprefix -l,$($*_SHARED_LIBRARIES)) $($*_ARCHIVES) -pthread -o $@
+	g++-4.9 -std=c++1y -g3 -ggdb $(filter %.o,$^) -Wl,-R,'$$ORIGIN/../lib' -L$(LIB_DIR) $(addprefix -L,$($*_SHARED_LIBRARY_LOCATIONS)) $(addprefix -l,$($*_SHARED_LIBRARIES)) $($*_ARCHIVES) $($*_3RD_PARTY_LINKER_FLAGS) -pthread -o $@
 
 $(LIB_DIR)/lib%.so :
 	@test -d $(@D) || mkdir -p $(@D)
-	g++-4.9 -shared -std=c++1y -g3 -ggdb -Wl,--no-allow-shlib-undefined,--no-undefined $(filter %.o,$^) -L$(LIB_DIR) $(addprefix -L,$($*_SHARED_LIBRARY_LOCATIONS)) $(addprefix -l,$($*_SHARED_LIBRARIES)) $(filter .a, $+) -o $@
+	g++-4.9 -shared -std=c++1y -g3 -ggdb -Wl,--no-allow-shlib-undefined,--no-undefined $(filter %.o,$^) -L$(LIB_DIR) $(addprefix -L,$($*_SHARED_LIBRARY_LOCATIONS)) $(addprefix -l,$($*_SHARED_LIBRARIES)) $(filter %.a, $+) $($*_3RD_PARTY_LINKER_FLAGS) -o $@
 
 $(LIB_DIR)/lib%.a :
 	@test -d $(@D) || mkdir -p $(@D)

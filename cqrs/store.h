@@ -1,7 +1,7 @@
 #ifndef CDDD_CQRS_STORE_H__
 #define CDDD_CQRS_STORE_H__
 
-#include "cddd/cqrs/object_id.h"
+#include "cqrs/object_id.h"
 #include "sequence.h"
 
 

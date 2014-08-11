@@ -43,18 +43,14 @@ public:
       return size(l);
    }
 
-   inline void push(const_reference x) {
-      lock_type l(lock);
-      push(x, l);
-   }
-
    inline void push(T &&x) {
       lock_type l(lock);
-      push(std::move(x), l);
+      push(std::forward<T>(x), l);
    }
 
    inline T value_pop() {
       lock_type l(lock);
+      return value_pop(l);
    }
 
 private:
@@ -64,7 +60,7 @@ private:
    std::mutex lock;
 
    inline bool empty(lock_type &) const {
-      return q.emtpy();
+      return q.empty();
    }
 
    inline size_type size(lock_type &) const {
@@ -77,6 +73,12 @@ private:
 
    inline void push(T &&x, lock_type &) {
       q.emplace(std::move(x));
+   }
+
+   inline T value_pop(lock_type &) {
+      T result = q.front();
+      q.pop();
+      return std::move(result);
    }
 };
 

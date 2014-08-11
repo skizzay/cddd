@@ -1,8 +1,9 @@
 #ifndef CDDD_CQRS_ARTIFACT_H__
 #define CDDD_CQRS_ARTIFACT_H__
 
-#include "cddd/cqrs/event_dispatcher.h"
-#include "cddd/cqrs/event_stream.h"
+#include <deque>
+#include "cqrs/event_dispatcher.h"
+#include "cqrs/event_stream.h"
 
 
 namespace cddd {

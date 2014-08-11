@@ -1,10 +1,10 @@
 #ifndef CDDD_CQRS_ARTIFACT_STORE_H__
 #define CDDD_CQRS_ARTIFACT_STORE_H__
 
-#include "cddd/cqrs/event.h"
-#include "cddd/cqrs/exceptions.h"
-#include "cddd/cqrs/store.h"
-#include "cddd/cqrs/traits.h"
+#include "cqrs/event.h"
+#include "cqrs/exceptions.h"
+#include "cqrs/store.h"
+#include "cqrs/traits.h"
 
 
 namespace cddd {

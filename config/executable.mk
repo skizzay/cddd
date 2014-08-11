@@ -1,17 +1,13 @@
 # $1 - name
 # $2 - source directories
-# $3 - shared system libraries
-# $4 - archives
+# $3 - third-party shared system libraries
 define DEFINE_EXECUTABLE
 .SECONDEXPANSION:
 $(BIN_DIR)/$(strip $1) : $(CONFIG_DIR)/Makefile $(CONFIG_DIR)/executable.mk $(strip $2)/software.mk
 .SECONDEXPANSION:
 $(BIN_DIR)/$(strip $1) : $(foreach dir, $(2), $(call get_objects_for_directory, $(dir)))
 ifneq ($(strip $3),)
-$(BIN_DIR)/$(strip $1) : $(1)_SHARED_LIBRARIES+=$3
-endif
-ifneq ($(strip $4),)
-$(BIN_DIR)/$(strip $1) : $(1)_ARCHIVES+=$4
+$(BIN_DIR)/$(strip $1) : $(1)_3RD_PARTY_LINKER_FLAGS:=$3
 endif
 all: $(BIN_DIR)/$(strip $1)
 endef

@@ -1,7 +1,7 @@
 #ifndef FAKE_EVENT_STORE_H__
 #define FAKE_EVENT_STORE_H__
 
-#include "cddd/cqrs/event_store.h"
+#include "cqrs/event_store.h"
 #include <gmock/gmock.h>
 
 

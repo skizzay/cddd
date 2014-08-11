@@ -1,7 +1,7 @@
 #ifndef CDDD_CQRS_OBJECT_ID_H__
 #define CDDD_CQRS_OBJECT_ID_H__
 
-#include "cddd/cqrs/copy_on_write.h"
+#include "cqrs/copy_on_write.h"
 #include <functional>
 #include <sstream>
 #include <string>
