@@ -19,6 +19,10 @@ public:
    typedef typename Store::value_type stream_type;
 
    virtual ~source() = default;
+   
+   virtual void put(stream_type& stream_object) {
+      stream_object.persist();
+   }
 };
 
 }

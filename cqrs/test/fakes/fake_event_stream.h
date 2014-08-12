@@ -37,14 +37,14 @@ public:
    
    virtual cddd::cqrs::commit<pointer> persist() final override {
       return cddd::cqrs::commit<pointer>{commitID, sequenceID, version, sequenceNumber, std::experimental::from(committed_events_script),
-         std::chrono::system_clock::now()
-      };
+         time_of_commit};
    }
 
    cddd::cqrs::object_id commitID;
    cddd::cqrs::object_id sequenceID;
    std::size_t version = 0;
    std::size_t sequenceNumber = 0;
+   cddd::cqrs::commit<pointer>::time_point time_of_commit;
    std::deque<pointer> committed_events_script;
    std::shared_ptr<::testing::NiceMock<event_stream_spy>> spy = std::make_shared<::testing::NiceMock<event_stream_spy>>();
 };
