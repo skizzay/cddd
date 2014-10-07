@@ -49,31 +49,30 @@ public:
    }
 
    template<class Evt>
-   inline void apply_change(Evt &&e) {
+   inline void apply_change(Evt && e) {
       auto ptr = std::make_shared<details_::event_wrapper<Evt>>(std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<event>(ptr));
    }
 
    template<class EvtAlloc, class Evt>
-   inline void apply_change(const EvtAlloc &alloc, Evt &&e) {
+   inline void apply_change(const EvtAlloc &alloc, Evt && e) {
       auto ptr = std::allocate_shared<details_::event_wrapper<Evt>>(alloc, std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<event>(ptr));
    }
 
 protected:
-   inline basic_artifact(const event_dispatcher_type &dispatcher_=event_dispatcher_type(),
-                         const event_container_type &events_=event_container_type()) :
+   inline basic_artifact(const event_dispatcher_type &dispatcher_ = event_dispatcher_type(),
+                         const event_container_type &events_ = event_container_type()) :
       artifact_version(0),
       dispatcher(dispatcher_),
-      pending_events(events_)
-   {
+      pending_events(events_) {
    }
 
    basic_artifact(basic_artifact &&) = default;
-   basic_artifact & operator =(basic_artifact &&) = default;
+   basic_artifact &operator =(basic_artifact &&) = default;
 
    basic_artifact(const basic_artifact &) = delete;
-   basic_artifact & operator =(const basic_artifact &) = delete;
+   basic_artifact &operator =(const basic_artifact &) = delete;
 
    template<class Evt, class Fun>
    inline void add_handler(Fun f) {

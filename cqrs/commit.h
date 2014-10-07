@@ -21,8 +21,7 @@ public:
       revision(version),
       sequence(seq),
       commit_values(std::move(values)),
-      ts(ts_)
-   {
+      ts(ts_) {
       if (commit_id().is_null()) {
          throw null_id_exception("commit id");
       }
@@ -40,11 +39,11 @@ public:
       }
    }
 
-   inline const object_id & commit_id() const {
+   inline const object_id &commit_id() const {
       return cid;
    }
 
-   inline const object_id & stream_id() const {
+   inline const object_id &stream_id() const {
       return sid;
    }
 
@@ -56,7 +55,7 @@ public:
       return sequence;
    }
 
-   inline const event_sequence & events() const {
+   inline const event_sequence &events() const {
       return commit_values;
    }
 

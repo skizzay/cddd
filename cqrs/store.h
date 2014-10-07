@@ -8,11 +8,11 @@
 namespace cddd {
 namespace cqrs {
 
-template<class T>
+template<class T, class Ptr=std::shared_ptr<T>>
 class store {
 public:
    typedef T value_type;
-   typedef std::shared_ptr<T> pointer;
+   typedef Ptr pointer;
 
    virtual ~store() = default;
 

@@ -11,60 +11,55 @@ namespace cddd {
 namespace cqrs {
 
 inline std::string to_string(std::string value) {
-	return std::move(value);
+   return std::move(value);
 }
 
 
 template<typename U>
-inline std::string to_string(const U &value) {
-	std::ostringstream oss;
-
-	oss << value;
-
-	return oss.str();
+inline std::string to_string(U value) {
+   return std::to_string(value);
 }
 
 
 class object_id {
 public:
-	template<typename T>
-	static inline object_id create(T &&t) {
+   template<typename T>
+   static inline object_id create(T && t) {
       std::unique_ptr<Value> ptr = std::make_unique<Implementation<T>>(std::forward<T>(t));
-		object_id result(std::move(ptr));
-		return result;
-	}
+      object_id result(std::move(ptr));
+      return result;
+   }
 
-	object_id() = default;
-	object_id(const object_id &other) = default;
-	object_id(object_id &&) = default;
-	~object_id() = default;
+   object_id() = default;
+   object_id(const object_id &other) = default;
+   object_id(object_id &&) = default;
+   ~object_id() = default;
 
-	object_id & operator =(const object_id &) = default;
-	object_id & operator =(object_id &&) = default;
+   object_id &operator =(const object_id &) = default;
+   object_id &operator =(object_id &&) = default;
 
-	std::string to_string() const;
-	std::size_t hash() const;
-	bool is_null() const;
+   std::string to_string() const;
+   std::size_t hash() const;
+   bool is_null() const;
 
-	friend bool operator==(const object_id &lhs, const object_id &rhs);
+   friend bool operator==(const object_id &lhs, const object_id &rhs);
 
 private:
-	class Value {
-	public:
-		virtual ~Value() = default;
+   class Value {
+   public:
+      virtual ~Value() = default;
 
-		virtual std::string to_string() const = 0;
-		virtual std::size_t hash() const = 0;
-		virtual bool equals(const Value &rhs) const = 0;
-		virtual std::unique_ptr<Value> clone() const = 0;
-	};
+      virtual std::string to_string() const = 0;
+      virtual std::size_t hash() const = 0;
+      virtual bool equals(const Value &rhs) const = 0;
+      virtual std::unique_ptr<Value> clone() const = 0;
+   };
 
    template<class T>
    class Implementation : public object_id::Value {
    public:
       explicit Implementation(T t) :
-         data(std::move(t))
-      {
+         data(std::move(t)) {
       }
 
       virtual ~Implementation() = default;
@@ -96,16 +91,14 @@ private:
    };
 
    explicit object_id(std::unique_ptr<Value> v) :
-      value(std::move(v))
-   {
+      value(std::move(v)) {
    }
 
    copy_on_write<Value> value;
 };
 
 
-inline std::ostream & operator<<(std::ostream &os, const object_id &objectId)
-{
+inline std::ostream &operator<<(std::ostream &os, const object_id &objectId) {
    if (!objectId.is_null()) {
       os << objectId.to_string();
    }
@@ -123,12 +116,10 @@ typedef std::function<object_id()> object_id_generator;
 namespace std {
 
 template<>
-struct hash<cddd::cqrs::object_id>
-{
-	inline size_t operator()(const cddd::cqrs::object_id &objectId) const
-	{
-		return objectId.hash();
-	}
+struct hash<cddd::cqrs::object_id> {
+   inline size_t operator()(const cddd::cqrs::object_id &objectId) const {
+      return objectId.hash();
+   }
 };
 
 }

@@ -27,8 +27,7 @@ public:
    explicit inline artifact_store(std::unique_ptr<event_source_type> es, stream_factory sf, object_factory of) :
       events_provider(std::move(es)),
       create_stream(std::forward<stream_factory>(sf)),
-      create_object(std::forward<object_factory>(of))
-   {
+      create_object(std::forward<object_factory>(of)) {
    }
 
    artifact_store(const artifact_store &) = delete;
@@ -36,8 +35,8 @@ public:
 
    virtual ~artifact_store() = default;
 
-   artifact_store& operator =(const artifact_store &) = delete;
-   artifact_store& operator =(artifact_store &&) = default;
+   artifact_store &operator =(const artifact_store &) = delete;
+   artifact_store &operator =(artifact_store &&) = default;
 
    virtual bool has(object_id id) const final override {
       return !id.is_null() && events_provider->has(id);
