@@ -11,6 +11,7 @@ public:
 
    MOCK_CONST_METHOD1(has, bool(cddd::cqrs::object_id));
    MOCK_CONST_METHOD1(get, std::shared_ptr<cddd::cqrs::event_stream>(cddd::cqrs::object_id));
+   MOCK_CONST_METHOD2(get, std::shared_ptr<cddd::cqrs::event_stream>(cddd::cqrs::object_id, std::size_t));
    MOCK_METHOD1(put, void(std::shared_ptr<cddd::cqrs::event_stream>));
 };
 
@@ -30,6 +31,10 @@ public:
 
    virtual pointer get(cddd::cqrs::object_id id) const final override {
       return spy->get(id);
+   }
+
+   virtual pointer get(cddd::cqrs::object_id id, std::size_t version) const final override {
+      return spy->get(id, version);
    }
 
    virtual void put(pointer object) final override {

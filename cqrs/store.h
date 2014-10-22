@@ -18,6 +18,7 @@ public:
 
    virtual bool has(object_id id) const = 0;
    virtual pointer get(object_id id) const = 0;
+   virtual pointer get(object_id id, std::size_t version) const = 0;
    virtual void put(pointer object) = 0;
 };
 

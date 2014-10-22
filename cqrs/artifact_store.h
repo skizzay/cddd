@@ -24,7 +24,7 @@ public:
    typedef StreamFactory stream_factory;
    typedef ObjectFactory object_factory;
 
-   explicit inline artifact_store(std::unique_ptr<event_source_type> es, stream_factory sf, object_factory of) :
+   explicit inline artifact_store(std::unique_ptr<event_source_type> es, stream_factory &&sf, object_factory &&of) :
       events_provider(std::move(es)),
       create_stream(std::forward<stream_factory>(sf)),
       create_object(std::forward<object_factory>(of)) {
@@ -55,7 +55,7 @@ public:
       return load_object(id, std::numeric_limits<std::size_t>::max());
    }
 
-   virtual pointer get(object_id id, std::size_t version) const {
+   virtual pointer get(object_id id, std::size_t version) const override {
       validate_object_id(id);
       return load_object(id, version);
    }
