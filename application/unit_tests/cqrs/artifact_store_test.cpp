@@ -1,8 +1,8 @@
 #include "cqrs/artifact_store.h"
-#include "cqrs/test/fakes/fake_event_source.h"
-#include "cqrs/test/fakes/fake_event_stream.h"
-#include <deque>
+#include "cqrs/fakes/fake_event_source.h"
+#include "cqrs/fakes/fake_event_stream.h"
 #include <gmock/gmock.h>
+#include <deque>
 
 
 namespace {

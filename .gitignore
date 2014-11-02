@@ -37,3 +37,6 @@ sequence
 .kdev4
 *.kdev4
 .kdev_include_paths
+
+# CMake build directory
+build

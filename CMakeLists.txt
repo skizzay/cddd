@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+
+add_definitions(-std=c++1y)
+add_definitions(-Wall)
+add_definitions(-Wextra)
+add_definitions(-Werror)
+
+project(cddd)
+
+add_subdirectory(cqrs)
+add_subdirectory(application/unit_tests)
