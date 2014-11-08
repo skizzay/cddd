@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 add_definitions(-std=c++1y)
 add_definitions(-Wall)
 add_definitions(-Wextra)

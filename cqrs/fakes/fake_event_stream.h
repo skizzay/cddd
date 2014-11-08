@@ -5,6 +5,8 @@
 #include "cqrs/commit.h"
 #include <deque>
 
+namespace cddd {
+namespace cqrs {
 
 class event_stream_spy {
 public:
@@ -15,38 +17,70 @@ public:
 };
 
 
-class fake_event_stream : public cddd::cqrs::event_stream {
+class fake_event_stream : public event_stream {
 public:
+   typedef std::shared_ptr<event> event_pointer;
+
+   explicit inline fake_event_stream(std::shared_ptr<event_stream_spy> spy_=std::make_shared<event_stream_spy>()) :
+      event_stream(),
+      commitID(),
+      sequenceID(),
+      version(0),
+      sequenceNumber(0),
+      time_of_commit(),
+      committed_events_script(),
+      spy(spy_)
+   {
+   }
    virtual ~fake_event_stream() = default;
 
-   virtual std::experimental::sequence<pointer> load() const final override {
-      spy->load();
-      return std::experimental::from(committed_events_script);
-   }
-
-   virtual std::experimental::sequence<pointer> load(std::size_t min_version, std::size_t max_version) const final override {
+   virtual std::experimental::sequence<event_pointer> load(std::size_t min_version, std::size_t max_version) const final override {
       spy->load(min_version, max_version);
       return std::experimental::from(committed_events_script)
-               >> std::experimental::where([=](pointer evt) { return min_version <= evt->version() && evt->version() <= max_version; });
+               >> std::experimental::where([=](event_pointer evt) { return min_version <= evt->version() && evt->version() <= max_version; });
    }
 
-   virtual void save(std::experimental::sequence<pointer> events) final override {
+   virtual void save(std::experimental::sequence<value_type> events) final override {
       spy->save();
       std::copy(events.begin(), events.end(), std::back_inserter(committed_events_script));
    }
    
-   virtual cddd::cqrs::commit<pointer> persist() final override {
-      return cddd::cqrs::commit<pointer>{commitID, sequenceID, version, sequenceNumber, std::experimental::from(committed_events_script),
-         time_of_commit};
+   virtual commit<event_pointer> persist() final override {
+      spy->persist();
+      return commit<value_type>{commitID, sequenceID, version, sequenceNumber, std::experimental::from(committed_events_script), time_of_commit};
    }
 
-   cddd::cqrs::object_id commitID;
-   cddd::cqrs::object_id sequenceID;
-   std::size_t version = 0;
-   std::size_t sequenceNumber = 0;
-   cddd::cqrs::commit<pointer>::time_point time_of_commit;
-   std::deque<pointer> committed_events_script;
-   std::shared_ptr<::testing::NiceMock<event_stream_spy>> spy = std::make_shared<::testing::NiceMock<event_stream_spy>>();
+   object_id commitID;
+   object_id sequenceID;
+   std::size_t version;
+   std::size_t sequenceNumber;
+   commit<value_type>::time_point time_of_commit;
+   std::deque<value_type> committed_events_script;
+   std::shared_ptr<event_stream_spy> spy;
 };
+
+
+class event_stream_factory_spy {
+public:
+   MOCK_CONST_METHOD1(create_fake_stream, std::shared_ptr<fake_event_stream>(object_id));
+};
+
+
+class fake_event_stream_factory {
+public:
+   explicit inline fake_event_stream_factory(std::shared_ptr<event_stream_factory_spy> spy_=std::make_shared<event_stream_factory_spy>()) :
+      spy(spy_)
+   {
+   }
+
+   inline std::shared_ptr<fake_event_stream> operator()(object_id id) const {
+      return spy->create_fake_stream(id);
+   }
+
+   std::shared_ptr<event_stream_factory_spy> spy;
+};
+
+}
+}
 
 #endif

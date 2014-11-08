@@ -8,22 +8,7 @@
 namespace cddd {
 namespace cqrs {
 
-template<class T, class Store=store<stream<T>>>
-class source : public Store {
-public:
-   using Store::has;
-   using Store::get;
-   using Store::put;
-
-   typedef T value_type;
-   typedef typename Store::value_type stream_type;
-
-   virtual ~source() = default;
-   
-   virtual void put(stream_type& stream_object) {
-      stream_object.persist();
-   }
-};
+template<class T> using source = store<std::shared_ptr<stream<T>>>;
 
 }
 }

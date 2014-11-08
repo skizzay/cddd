@@ -5,8 +5,10 @@
 #include "cqrs/test/fakes/fake_event.h"
 #include <gmock/gmock.h>
 
+namespace cddd {
+namespace cqrs {
 
-class fake_artifact : public cddd::cqrs::artifact {
+class fake_artifact : public artifact {
 public:
    explicit inline fake_artifact(std::shared_ptr<event_dispatcher> d) :
       artifact(d)
@@ -16,14 +18,17 @@ public:
    }
    virtual ~fake_artifact() = default;
 
-   MOCK_CONST_METHOD0(uncommitted_events, cddd::cqrs::event_sequence());
+   MOCK_CONST_METHOD0(uncommitted_events, event_sequence());
    MOCK_CONST_METHOD0(has_uncommitted_events, bool());
    MOCK_CONST_METHOD0(size_uncommitted_events, size_type());
    MOCK_METHOD0(clear_uncommitted_events, void());
-   MOCK_METHOD1(add_pending_event, void(cddd::cqrs::event_ptr));
+   MOCK_METHOD1(add_pending_event, void(event_ptr));
 
    // For faking event callbacks.
    MOCK_METHOD1(on_fake_event, void(fake_event));
 };
+
+}
+}
 
 #endif

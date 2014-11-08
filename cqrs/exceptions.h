@@ -2,7 +2,6 @@
 #define CDDD_CQRS_EXCEPTIONS_H__
 
 #include "cqrs/object_id.h"
-
 #include <stdexcept>
 
 

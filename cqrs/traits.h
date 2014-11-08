@@ -1,6 +1,7 @@
 #ifndef CDDD_CQRS_TRAITS_H__
 #define CDDD_CQRS_TRAITS_H__
 
+#include "cqrs/artifact_traits.h"
 #include <sequence.h>
 #include <type_traits>
 #include <tuple>

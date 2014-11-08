@@ -4,13 +4,18 @@
 #include "cqrs/event_dispatcher.h"
 #include <gmock/gmock.h>
 
+namespace cddd {
+namespace cqrs {
 
-class fake_dispatcher : public cddd::cqrs::event_dispatcher {
+class fake_dispatcher : public event_dispatcher {
 public:
    virtual ~fake_dispatcher() = default;
 
-   MOCK_METHOD2(add_handler, void(std::type_index, cddd::cqrs::event_handler));
-   MOCK_METHOD1(dispatch, void(cddd::cqrs::event_ptr));
+   MOCK_METHOD2(add_handler, void(std::type_index, event_handler));
+   MOCK_METHOD1(dispatch, void(event_ptr));
 };
+
+}
+}
 
 #endif

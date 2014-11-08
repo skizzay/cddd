@@ -4,21 +4,22 @@
 #include "sequence.h"
 #include "cqrs/commit.h"
 
-
 namespace cddd {
 namespace cqrs {
 
-template<class T, class Ptr=std::shared_ptr<T>>
+template<class T>
 class stream {
 public:
    typedef T value_type;
-   typedef Ptr pointer;
 
    virtual ~stream() = default;
 
-   virtual std::experimental::sequence<pointer> load() const = 0;
-   virtual void save(std::experimental::sequence<pointer> objects) = 0;
-   virtual commit<pointer> persist() = 0;
+   std::experimental::sequence<value_type> load() const {
+      return load(1, std::numeric_limits<std::size_t>::max());
+   }
+   virtual std::experimental::sequence<value_type> load(std::size_t min_version, std::size_t max_version) const = 0;
+   virtual void save(std::experimental::sequence<value_type> objects) = 0;
+   virtual commit<value_type> persist() = 0;
 };
 
 }

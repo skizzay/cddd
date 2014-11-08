@@ -12,6 +12,7 @@ namespace cqrs {
 template<class EventDispatcher, class EventContainer>
 class basic_artifact {
 public:
+   typedef std::shared_ptr<event> event_ptr;
    typedef EventDispatcher event_dispatcher_type;
    typedef EventContainer event_container_type;
    typedef typename EventContainer::size_type size_type;
@@ -61,8 +62,8 @@ public:
    }
 
 protected:
-   inline basic_artifact(const event_dispatcher_type &dispatcher_ = event_dispatcher_type(),
-                         const event_container_type &events_ = event_container_type()) :
+   inline basic_artifact(const event_dispatcher_type &dispatcher_ = event_dispatcher_type{},
+                         const event_container_type &events_ = event_container_type{}) :
       artifact_version(0),
       dispatcher(dispatcher_),
       pending_events(events_) {
@@ -75,16 +76,18 @@ protected:
    basic_artifact &operator =(const basic_artifact &) = delete;
 
    template<class Evt, class Fun>
-   inline void add_handler(Fun f) {
-      dispatcher.add_handler<Evt>(std::move(f));
+   inline void add_handler(Fun &&f) {
+      dispatcher.add_handler<Evt>(std::forward<Fun>(f));
    }
 
 private:
    inline void apply_change(event_ptr evt, bool is_new) {
-      if (evt) {
-         dispatcher.dispatch(*evt);
+      if (evt != nullptr) {
          if (is_new) {
             pending_events.push_back(evt);
+         }
+         else {
+            dispatcher.dispatch(*evt);
          }
       }
    }
