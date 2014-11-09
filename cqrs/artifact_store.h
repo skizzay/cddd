@@ -9,7 +9,7 @@ namespace cddd {
 namespace cqrs {
 
 template<class ArtifactType, class StreamFactory, class ArtifactFactory, class Traits=artifact_traits<ArtifactType>>
-class artifact_store : public store<std::shared_ptr<ArtifactType>> {
+class artifact_store : public store<typename Traits::pointer> {
 public:
    typedef Traits traits_type;
    typedef typename traits_type::artifact_type value_type;
@@ -53,7 +53,7 @@ public:
 
 private:
    inline void save_object(ArtifactType &object) {
-      auto str = get_event_stream(object.id());
+      auto str = get_event_stream(traits_type::id_of(object));
       str->save(traits_type::uncommitted_events_of(object));
       events_provider->put(str);
       traits_type::clear_uncommitted_events(object);
@@ -69,8 +69,9 @@ private:
 
    inline auto load_object(object_id id, std::size_t revision) const {
       auto object = create_artifact(id, revision);
-      if (traits_type::revision_of(*object) < revision) {
-         traits_type::load_artifact_from_history(*object, load_events(id, traits_type::revision_of(*object) + 1, revision));
+      std::size_t object_revision = traits_type::revision_of(*object);
+      if (object_revision < revision) {
+         traits_type::load_artifact_from_history(*object, load_events(id, object_revision + 1, revision));
       }
       return object;
    }

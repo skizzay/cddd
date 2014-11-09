@@ -165,10 +165,11 @@ public:
 };
 
 
-TEST_F(artifact_test, apply_change_invokes_dispatcher_to_dispatch_events) {
+TEST_F(artifact_test, apply_change_does_not_invoke_dispatcher_to_dispatch_events) {
    // Given
    fake_event event;
-   EXPECT_CALL(*target.ds, dispatch(_));
+   EXPECT_CALL(*target.ds, dispatch(_))
+      .Times(0);
 
    // When
    target.apply_change(std::move(event));
@@ -178,10 +179,11 @@ TEST_F(artifact_test, apply_change_invokes_dispatcher_to_dispatch_events) {
 }
 
 
-TEST_F(artifact_test, apply_change_with_allocator_invokes_dispatcher_to_dispatch_events) {
+TEST_F(artifact_test, apply_change_with_allocator_does_not_invoke_dispatcher_to_dispatch_events) {
    // Given
    fake_event event;
-   EXPECT_CALL(*target.ds, dispatch(_));
+   EXPECT_CALL(*target.ds, dispatch(_))
+      .Times(0);
    std::allocator<fake_event> allocator;
 
    // When

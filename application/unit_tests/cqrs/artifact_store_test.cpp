@@ -1,7 +1,6 @@
 #include "cqrs/artifact_store.h"
 #include "cqrs/fakes/fake_event_source.h"
 #include "cqrs/fakes/fake_event_stream.h"
-#include "cqrs/fakes/fake_event_store.h"
 #include <gmock/gmock.h>
 #include <deque>
 
@@ -128,7 +127,6 @@ public:
    template<class T>
    inline void use_strict(std::shared_ptr<T> &t) {
       t = std::make_shared<StrictMock<T>>();
-      set_default_behavior();
    }
 
    std::shared_ptr<fake_event_stream> events_stream;
@@ -181,8 +179,10 @@ TEST_F(artifact_store_test, has_returns_true_when_events_provider_does_have_arti
 
 TEST_F(artifact_store_test, put_throws_null_id_exception_when_object_id_is_null) {
    // Given
+   use_strict(entity->spy);
    auto target = create();
    entity->id_value = object_id{};
+   EXPECT_CALL(*entity->spy, id());
 
    // When
    ASSERT_THROW(target->put(entity), null_id_exception);
@@ -229,6 +229,8 @@ TEST_F(artifact_store_test, put_will_save_the_object_when_the_object_has_uncommi
       .Times(1);
    EXPECT_CALL(*events_stream->spy, save())
       .Times(1);
+   EXPECT_CALL(*stream_factory->spy, create_fake_stream(entity->id_value))
+      .Times(1);
    EXPECT_CALL(*events_provider->spy, put(_))
       .Times(1);
 
@@ -242,8 +244,10 @@ TEST_F(artifact_store_test, put_will_save_the_object_when_the_object_has_uncommi
 }
 
 
-TEST_F(artifact_store_test, put_will_create_a_stream_when_the_source_does_not_have_a_stream) {
+TEST_F(artifact_store_test, put_will_create_a_stream_and_save_the_stream_when_the_source_does_not_have_a_stream) {
    // Given
+   use_strict(stream_factory->spy);
+   use_nice(entity->spy);
    auto target = create();
    entity->pending.push_back(nullptr);
    EXPECT_CALL(*events_provider->spy, has(entity->id_value))
@@ -252,6 +256,8 @@ TEST_F(artifact_store_test, put_will_create_a_stream_when_the_source_does_not_ha
       .Times(0);
    EXPECT_CALL(*stream_factory->spy, create_fake_stream(entity->id_value))
       .WillOnce(Return(events_stream));
+   EXPECT_CALL(*events_stream->spy, save())
+      .Times(1);
 
    // When
    target->put(entity);
@@ -262,8 +268,10 @@ TEST_F(artifact_store_test, put_will_create_a_stream_when_the_source_does_not_ha
 }
 
 
-TEST_F(artifact_store_test, put_will_retrieve_a_stream_when_the_source_does_have_a_stream) {
+TEST_F(artifact_store_test, put_will_retrieve_a_stream_and_save_the_stream_when_the_source_does_have_a_stream) {
    // Given
+   use_strict(stream_factory->spy);
+   use_nice(entity->spy);
    auto target = create();
    entity->pending.push_back(nullptr);
    EXPECT_CALL(*events_provider->spy, has(entity->id_value))
@@ -272,6 +280,8 @@ TEST_F(artifact_store_test, put_will_retrieve_a_stream_when_the_source_does_have
       .WillOnce(Return(events_stream));
    EXPECT_CALL(*stream_factory->spy, create_fake_stream(entity->id_value))
       .Times(0);
+   EXPECT_CALL(*events_stream->spy, save())
+      .Times(1);
 
    // When
    target->put(entity);
@@ -305,10 +315,12 @@ TEST_F(artifact_store_test, get_with_version_will_throw_null_id_exception_when_o
 
 TEST_F(artifact_store_test, get_will_load_event_sequence_for_all_events) {
    // Given
+   use_nice(entity_factory->spy);
+   use_nice(entity->spy);
    auto target = create();
    object_id id = object_id::create(1);
    std::size_t version = static_cast<std::size_t>(std::rand());
-   EXPECT_CALL(*events_provider->spy, get(id, version))
+   EXPECT_CALL(*events_provider->spy, get(id, std::numeric_limits<std::size_t>::max()))
       .WillOnce(Return(events_stream));
    EXPECT_CALL(*events_stream->spy, load(1, version))
       .Times(1);
@@ -324,6 +336,8 @@ TEST_F(artifact_store_test, get_will_load_event_sequence_for_all_events) {
 
 TEST_F(artifact_store_test, get_with_version_will_load_event_sequence_for_requested_events) {
    // Given
+   use_nice(entity_factory->spy);
+   use_nice(entity->spy);
    auto target = create();
    object_id id = object_id::create(1);
    EXPECT_CALL(*events_provider->spy, get(id, std::numeric_limits<std::size_t>::max()))
@@ -342,6 +356,8 @@ TEST_F(artifact_store_test, get_with_version_will_load_event_sequence_for_reques
 
 TEST_F(artifact_store_test, get_invoke_the_artifact_factory_to_create_artifact_instance) {
    // Given
+   use_nice(events_stream->spy);
+   use_nice(entity->spy);
    auto target = create();
    object_id id = object_id::create(1);
    EXPECT_CALL(*entity_factory->spy, create_fake_entity(id, std::numeric_limits<std::size_t>::max()))
@@ -357,13 +373,18 @@ TEST_F(artifact_store_test, get_invoke_the_artifact_factory_to_create_artifact_i
 
 TEST_F(artifact_store_test, get_loads_the_history_onto_the_entity_after_instantiation) {
    // Given
+   use_nice(entity_factory->spy);
+   use_nice(events_stream->spy);
+   std::size_t version = static_cast<std::size_t>(std::rand());
    auto target = create();
    object_id id = object_id::create(1);
    EXPECT_CALL(*entity->spy, load_from_history())
       .Times(1);
+   EXPECT_CALL(*entity->spy, revision())
+      .Times(1);
 
    // When
-   target->get(id);
+   target->get(id, version);
 
    // Then
    ASSERT_TRUE(Mock::VerifyAndClear(entity->spy.get()));
