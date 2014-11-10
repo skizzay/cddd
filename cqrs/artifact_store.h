@@ -3,6 +3,7 @@
 
 #include "cqrs/event.h"
 #include "cqrs/null_store.h"
+#include "cqrs/simple_artifact_factory.h"
 #include "cqrs/source.h"
 #include "cqrs/traits.h"
 
