@@ -70,7 +70,7 @@ public:
 
 class entity_factory_spy {
 public:
-   MOCK_CONST_METHOD2(create_fake_entity, std::shared_ptr<fake_entity>(object_id, std::size_t));
+   MOCK_CONST_METHOD1(create_fake_entity, std::shared_ptr<fake_entity>(object_id));
 };
 
 
@@ -81,8 +81,8 @@ public:
    {
    }
 
-   inline std::shared_ptr<fake_entity> operator()(object_id id, std::size_t revision) const {
-      return spy->create_fake_entity(id, revision);
+   inline std::shared_ptr<fake_entity> operator()(object_id id) const {
+      return spy->create_fake_entity(id);
    }
 
    std::shared_ptr<entity_factory_spy> spy;
@@ -98,7 +98,7 @@ class artifact_store_test : public ::testing::Test {
          .WillByDefault(Return(events_stream));
       ON_CALL(*stream_factory->spy, create_fake_stream(An<object_id>()))
          .WillByDefault(Return(events_stream));
-      ON_CALL(*entity_factory->spy, create_fake_entity(An<object_id>(), A<std::size_t>()))
+      ON_CALL(*entity_factory->spy, create_fake_entity(An<object_id>()))
          .WillByDefault(Return(entity));
    }
 
@@ -360,7 +360,7 @@ TEST_F(artifact_store_test, get_invoke_the_artifact_factory_to_create_artifact_i
    use_nice(entity->spy);
    auto target = create();
    object_id id = object_id::create(1);
-   EXPECT_CALL(*entity_factory->spy, create_fake_entity(id, std::numeric_limits<std::size_t>::max()))
+   EXPECT_CALL(*entity_factory->spy, create_fake_entity(id))
       .WillOnce(Return(entity));
 
    // When

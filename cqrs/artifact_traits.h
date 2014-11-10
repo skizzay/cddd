@@ -6,10 +6,13 @@
 namespace cddd {
 namespace cqrs {
 
-template<class T>
-struct artifact_traits {
+template<class T, class F, typename=void>
+class artifact_traits {
+public:
    typedef T artifact_type;
-   typedef std::shared_ptr<T> pointer;
+   typedef F factory_type;
+   typedef decltype(std::declval<F>()(std::declval<object_id>())) pointer;
+   struct memento_type {};
 
    static inline object_id id_of(const T &object) {
       return object.id();
@@ -35,6 +38,9 @@ struct artifact_traits {
       return object.has_uncommitted_events();
    }
 
+   static inline void apply_memento_to_object(T &, std::size_t, store<memento_type> &) {
+   }
+
    static inline void validate_artifact(pointer object) {
       if (object == nullptr) {
          throw null_pointer_exception("object");
@@ -47,6 +53,21 @@ struct artifact_traits {
    static inline void validate_object_id(const object_id &id) {
       if (id.is_null()) {
          throw null_id_exception("id");
+      }
+   }
+};
+
+
+template<class T, class F>
+class artifact_traits<T, F, typename T::memento_type> : artifact_traits<T, F, void> {
+public:
+   using artifact_traits<T, void>::artifact_type;
+   using artifact_traits<T, void>::pointer;
+   typedef typename T::memento_type memento_type;
+
+   static inline void apply_memento_to_object(T &object, std::size_t revision, store<memento_type> &memento_provider) {
+      if (memento_provider.has(id_of(object))) {
+         object.apply_memento(memento_provider.get(id_of(object), revision));
       }
    }
 };

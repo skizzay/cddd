@@ -10,6 +10,8 @@ namespace cqrs {
 
 class fake_artifact : public artifact {
 public:
+   struct memento_type{};
+
    explicit inline fake_artifact(std::shared_ptr<event_dispatcher> d) :
       artifact(d)
    {
@@ -26,6 +28,8 @@ public:
 
    // For faking event callbacks.
    MOCK_METHOD1(on_fake_event, void(fake_event));
+
+   MOCK_METHOD(apply_memento, void(memento_type));
 };
 
 }

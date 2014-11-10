@@ -1,6 +1,7 @@
 # Temporary editor files
 .*.swp
 *~
+.ycm_extra_conf.py*
 
 # Compiled Object files
 *.slo
