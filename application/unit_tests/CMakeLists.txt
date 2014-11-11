@@ -14,5 +14,5 @@ add_executable(unit_tests
       cqrs/object_id_test.cpp
    )
 
-include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/sequence /usr/src/gmock/include /usr/src/gmock/gtest/include)
+include_directories(/usr/src/gmock/include /usr/src/gmock/gtest/include)
 target_link_libraries(unit_tests cqrs ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} $ENV{HOME}/third-party/gmock/libgmock.a $ENV{HOME}/third-party/gmock/gtest/libgtest.a)

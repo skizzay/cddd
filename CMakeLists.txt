@@ -8,5 +8,7 @@ add_definitions(-Werror)
 
 project(cddd)
 
+include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/sequence/include)
+
 add_subdirectory(cqrs)
 add_subdirectory(application/unit_tests)

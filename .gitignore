@@ -32,7 +32,7 @@ bin
 Makefile
 
 # Third-party linked areas
-sequence
+#sequence
 
 # Specific IDE settings
 .kdev4
