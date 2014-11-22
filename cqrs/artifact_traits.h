@@ -2,6 +2,7 @@
 #define CDDD_CQRS_ARTIFACT_TRAITS_H__
 
 #include "cqrs/exceptions.h"
+#include <type_traits>
 
 namespace cddd {
 namespace cqrs {
@@ -22,7 +23,7 @@ public:
       return object.revision();
    }
 
-   static inline event_sequence uncommitted_events_of(const T &object) {
+   static inline domain_event_sequence uncommitted_events_of(const T &object) {
       return object.uncommitted_events();
    }
 
@@ -30,7 +31,7 @@ public:
       object.clear_uncommitted_events();
    }
 
-   static inline void load_artifact_from_history(T &object, event_sequence events) {
+   static inline void load_artifact_from_history(T &object, domain_event_sequence events) {
       object.load_from_history(std::move(events));
    }
 

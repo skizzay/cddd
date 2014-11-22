@@ -55,7 +55,7 @@ public:
       return sequence;
    }
 
-   inline const event_sequence &events() const {
+   inline const domain_event_sequence &events() const {
       return commit_values;
    }
 

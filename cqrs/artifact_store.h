@@ -1,7 +1,7 @@
 #ifndef CDDD_CQRS_ARTIFACT_STORE_H__
 #define CDDD_CQRS_ARTIFACT_STORE_H__
 
-#include "cqrs/event.h"
+#include "cqrs/domain_event.h"
 #include "cqrs/null_store.h"
 #include "cqrs/simple_artifact_factory.h"
 #include "cqrs/source.h"
@@ -17,14 +17,14 @@ public:
    typedef typename traits_type::artifact_type value_type;
    typedef typename traits_type::pointer pointer;
    typedef typename traits_type::memento_type memento_type;
-   typedef source<std::shared_ptr<event>> event_source;
-   typedef stream<std::shared_ptr<event>> event_stream;
+   typedef source<std::shared_ptr<domain_event>> domain_event_source;
+   typedef stream<std::shared_ptr<domain_event>> domain_event_stream;
    typedef store<memento_type> memento_store;
    typedef StreamFactory stream_factory;
    typedef ArtifactFactory artifact_factory;
    using store<std::shared_ptr<ArtifactType>>::get;
 
-   inline artifact_store(std::shared_ptr<event_source> es, stream_factory sf, artifact_factory af, std::shared_ptr<memento_store> ms=std::make_shared<null_store<memento_type>>()) :
+   inline artifact_store(std::shared_ptr<domain_event_source> es, stream_factory sf, artifact_factory af, std::shared_ptr<memento_store> ms=std::make_shared<null_store<memento_type>>()) :
       events_provider(es),
       memento_provider(ms),
       create_stream(std::move(sf)),
@@ -64,11 +64,11 @@ private:
       traits_type::clear_uncommitted_events(object);
    }
 
-   inline std::shared_ptr<event_stream> get_event_stream(object_id id) {
+   inline std::shared_ptr<domain_event_stream> get_event_stream(object_id id) {
       return has(id) ? events_provider->get(id) : create_stream(id);
    }
 
-   inline event_sequence load_events(object_id id, std::size_t min_revision, std::size_t max_revision) const {
+   inline domain_event_sequence load_events(object_id id, std::size_t min_revision, std::size_t max_revision) const {
       return events_provider->get(id)->load(min_revision, max_revision);
    }
 
@@ -82,7 +82,7 @@ private:
       return object;
    }
 
-   std::shared_ptr<event_source> events_provider;
+   std::shared_ptr<domain_event_source> events_provider;
    std::shared_ptr<memento_store> memento_provider;
    stream_factory create_stream;
    artifact_factory create_artifact;

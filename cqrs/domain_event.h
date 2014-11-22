@@ -1,5 +1,5 @@
-#ifndef CDDD_CQRS_EVENT_H__
-#define CDDD_CQRS_EVENT_H__
+#ifndef CDDD_CQRS_DOMAIN_EVENT_H__
+#define CDDD_CQRS_DOMAIN_EVENT_H__
 
 #include <sequence.h>
 #include <memory>
@@ -10,34 +10,34 @@
 namespace cddd {
 namespace cqrs {
 
-class event {
+class domain_event {
 public:
-   virtual ~event() = 0;
+   virtual ~domain_event() = 0;
 
    virtual std::type_index type() const = 0;
    virtual std::size_t version() const = 0;
 };
 
 
-inline event::~event() {}
+inline domain_event::~domain_event() {}
 
 
-typedef std::shared_ptr<event> event_ptr;
-typedef std::experimental::sequence<event_ptr> event_sequence;
+typedef std::shared_ptr<domain_event> domain_event_ptr;
+typedef std::experimental::sequence<domain_event_ptr> domain_event_sequence;
 
 
 namespace details_ {
 
 template<class Evt>
-class event_wrapper : public event {
+class domain_event_wrapper : public domain_event {
 public:
-   explicit constexpr event_wrapper(Evt e, std::size_t ver_) :
+   explicit constexpr domain_event_wrapper(Evt e, std::size_t ver_) :
       evt(std::move(e)),
       ver(ver_)
    {
    }
 
-   virtual ~event_wrapper() {}
+   virtual ~domain_event_wrapper() {}
 
    virtual std::type_index type() const final override {
       return typeid(Evt);

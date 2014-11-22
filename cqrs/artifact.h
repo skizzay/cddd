@@ -1,21 +1,20 @@
 #ifndef CDDD_CQRS_ARTIFACT_H__
 #define CDDD_CQRS_ARTIFACT_H__
 
-#include <deque>
 #include "cqrs/event_dispatcher.h"
-#include "cqrs/event_stream.h"
+#include <deque>
 
 
 namespace cddd {
 namespace cqrs {
 
-template<class EventDispatcher, class EventContainer>
+template<class DomainEventDispatcher, class DomainEventContainer>
 class basic_artifact {
 public:
-   typedef std::shared_ptr<event> event_ptr;
-   typedef EventDispatcher event_dispatcher_type;
-   typedef EventContainer event_container_type;
-   typedef typename EventContainer::size_type size_type;
+   typedef std::shared_ptr<domain_event> domain_event_ptr;
+   typedef DomainEventDispatcher domain_event_dispatcher_type;
+   typedef DomainEventContainer domain_event_container_type;
+   typedef typename DomainEventContainer::size_type size_type;
 
    basic_artifact() = delete;
 
@@ -23,7 +22,7 @@ public:
       return artifact_version;
    }
 
-   inline event_sequence uncommitted_events() const {
+   inline domain_event_sequence uncommitted_events() const {
       return std::experimental::from(std::begin(pending_events), std::end(pending_events));
    }
 
@@ -39,34 +38,36 @@ public:
       return pending_events.size();
    }
 
-   inline void load_from_history(const event_stream &stream) {
+   template<class DomainEventStream>
+   inline void load_from_history(const DomainEventStream &stream) {
       for (auto evt : stream.load(next_revision())) {
          apply_change(evt, false);
       }
    }
 
-   inline void apply_change(event_ptr evt) {
+   inline void apply_change(domain_event_ptr evt) {
       apply_change(evt, true);
    }
 
    template<class Evt>
    inline void apply_change(Evt && e) {
-      auto ptr = std::make_shared<details_::event_wrapper<Evt>>(std::forward<Evt>(e), next_revision());
-      apply_change(std::static_pointer_cast<event>(ptr));
+      auto ptr = std::make_shared<details_::domain_event_wrapper<Evt>>(std::forward<Evt>(e), next_revision());
+      apply_change(std::static_pointer_cast<domain_event>(ptr));
    }
 
    template<class EvtAlloc, class Evt>
    inline void apply_change(const EvtAlloc &alloc, Evt && e) {
-      auto ptr = std::allocate_shared<details_::event_wrapper<Evt>>(alloc, std::forward<Evt>(e), next_revision());
-      apply_change(std::static_pointer_cast<event>(ptr));
+      auto ptr = std::allocate_shared<details_::domain_event_wrapper<Evt>>(alloc, std::forward<Evt>(e), next_revision());
+      apply_change(std::static_pointer_cast<domain_event>(ptr));
    }
 
 protected:
-   inline basic_artifact(const event_dispatcher_type &dispatcher_ = event_dispatcher_type{},
-                         const event_container_type &events_ = event_container_type{}) :
-      artifact_version(0),
-      dispatcher(dispatcher_),
-      pending_events(events_) {
+   inline basic_artifact(size_type revision_ = 0,
+                         domain_event_dispatcher_type &&dispatcher_ = domain_event_dispatcher_type{},
+                         domain_event_container_type &&events_ = domain_event_container_type{}) :
+      artifact_version(revision_),
+      dispatcher(std::forward<domain_event_dispatcher_type>(dispatcher_)),
+      pending_events(std::forward<domain_event_container_type>(events_)) {
    }
 
    basic_artifact(basic_artifact &&) = default;
@@ -81,7 +82,7 @@ protected:
    }
 
 private:
-   inline void apply_change(event_ptr evt, bool is_new) {
+   inline void apply_change(domain_event_ptr evt, bool is_new) {
       if (evt != nullptr) {
          if (is_new) {
             pending_events.push_back(evt);
@@ -97,12 +98,12 @@ private:
    }
 
    size_type artifact_version;
-   event_dispatcher_type dispatcher;
-   event_container_type pending_events;
+   domain_event_dispatcher_type dispatcher;
+   domain_event_container_type pending_events;
 };
 
 
-typedef basic_artifact<event_dispatcher, std::deque<event_ptr>> artifact;
+typedef basic_artifact<domain_event_dispatcher, std::deque<domain_event_ptr>> artifact;
 
 }
 }
