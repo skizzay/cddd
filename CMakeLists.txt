@@ -11,4 +11,5 @@ project(cddd)
 include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/sequence/include)
 
 add_subdirectory(cqrs)
+add_subdirectory(messaging)
 add_subdirectory(application/unit_tests)

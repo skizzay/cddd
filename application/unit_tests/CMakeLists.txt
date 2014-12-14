@@ -12,7 +12,8 @@ add_executable(unit_tests
       cqrs/copy_on_write_test.cpp
       cqrs/event_dispatcher_test.cpp
       cqrs/object_id_test.cpp
+      messaging/router_test.cpp
    )
 
 include_directories(/usr/src/gmock/include /usr/src/gmock/gtest/include)
-target_link_libraries(unit_tests cqrs ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} $ENV{HOME}/third-party/gmock/libgmock.a $ENV{HOME}/third-party/gmock/gtest/libgtest.a)
+target_link_libraries(unit_tests cqrs messaging ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} $ENV{HOME}/third-party/gmock/libgmock.a $ENV{HOME}/third-party/gmock/gtest/libgtest.a)

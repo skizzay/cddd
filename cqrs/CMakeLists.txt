@@ -9,9 +9,7 @@ add_library(cqrs
       commit.h
       copy_on_write.h
       event_dispatcher.h
-      event.h
-      event_source.h
-      event_stream.h
+      domain_event.h
       exceptions.h
       function_traits.h
       null_store.h
