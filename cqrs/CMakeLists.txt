@@ -11,7 +11,6 @@ add_library(cqrs
       event_dispatcher.h
       domain_event.h
       exceptions.h
-      function_traits.h
       null_store.h
       object_id.h
       pointer_traits.h

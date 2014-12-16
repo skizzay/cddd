@@ -1,11 +1,10 @@
-#ifndef CDDD_CQRS_FUNCTION_TRAITS_H__
-#define CDDD_CQRS_FUNCTION_TRAITS_H__
+#ifndef CDDD_UTILS_FUNCTION_TRAITS_H__
+#define CDDD_UTILS_FUNCTION_TRAITS_H__
 
-#include <tuple>
-
+#include <type_traits>
 
 namespace cddd {
-namespace cqrs {
+namespace utils {
 
 template<class> struct function_traits;
 template<class... Args> struct parameter_pack {

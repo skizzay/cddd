@@ -1,10 +1,10 @@
 #ifndef CDDD_MESSAGING_ROUTER_H__
 #define CDDD_MESSAGING_ROUTER_H__
 
-#include "cqrs/function_traits.h"
+#include "utils/function_traits.h"
+#include "utils/type_id_generator.h"
 #include <map>
 #include <memory>
-#include <type_traits>
 
 namespace cddd {
 namespace messaging {
@@ -29,26 +29,15 @@ struct ignore_routing_errors {
 
 namespace details_ {
 
-class router_base {
-   static std::size_t current_id;
-
-protected:
-   class handler {};
-
-   template<class T>
-   static inline message_type_id get_id_for_type() {
-      static const message_type_id id = ++current_id;
-      return id;
-   }
-};
+class handler {};
 
 }
 
 
 template<class ErrorPolicy=throw_exception_on_routing_errors>
-class router : public details_::router_base {
+class router : utils::type_id_generator {
    template<class T>
-   class typed_handler : public details_::router_base::handler {
+   class typed_handler : public details_::handler {
    public:
       virtual void handle(const T &t) = 0;
       virtual message_type_id type_id() const = 0;
@@ -91,7 +80,7 @@ public:
 
    template<class Fun>
    inline void add_route(Fun &&f) {
-      typedef wrapped_handler<std::decay_t<typename cqrs::function_traits<Fun>::template argument<0>::type>, std::decay_t<Fun>> handler_type;
+      typedef wrapped_handler<std::decay_t<typename utils::function_traits<Fun>::template argument<0>::type>, std::decay_t<Fun>> handler_type;
 
       auto handler = std::make_unique<handler_type>(std::move(f));
       routes.emplace(handler->type_id(), std::move(handler));
@@ -99,7 +88,7 @@ public:
 
    template<class Fun, class Filter>
    inline void add_route(Fun &&f, Filter &&filter) {
-      typedef std::decay_t<typename cqrs::function_traits<Fun>::template argument<0>::type> argument_type;
+      typedef std::decay_t<typename utils::function_traits<Fun>::template argument<0>::type> argument_type;
 
       this->add_route([process=std::forward<Fun>(f), allowed_to_process_message=std::forward<Filter>(filter)](const argument_type &message) {
             if (allowed_to_process_message(message)) {
@@ -109,7 +98,7 @@ public:
    }
 
 private:
-   std::multimap<message_type_id, std::unique_ptr<details_::router_base::handler>> routes;
+   std::multimap<message_type_id, std::unique_ptr<details_::handler>> routes;
 };
 
 }
