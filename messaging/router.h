@@ -41,7 +41,7 @@ struct throw_exception_on_routing_errors {
       throw std::logic_error(message.str());
    }
 
-   static inline void success() {}
+   static inline void success() noexcept {}
 };
 
 
@@ -49,16 +49,16 @@ struct ignore_routing_errors {
    typedef void result_type;
 
    template<class MessageType>
-   static inline void no_routes_found(message_type_id, const MessageType &) {
+   static inline void no_routes_found(message_type_id, const MessageType &) noexcept {
    }
 
-   static inline void no_translator_found(message_type_id) {
+   static inline void no_translator_found(message_type_id) noexcept {
    }
 
-   static inline void translator_exists(message_type_id) {
+   static inline void translator_exists(message_type_id) noexcept {
    }
 
-   static inline void success() {}
+   static inline void success() noexcept {}
 };
 
 
@@ -66,162 +66,152 @@ struct return_boolean_value_on_routing_errors {
    typedef bool result_type;
 
    template<class MessageType>
-   static inline result_type no_routes_found(message_type_id, const MessageType &) {
+   static inline result_type no_routes_found(message_type_id, const MessageType &) noexcept {
       return false;
    }
 
-   static inline result_type no_translator_found(message_type_id) {
+   static inline result_type no_translator_found(message_type_id) noexcept {
       return false;
    }
 
-   static inline result_type translator_exists(message_type_id) {
+   static inline result_type translator_exists(message_type_id) noexcept {
       return false;
    }
 
-   static inline result_type success() {
+   static inline result_type success() noexcept {
       return true;
    }
 };
 
 
-namespace details_ {
-
 template<class F> using message_from_argument = std::decay_t<typename utils::function_traits<F>::template argument<0>::type>;
 template<class F> using message_from_result = std::decay_t<typename utils::function_traits<F>::result_type>;
 
 
-class message_handler {};
-
-
-template<class T>
-class typed_message_handler : public message_handler,
-                              private utils::type_id_generator {
-public:
-   virtual void handle(const T &t) = 0;
-
-   static inline message_type_id type_id() {
-      return get_id_for_type<T>();
-   }
-};
-
-
-template<class T, class Callback>
-class wrapped_message_handler final : public typed_message_handler<T> {
-   Callback callback;
-
-public:
-   explicit inline wrapped_message_handler(Callback &&cb) :
-      typed_message_handler<T>(),
-      callback(std::forward<Callback>(cb))
-   {
-   }
-
-   virtual void handle(const T &t) final override {
-      callback(t);
-   }
-};
-
-
 template<class ErrorPolicy>
-class data_handler {
+class basic_data_handler {
 public:
    typedef typename ErrorPolicy::result_type result_type;
 
    virtual bool should_handle(const void *data, std::size_t data_size) const = 0;
-   virtual void handle(const void *data, std::size_t data_size) = 0;
-
-   inline void add_message_handler(std::unique_ptr<message_handler> route) {
-      routes.emplace_back(std::move(route));
-   }
-
-protected:
-   template<class Message>
-   inline result_type route(Message &&m) {
-      if (routes.empty()) {
-         return ErrorPolicy::no_routes_found(typed_message_handler<Message>::type_id(), m);
-      }
-
-      for (auto &r : routes) {
-         static_cast<typed_message_handler<Message> *>(r.get())->handle(m);
-      }
-
-      return ErrorPolicy::success();
-   }
-
-   std::vector<std::unique_ptr<message_handler>> routes;
+   virtual result_type handle(const void *data, std::size_t data_size) = 0;
 };
 
 
-template<class Translator, class TranslationDeterminationPredicate, class ErrorPolicy>
-class typed_data_handler final : public data_handler<ErrorPolicy> {
-public:
-   inline typed_data_handler(Translator &&t, TranslationDeterminationPredicate &&tdp) :
-      data_handler<ErrorPolicy>(),
-      translate(std::forward<Translator>(t)),
-      should_handle_content(std::forward<TranslationDeterminationPredicate>(tdp))
-   {
-   }
-
-   virtual bool should_handle(const void *data, std::size_t data_size) const final override {
-      return should_handle_content(data, data_size);
-   }
-
-   virtual void handle(const void *data, std::size_t data_size) final override {
-      this->route(translate(data, data_size));
-   }
-
-private:
-   Translator translate;
-   TranslationDeterminationPredicate should_handle_content;
-};
-
-}
-
-
-template<class ErrorPolicy=throw_exception_on_routing_errors>
+template<class ErrorPolicy=throw_exception_on_routing_errors, class RoutingTable=std::map<message_type_id, std::unique_ptr<basic_data_handler<ErrorPolicy>>>>
 class basic_router final {
+   template<class MessageType>
+   class message_handler {
+   public:
+      virtual void handle(const MessageType &t) = 0;
+   };
+
+
+   template<class MessageType>
+   class data_handler : public basic_data_handler<ErrorPolicy> {
+   public:
+      virtual void add_message_handler(std::unique_ptr<message_handler<MessageType>> handler) = 0;
+   };
+
 public:
    typedef typename ErrorPolicy::result_type result_type;
 
    template<class Fun>
-   inline result_type add_route(Fun &&f) {
-      typedef details_::message_from_argument<Fun> message_type;
-      typedef details_::wrapped_message_handler<message_type, std::decay_t<Fun>> handler_type;
+   inline result_type add_route(Fun f) {
+      typedef message_from_argument<Fun> message_type;
 
-      const message_type_id id = handler_type::type_id();
+      class message_handler_impl final : public message_handler<message_type> {
+         Fun callback;
+
+      public:
+         explicit inline message_handler_impl(Fun &&cb) :
+            message_handler<message_type>(),
+            callback(std::move(cb))
+         {
+         }
+
+         virtual void handle(const message_type &m) final override {
+            callback(m);
+         }
+      };
+
+      const message_type_id id = utils::type_id_generator::get_id_for_type<message_type>();
       if (!this->has_data_handler(id)) {
          return ErrorPolicy::no_translator_found(id);
       }
 
-      auto &r = routes[id];
-      r->add_message_handler(std::make_unique<handler_type>(std::forward<Fun>(f)));
+      auto *r = static_cast<data_handler<message_type> *>(routes[id].get());
+      r->add_message_handler(std::make_unique<message_handler_impl>(std::move(f)));
       return ErrorPolicy::success();
    }
 
-   template<class Fun, class Filter>
-   inline result_type add_route(Fun &&f, Filter &&filter) {
-      typedef details_::message_from_argument<Fun> message_type;
-      static_assert(std::is_convertible<message_type, details_::message_from_argument<Filter>>::value,
-                    "Route function must accept same argument as filter function.");
 
-      return this->add_route([process=std::forward<Fun>(f), allowed_to_process_message=std::forward<Filter>(filter)](const message_type &message) {
+   template<class Fun, class Filter>
+   inline result_type add_route(Fun f, Filter filter) {
+      typedef message_from_argument<Fun> message_type;
+      static_assert(std::is_convertible<message_type, message_from_argument<Filter>>::value,
+                    "Route function must accept same argument as filter function.");
+      static_assert(std::is_same<message_from_result<Filter>, bool>::value,
+                    "Filter function must be a predicate (have a return type of bool).");
+
+      return this->add_route([process=std::move(f), allowed_to_process_message=std::move(filter)](const message_type &message) {
             if (allowed_to_process_message(message)) {
                process(message);
             }
          });
    }
 
-   template<class Fun, class Pred>
-   inline result_type add_translator(Fun &&f, Pred &&p) {
-      typedef details_::message_from_result<Fun> message_type;
-      typedef details_::typed_data_handler<Fun, Pred, ErrorPolicy> data_handler_type;
 
-      const message_type_id id = details_::typed_message_handler<message_type>::type_id();
+   template<class Fun, class Pred>
+   inline result_type add_translator(Fun f, Pred p) {
+      typedef message_from_result<Fun> message_type;
+
+      class data_handler_impl final : public data_handler<message_type> {
+      public:
+         inline data_handler_impl(Fun &&t, Pred &&tdp) :
+            data_handler<message_type>(),
+            translate(std::move(t)),
+            should_handle_content(std::move(tdp))
+         {
+         }
+
+         virtual bool should_handle(const void *data, std::size_t data_size) const final override {
+            return should_handle_content(data, data_size);
+         }
+
+         virtual result_type handle(const void *data, std::size_t data_size) final override {
+            return this->route(translate(data, data_size));
+         }
+
+         virtual void add_message_handler(std::unique_ptr<message_handler<message_type>> handler) final override {
+            routes.emplace_back(std::move(handler));
+         }
+
+      private:
+         inline result_type route(const message_type &m) {
+            if (routes.empty()) {
+               return ErrorPolicy::no_routes_found(utils::type_id_generator::get_id_for_type<message_type>(), m);
+            }
+
+            for (auto &r : routes) {
+               static_cast<message_handler<message_type> *>(r.get())->handle(m);
+            }
+
+            return ErrorPolicy::success();
+         }
+
+         std::vector<std::unique_ptr<message_handler<message_type>>> routes;
+         Fun translate;
+         Pred should_handle_content;
+      };
+
+      const message_type_id id = utils::type_id_generator::get_id_for_type<message_type>();
       bool route_added = false;
 
-      std::tie(std::ignore, route_added) = routes.emplace(id, std::make_unique<data_handler_type>(std::forward<Fun>(f), std::forward<Pred>(p)));
+      std::tie(std::ignore, route_added) = routes.emplace(id, std::make_unique<data_handler_impl>(std::forward<Fun>(f), std::forward<Pred>(p)));
       return route_added ? ErrorPolicy::success() : ErrorPolicy::translator_exists(id);
    }
+
 
    inline result_type on_data(const void *data, std::size_t data_size) {
       for (auto &route : routes) {
@@ -239,7 +229,7 @@ private:
       return routes.find(id) != std::end(routes);
    }
 
-   std::map<message_type_id, std::unique_ptr<details_::data_handler<ErrorPolicy>>> routes;
+   RoutingTable routes;
 };
 
 
