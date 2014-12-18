@@ -10,9 +10,8 @@ add_executable(unit_tests
       cqrs/artifact_store_test.cpp
       cqrs/artifact_test.cpp
       cqrs/copy_on_write_test.cpp
-      cqrs/event_dispatcher_test.cpp
       cqrs/object_id_test.cpp
-      messaging/router_test.cpp
+      messaging/dispatcher_test.cpp
    )
 
 include_directories(/usr/src/gmock/include /usr/src/gmock/gtest/include)

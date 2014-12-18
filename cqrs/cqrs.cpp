@@ -4,7 +4,6 @@
 #include "cqrs/commit.h"
 #include "cqrs/copy_on_write.h"
 #include "cqrs/domain_event.h"
-#include "cqrs/event_dispatcher.h"
 #include "cqrs/exceptions.h"
 #include "cqrs/object_id.h"
 #include "cqrs/repository.h"

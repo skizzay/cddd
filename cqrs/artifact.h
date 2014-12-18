@@ -1,8 +1,10 @@
 #ifndef CDDD_CQRS_ARTIFACT_H__
 #define CDDD_CQRS_ARTIFACT_H__
 
-#include "cqrs/event_dispatcher.h"
+#include "cqrs/domain_event.h"
+#include "messaging/dispatcher.h"
 #include <deque>
+#include <sequence.h>
 
 
 namespace cddd {
@@ -63,10 +65,10 @@ public:
 
 protected:
    inline basic_artifact(size_type revision_ = 0,
-                         domain_event_dispatcher_type &&dispatcher_ = domain_event_dispatcher_type{},
+                         std::shared_ptr<domain_event_dispatcher_type> dispatcher_ = std::make_shared<domain_event_dispatcher_type>(),
                          domain_event_container_type &&events_ = domain_event_container_type{}) :
       artifact_version(revision_),
-      dispatcher(std::forward<domain_event_dispatcher_type>(dispatcher_)),
+      dispatcher(dispatcher_),
       pending_events(std::forward<domain_event_container_type>(events_)) {
    }
 
@@ -76,9 +78,12 @@ protected:
    basic_artifact(const basic_artifact &) = delete;
    basic_artifact &operator =(const basic_artifact &) = delete;
 
-   template<class Evt, class Fun>
-   inline void add_handler(Fun &&f) {
-      dispatcher.add_handler<Evt>(std::forward<Fun>(f));
+   template<class Fun>
+   inline void add_handler(Fun f) {
+      typedef messaging::message_from_argument<Fun> event_type;
+      static_assert(std::is_base_of<domain_event, event_type>{}(),
+                    "Handler must handle domain events.");
+      dispatcher->add_message_handler(std::move(f));
    }
 
 private:
@@ -88,7 +93,7 @@ private:
             pending_events.push_back(evt);
          }
          else {
-            dispatcher.dispatch(*evt);
+            dispatcher->dispatch_message(*evt);
          }
       }
    }
@@ -98,12 +103,12 @@ private:
    }
 
    size_type artifact_version;
-   domain_event_dispatcher_type dispatcher;
+   std::shared_ptr<domain_event_dispatcher_type> dispatcher;
    domain_event_container_type pending_events;
 };
 
 
-typedef basic_artifact<domain_event_dispatcher, std::deque<domain_event_ptr>> artifact;
+typedef basic_artifact<messaging::dispatcher<>, std::deque<domain_event_ptr>> artifact;
 
 }
 }

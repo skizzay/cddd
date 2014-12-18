@@ -81,13 +81,13 @@ public:
    typedef fake_event_collection::spy_type collection_spy;
 
    inline artifact_spy(std::shared_ptr<dispatcher_spy> ds, std::shared_ptr<collection_spy> cs) :
-      base_type(0, fake_dispatcher{ds}, fake_event_collection{cs})
+      base_type(0, std::make_shared<fake_dispatcher>(ds), fake_event_collection{cs})
    {
    }
 
-   template<class Evt, class Fun>
+   template<class Fun>
    inline void handle(Fun &&f) {
-      add_handler<Evt>(std::forward<Fun>(f));
+      add_handler(std::forward<Fun>(f));
    }
 };
 
@@ -173,10 +173,10 @@ TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not
 TEST_F(artifact_test, add_handler_registers_event_handler) {
    // Given
    auto target = create_target();
-   EXPECT_CALL(*dispatcher_spy, add_handler(_, _));
+   EXPECT_CALL(*dispatcher_spy, add_message_handler(_));
 
    // When
-   target.handle<fake_event>([](fake_event){});
+   target.handle([](fake_event){});
 
    // Then
    ASSERT_TRUE(Mock::VerifyAndClear(dispatcher_spy.get()));

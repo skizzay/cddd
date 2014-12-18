@@ -8,7 +8,6 @@ add_library(cqrs
       artifact_traits.h
       commit.h
       copy_on_write.h
-      event_dispatcher.h
       domain_event.h
       exceptions.h
       null_store.h

@@ -16,7 +16,7 @@ class basic_message_handler {};
 
 
 // TODO: Add support for custom allocation.
-template<class ErrorPolicy, class DispatchingTablePolicy=utils::use_multimap>
+template<class ErrorPolicy=return_error_code_on_handling_errors, class DispatchingTablePolicy=utils::use_multimap>
 class dispatcher final {
    typedef std::unique_ptr<details_::basic_message_handler> pointer;
 
@@ -49,7 +49,7 @@ public:
       };
 
       const message_type_id id{utils::type_id_generator::get_id_for_type<message_type>()};
-      bool handler_added = handlers.emplace(id, std::make_unique<message_handler_impl>(std::move(mh))).second;
+      bool handler_added = DispatchingTablePolicy::is_insertion_successful(handlers.emplace(id, std::make_unique<message_handler_impl>(std::move(mh))));
 
       return handler_added ? ErrorPolicy::success() : ErrorPolicy::failed_to_add_handler(id);
    }
@@ -70,14 +70,14 @@ public:
    }
 
    template<class MessageTranslator>
-   inline result_type add_message_translation(MessageTranslator mt) {
+   inline result_type add_message_translator(MessageTranslator mt) {
       typedef message_from_argument<MessageTranslator> message_type;
 
       return add_message_handler([this, translate=std::move(mt)](const message_type &m) { dispatch_message(translate(m)); });
    }
 
    template<class MessageTranslator, class TranslationVerifier>
-   inline result_type add_message_translation(MessageTranslator mt, TranslationVerifier tv) {
+   inline result_type add_message_translator(MessageTranslator mt, TranslationVerifier tv) {
       typedef message_from_argument<MessageTranslator> message_type;
 
       return add_message_handler([this, translate=std::move(mt)](const message_type &m) { dispatch_message(translate(m)); },
@@ -90,11 +90,11 @@ public:
       auto range = handlers.equal_range(id);
 
       if (range.first == range.second) {
-         return ErrorPolicy::handler_not_found(id);
+         return ErrorPolicy::no_handlers_found(id, m);
       }
 
-      for (auto i{range.first}; i != range.second; ++i) {
-         static_cast<message_handler<MessageType> &>(*i->second)->handle(m);
+      for (auto i = range.first; i != range.second; ++i) {
+         static_cast<message_handler<MessageType> &>(*i->second).handle(m);
       }
 
       return ErrorPolicy::success();

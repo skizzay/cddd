@@ -67,7 +67,19 @@ public:
             return "Unknown";
       }
    }
-} dispatching_error_category;
+};
+
+
+inline std::error_code make_error_code(dispatching_error ec) {
+   static dispatching_error_category_t singleton{};
+   return std::error_code(static_cast<int>(ec), singleton);
+}
+
+
+inline std::error_condition make_error_condition(dispatching_error ec) {
+   static dispatching_error_category_t singleton{};
+   return std::error_condition(static_cast<int>(ec), singleton);
+}
 
 
 struct return_error_code_on_handling_errors {
@@ -75,15 +87,15 @@ struct return_error_code_on_handling_errors {
 
    template<class MessageType>
    static inline std::error_code no_handlers_found(message_type_id, const MessageType &) noexcept {
-      return std::error_code{static_cast<int>(dispatching_error::no_handlers_found), dispatching_error_category};
+      return make_error_code(dispatching_error::no_handlers_found);
    }
 
    static inline std::error_code failed_to_add_handler(message_type_id) noexcept {
-      return std::error_code{static_cast<int>(dispatching_error::failed_to_add_handler), dispatching_error_category};
+      return make_error_code(dispatching_error::failed_to_add_handler);
    }
 
    static inline std::error_code success() noexcept {
-      return std::error_code{static_cast<int>(dispatching_error::none), dispatching_error_category};
+      return make_error_code(dispatching_error::none);
    }
 };
 
