@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
 project(cqrs)
 
-add_library(cqrs
+add_library(cqrs STATIC
       artifact.h
       artifact_store.h
       artifact_traits.h
@@ -19,6 +19,5 @@ add_library(cqrs
       store.h
       stream.h
       traits.h
-      cqrs.cpp
       object_id.cpp
    )
