@@ -34,20 +34,20 @@ public:
    }
    virtual ~fake_stream() = default;
 
-   virtual std::experimental::sequence<T> load(std::size_t min_version, std::size_t max_version) const final override {
+   virtual sequencing::sequence<T> load(std::size_t min_version, std::size_t max_version) const final override {
       spy->load(min_version, max_version);
-      return std::experimental::from(committed_values_script)
-               >> std::experimental::where([=](T t) { return min_version <= t->version() && t->version() <= max_version; });
+      return sequencing::from(committed_values_script)
+               | sequencing::where([=](T t) { return min_version <= t->version() && t->version() <= max_version; });
    }
 
-   virtual void save(std::experimental::sequence<T> values) final override {
+   virtual void save(sequencing::sequence<T> values) final override {
       spy->save();
       std::copy(values.begin(), values.end(), std::back_inserter(committed_values_script));
    }
    
    virtual commit<T> persist() final override {
       spy->persist();
-      return commit<T>{commitID, sequenceID, version, sequenceNumber, std::experimental::from(committed_values_script), time_of_commit};
+      return commit<T>{commitID, sequenceID, version, sequenceNumber, sequencing::from(committed_values_script), time_of_commit};
    }
 
    object_id commitID;

@@ -36,7 +36,7 @@ public:
 
 class fake_entity {
 public:
-   typedef std::experimental::sequence<std::shared_ptr<domain_event>> event_sequence;
+   typedef sequencing::sequence<std::shared_ptr<domain_event>> event_sequence;
 
    inline object_id id() const {
       spy->id();
@@ -55,7 +55,7 @@ public:
 
    inline event_sequence uncommitted_events() const {
       spy->uncommitted_events();
-      return std::experimental::from(pending);
+      return sequencing::from(pending);
    }
 
    void clear_uncommitted_events() {

@@ -25,7 +25,7 @@ public:
    }
 
    inline domain_event_sequence uncommitted_events() const {
-      return std::experimental::from(std::begin(pending_events), std::end(pending_events));
+      return sequencing::from(std::begin(pending_events), std::end(pending_events));
    }
 
    inline bool has_uncommitted_events() const {
