@@ -113,11 +113,14 @@ public:
 };
 
 
-TEST_F(artifact_test, apply_change_does_not_invoke_dispatcher_to_dispatch_events) {
+TEST_F(artifact_test, apply_change_does_invoke_dispatcher_to_dispatch_events) {
    // Given
    use_nice(collection_spy);
+   use_strict(dispatcher_spy);
    auto target = create_target();
    fake_event event;
+   EXPECT_CALL(*dispatcher_spy, dispatch_message(_)).
+      Times(1);
 
    // When
    target.apply_change(std::move(event));
@@ -127,12 +130,15 @@ TEST_F(artifact_test, apply_change_does_not_invoke_dispatcher_to_dispatch_events
 }
 
 
-TEST_F(artifact_test, apply_change_with_allocator_does_not_invoke_dispatcher_to_dispatch_events) {
+TEST_F(artifact_test, apply_change_with_allocator_does_invoke_dispatcher_to_dispatch_events) {
    // Given
    use_nice(collection_spy);
+   use_strict(dispatcher_spy);
    auto target = create_target();
    fake_event event;
    std::allocator<fake_event> allocator;
+   EXPECT_CALL(*dispatcher_spy, dispatch_message(_)).
+      Times(1);
 
    // When
    target.apply_change(allocator, std::move(event));
@@ -197,6 +203,7 @@ TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
 
 TEST_F(artifact_test, has_uncommitted_events_returns_true_after_applying_an_event) {
    // Given
+   use_nice(dispatcher_spy);
    use_strict(collection_spy);
    EXPECT_CALL(*collection_spy, push_back(_)).Times(1);
    EXPECT_CALL(*collection_spy, size()).WillOnce(Return(0));
@@ -217,6 +224,8 @@ TEST_F(artifact_test, has_uncommitted_events_returns_true_after_applying_an_even
 
 TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_with_a_single_event) {
    // Given
+   use_nice(dispatcher_spy);
+   use_nice(collection_spy);
    auto target = create_target();
    fake_event e;
    target.apply_change(std::move(e));
@@ -231,6 +240,7 @@ TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_with_a_sing
 
 TEST_F(artifact_test, has_uncommitted_events_returns_false_after_applying_an_event_and_clearing) {
    // Given
+   use_nice(dispatcher_spy);
    use_strict(collection_spy);
    EXPECT_CALL(*collection_spy, push_back(_)).Times(1);
    EXPECT_CALL(*collection_spy, size()).WillOnce(Return(0));
@@ -253,6 +263,8 @@ TEST_F(artifact_test, has_uncommitted_events_returns_false_after_applying_an_eve
 
 TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_without_any_events_after_clearing) {
    // Given
+   use_nice(dispatcher_spy);
+   use_nice(collection_spy);
    auto target = create_target();
    fake_event e;
    target.apply_change(std::move(e));

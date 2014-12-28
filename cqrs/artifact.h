@@ -92,9 +92,7 @@ private:
          if (is_new) {
             pending_events.push_back(evt);
          }
-         else {
-            dispatcher->dispatch_message(*evt);
-         }
+         dispatcher->dispatch_message(*evt);
       }
    }
 
