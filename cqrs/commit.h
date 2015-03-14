@@ -14,7 +14,7 @@ public:
    typedef cddd::event_engine::clock::time_point time_point;
    typedef sequencing::sequence<T> sequence_type;
 
-   explicit inline commit(object_id cid_, object_id sid_, std::size_t version, std::size_t seq,
+   explicit inline commit(const boost::uuids::uuid &cid_, const boost::uuids::uuid &sid_, std::size_t version, std::size_t seq,
                           sequence_type values, time_point ts_) :
       cid(cid_),
       sid(sid_),
@@ -22,10 +22,10 @@ public:
       sequence(seq),
       commit_values(std::move(values)),
       ts(ts_) {
-      if (commit_id().is_null()) {
+      if (commit_id().is_nil()) {
          throw null_id_exception("commit id");
       }
-      else if (stream_id().is_null()) {
+      else if (stream_id().is_nil()) {
          throw null_id_exception("stream id");
       }
       else if (stream_revision() == 0) {
@@ -39,11 +39,11 @@ public:
       }
    }
 
-   inline const object_id &commit_id() const {
+   inline const boost::uuids::uuid &commit_id() const {
       return cid;
    }
 
-   inline const object_id &stream_id() const {
+   inline const boost::uuids::uuid &stream_id() const {
       return sid;
    }
 
@@ -64,8 +64,8 @@ public:
    }
 
 private:
-   object_id cid;
-   object_id sid;
+   boost::uuids::uuid cid;
+   boost::uuids::uuid sid;
    std::size_t revision;
    std::size_t sequence;
    sequence_type commit_values;

@@ -13,8 +13,8 @@ class fake_source : public source<T> {
 public:
    class spy_type {
    public:
-      MOCK_CONST_METHOD1(has, bool(object_id));
-      MOCK_CONST_METHOD2_T(get, std::shared_ptr<stream<T>>(object_id, std::size_t));
+      MOCK_CONST_METHOD1(has, bool(const boost::uuids::uuid &));
+      MOCK_CONST_METHOD2_T(get, std::shared_ptr<stream<T>>(const boost::uuids::uuid &, std::size_t));
       MOCK_METHOD1_T(put, void(std::shared_ptr<stream<T>>));
    };
 
@@ -22,11 +22,11 @@ public:
 
    virtual ~fake_source() = default;
 
-   virtual bool has(object_id id) const final override {
+   virtual bool has(const boost::uuids::uuid &id) const final override {
       return spy->has(id);
    }
 
-   virtual std::shared_ptr<stream<T>> get(object_id id, std::size_t version) const final override {
+   virtual std::shared_ptr<stream<T>> get(const boost::uuids::uuid &id, std::size_t version) const final override {
       return spy->get(id, version);
    }
 

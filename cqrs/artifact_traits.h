@@ -12,10 +12,10 @@ class artifact_traits {
 public:
    typedef T artifact_type;
    typedef F factory_type;
-   typedef decltype(std::declval<F>()(std::declval<object_id>())) pointer;
+   typedef decltype(std::declval<F>()(std::declval<const boost::uuids::uuid &>())) pointer;
    struct memento_type {};
 
-   static inline object_id id_of(const T &object) {
+   static inline const boost::uuids::uuid & id_of(const T &object) {
       return object.id();
    }
 
@@ -46,13 +46,13 @@ public:
       if (object == nullptr) {
          throw null_pointer_exception("object");
       }
-      else if (id_of(*object).is_null()) {
+      else if (id_of(*object).is_nil()) {
          throw null_id_exception("object->id()");
       }
    }
 
-   static inline void validate_object_id(const object_id &id) {
-      if (id.is_null()) {
+   static inline void validate_object_id(const boost::uuids::uuid &id) {
+      if (id.is_nil()) {
          throw null_id_exception("id");
       }
    }

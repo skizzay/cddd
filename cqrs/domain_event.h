@@ -31,8 +31,8 @@ namespace details_ {
 template<class Evt>
 class domain_event_wrapper : public domain_event {
 public:
-   explicit constexpr domain_event_wrapper(Evt e, std::size_t ver_) :
-      evt(std::move(e)),
+   explicit constexpr domain_event_wrapper(Evt &&e, std::size_t ver_) :
+      evt(std::forward<Evt>(e)),
       ver(ver_)
    {
    }

@@ -12,11 +12,11 @@ class null_store : public store<T> {
 public:
    virtual ~null_store() = default;
 
-   virtual bool has(object_id) const {
+   virtual bool has(const boost::uuids::uuid &) const {
       return false;
    }
 
-   virtual T get(object_id id, std::size_t) const {
+   virtual T get(const boost::uuids::uuid &id, std::size_t) const {
       throw aggregate_not_found(id);
    }
 

@@ -1,8 +1,8 @@
 #ifndef CDDD_CQRS_STORE_H__
 #define CDDD_CQRS_STORE_H__
 
-#include "cqrs/object_id.h"
 #include "sequence.h"
+#include <boost/uuid/uuid.hpp>
 
 namespace cddd {
 namespace cqrs {
@@ -14,11 +14,11 @@ public:
 
    virtual ~store() = default;
 
-   virtual bool has(object_id id) const = 0;
-   T get(object_id id) const {
+   virtual bool has(const boost::uuids::uuid &id) const = 0;
+   T get(const boost::uuids::uuid &id) const {
       return get(id, std::numeric_limits<std::size_t>::max());
    }
-   virtual T get(object_id id, std::size_t version) const = 0;
+   virtual T get(const boost::uuids::uuid &id, std::size_t version) const = 0;
    virtual void put(std::decay_t<T> object) = 0;
 };
 

@@ -50,8 +50,8 @@ public:
       return commit<T>{commitID, sequenceID, version, sequenceNumber, sequencing::from(committed_values_script), time_of_commit};
    }
 
-   object_id commitID;
-   object_id sequenceID;
+   boost::uuids::uuid commitID;
+   boost::uuids::uuid sequenceID;
    std::size_t version;
    std::size_t sequenceNumber;
    typename commit<T>::time_point time_of_commit;
@@ -65,10 +65,10 @@ class fake_stream_factory {
 public:
    class spy_type {
    public:
-      MOCK_CONST_METHOD1_T(create_fake_stream, std::shared_ptr<fake_stream<T>>(object_id));
+      MOCK_CONST_METHOD1_T(create_fake_stream, std::shared_ptr<fake_stream<T>>(const boost::uuids::uuid &));
    };
 
-   inline std::shared_ptr<fake_stream<T>> operator()(object_id id) const {
+   inline std::shared_ptr<fake_stream<T>> operator()(const boost::uuids::uuid &id) const {
       return spy->create_fake_stream(id);
    }
 

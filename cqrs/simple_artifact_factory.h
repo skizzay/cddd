@@ -17,7 +17,7 @@ public:
    {
    }
 
-   pointer operator()(object_id id) const {
+   pointer operator()(const boost::uuids::uuid &id) const {
       return PointerTraits::make_pointer(alloc, std::move(id));
    }
 

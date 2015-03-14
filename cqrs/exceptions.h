@@ -1,7 +1,8 @@
 #ifndef CDDD_CQRS_EXCEPTIONS_H__
 #define CDDD_CQRS_EXCEPTIONS_H__
 
-#include "cqrs/object_id.h"
+#include <boost/uuid/uuid.hpp>
+#include <sstream>
 #include <stdexcept>
 
 
@@ -32,9 +33,10 @@ public:
 
 class aggregate_not_found : public std::out_of_range {
 public:
-   explicit aggregate_not_found(const object_id &id) :
-      std::out_of_range("aggregate '" + id.to_string() + "' was not found.")
+   explicit aggregate_not_found(const boost::uuids::uuid &id) :
+      std::out_of_range("aggregate_not_found")
    {
+      (void)id;
    }
    virtual ~aggregate_not_found() = default;
 };

@@ -1,6 +1,7 @@
 #include "cqrs/artifact_store.h"
 #include "cqrs/fakes/fake_source.h"
 #include "cqrs/fakes/fake_stream.h"
+#include <boost/uuid/uuid_generators.hpp>
 #include <gmock/gmock.h>
 #include <deque>
 
@@ -33,12 +34,14 @@ public:
    MOCK_METHOD0(load_from_history, void());
 };
 
+boost::uuids::random_generator gen_id;
+
 
 class fake_entity {
 public:
    typedef sequencing::sequence<std::shared_ptr<domain_event>> event_sequence;
 
-   inline object_id id() const {
+   inline const boost::uuids::uuid & id() const {
       spy->id();
       return id_value;
    }
@@ -67,7 +70,7 @@ public:
       spy->load_from_history();
    }
 
-   object_id id_value = object_id::create(1);
+   boost::uuids::uuid id_value = gen_id();
    std::size_t entity_revision = 0;
    std::deque<domain_event_ptr> pending;
    std::shared_ptr<fake_entity_spy> spy = std::make_shared<fake_entity_spy>();
@@ -76,7 +79,7 @@ public:
 
 class entity_factory_spy {
 public:
-   MOCK_CONST_METHOD1(create_fake_entity, std::shared_ptr<fake_entity>(object_id));
+   MOCK_CONST_METHOD1(create_fake_entity, std::shared_ptr<fake_entity>(const boost::uuids::uuid &));
 };
 
 
@@ -87,7 +90,7 @@ public:
    {
    }
 
-   inline std::shared_ptr<fake_entity> operator()(object_id id) const {
+   inline std::shared_ptr<fake_entity> operator()(const boost::uuids::uuid &id) const {
       return spy->create_fake_entity(id);
    }
 
@@ -100,11 +103,11 @@ typedef artifact_store<fake_entity, fake_event_stream_factory, fake_entity_facto
 
 class artifact_store_test : public ::testing::Test {
    inline void set_default_behavior() {
-      ON_CALL(*events_provider->spy, get(An<object_id>(), An<std::size_t>()))
+      ON_CALL(*events_provider->spy, get(An<const boost::uuids::uuid &>(), An<std::size_t>()))
          .WillByDefault(Return(events_stream));
-      ON_CALL(*stream_factory->spy, create_fake_stream(An<object_id>()))
+      ON_CALL(*stream_factory->spy, create_fake_stream(An<const boost::uuids::uuid &>()))
          .WillByDefault(Return(events_stream));
-      ON_CALL(*entity_factory->spy, create_fake_entity(An<object_id>()))
+      ON_CALL(*entity_factory->spy, create_fake_entity(An<const boost::uuids::uuid &>()))
          .WillByDefault(Return(entity));
    }
 
@@ -148,7 +151,7 @@ TEST_F(artifact_store_test, has_returns_false_when_object_id_is_null) {
    auto target = create_target();
 
    // When
-   bool actual = target->has(object_id{});
+   bool actual = target->has(boost::uuids::nil_uuid());
 
    // Then
    ASSERT_FALSE(actual);
@@ -158,11 +161,11 @@ TEST_F(artifact_store_test, has_returns_false_when_object_id_is_null) {
 TEST_F(artifact_store_test, has_returns_false_when_events_provider_does_not_have_artifact) {
    // Given
    auto target = create_target();
-   EXPECT_CALL(*events_provider->spy, has(An<object_id>()))
+   EXPECT_CALL(*events_provider->spy, has(An<const boost::uuids::uuid &>()))
       .WillOnce(Return(false));
 
    // When
-   bool actual = target->has(object_id::create(1));
+   bool actual = target->has(gen_id());
 
    // Then
    ASSERT_FALSE(actual);
@@ -172,11 +175,11 @@ TEST_F(artifact_store_test, has_returns_false_when_events_provider_does_not_have
 TEST_F(artifact_store_test, has_returns_true_when_events_provider_does_have_artifact) {
    // Given
    auto target = create_target();
-   EXPECT_CALL(*events_provider->spy, has(An<object_id>()))
+   EXPECT_CALL(*events_provider->spy, has(An<const boost::uuids::uuid &>()))
       .WillOnce(Return(true));
 
    // When
-   bool actual = target->has(object_id::create(1));
+   bool actual = target->has(gen_id());
 
    // Then
    ASSERT_TRUE(actual);
@@ -187,7 +190,7 @@ TEST_F(artifact_store_test, put_throws_null_id_exception_when_object_id_is_null)
    // Given
    use_strict(entity->spy);
    auto target = create_target();
-   entity->id_value = object_id{};
+   entity->id_value = boost::uuids::nil_uuid();
    EXPECT_CALL(*entity->spy, id());
 
    // When
@@ -307,21 +310,19 @@ TEST_F(artifact_store_test, put_will_retrieve_a_stream_and_save_the_stream_when_
 TEST_F(artifact_store_test, get_will_throw_null_id_exception_when_object_id_is_null) {
    // Given
    auto target = create_target();
-   object_id null_id;
 
    // When
-   ASSERT_THROW(target->get(null_id), null_id_exception);
+   ASSERT_THROW(target->get(boost::uuids::nil_uuid()), null_id_exception);
 }
 
 
 TEST_F(artifact_store_test, get_with_version_will_throw_null_id_exception_when_object_id_is_null) {
    // Given
    auto target = create_target();
-   object_id null_id;
    std::size_t version = static_cast<std::size_t>(std::rand());
 
    // When
-   ASSERT_THROW(target->get(null_id, version), null_id_exception);
+   ASSERT_THROW(target->get(boost::uuids::nil_uuid(), version), null_id_exception);
 }
 
 
@@ -330,7 +331,7 @@ TEST_F(artifact_store_test, get_will_load_event_sequence_for_all_events) {
    use_nice(entity_factory->spy);
    use_nice(entity->spy);
    auto target = create_target();
-   object_id id = object_id::create(1);
+   boost::uuids::uuid id = gen_id();
    std::size_t version = static_cast<std::size_t>(std::rand());
    EXPECT_CALL(*events_provider->spy, get(id, std::numeric_limits<std::size_t>::max()))
       .WillOnce(Return(events_stream));
@@ -351,7 +352,7 @@ TEST_F(artifact_store_test, get_with_version_will_load_event_sequence_for_reques
    use_nice(entity_factory->spy);
    use_nice(entity->spy);
    auto target = create_target();
-   object_id id = object_id::create(1);
+   boost::uuids::uuid id = gen_id();
    EXPECT_CALL(*events_provider->spy, get(id, std::numeric_limits<std::size_t>::max()))
       .WillOnce(Return(events_stream));
    EXPECT_CALL(*events_stream->spy, load(1, std::numeric_limits<std::size_t>::max()))
@@ -372,7 +373,7 @@ TEST_F(artifact_store_test, get_invoke_the_artifact_factory_to_create_artifact_i
    use_nice(events_stream->spy);
    use_nice(entity->spy);
    auto target = create_target();
-   object_id id = object_id::create(1);
+   boost::uuids::uuid id = gen_id();
    EXPECT_CALL(*entity_factory->spy, create_fake_entity(id))
       .WillOnce(Return(entity));
 
@@ -391,7 +392,7 @@ TEST_F(artifact_store_test, get_loads_the_history_onto_the_entity_after_instanti
    use_nice(events_provider->spy);
    std::size_t version = static_cast<std::size_t>(std::rand());
    auto target = create_target();
-   object_id id = object_id::create(1);
+   boost::uuids::uuid id = gen_id();
    EXPECT_CALL(*entity->spy, load_from_history())
       .Times(1);
    EXPECT_CALL(*entity->spy, revision())

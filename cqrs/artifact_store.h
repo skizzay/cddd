@@ -39,8 +39,8 @@ public:
    artifact_store &operator =(const artifact_store &) = delete;
    artifact_store &operator =(artifact_store &&) = default;
 
-   virtual bool has(object_id id) const final override {
-      return !id.is_null() && events_provider->has(id);
+   virtual bool has(const boost::uuids::uuid &id) const final override {
+      return !id.is_nil() && events_provider->has(id);
    }
 
    virtual void put(pointer object) final override {
@@ -51,7 +51,7 @@ public:
       }
    }
 
-   virtual pointer get(object_id id, std::size_t version) const override {
+   virtual pointer get(const boost::uuids::uuid &id, std::size_t version) const override {
       traits_type::validate_object_id(id);
       return load_object(id, version);
    }
@@ -64,15 +64,15 @@ private:
       traits_type::clear_uncommitted_events(object);
    }
 
-   inline std::shared_ptr<domain_event_stream> get_event_stream(object_id id) {
+   inline std::shared_ptr<domain_event_stream> get_event_stream(const boost::uuids::uuid &id) {
       return has(id) ? events_provider->get(id) : create_stream(id);
    }
 
-   inline domain_event_sequence load_events(object_id id, std::size_t min_revision, std::size_t max_revision) const {
+   inline domain_event_sequence load_events(const boost::uuids::uuid &id, std::size_t min_revision, std::size_t max_revision) const {
       return events_provider->get(id)->load(min_revision, max_revision);
    }
 
-   inline auto load_object(object_id id, std::size_t revision) const {
+   inline auto load_object(const boost::uuids::uuid &id, std::size_t revision) const {
       pointer object = create_artifact(id);
       traits_type::apply_memento_to_object(*object, revision, *memento_provider);
       std::size_t object_revision = traits_type::revision_of(*object);
