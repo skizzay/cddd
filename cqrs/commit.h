@@ -2,7 +2,7 @@
 #define CDDD_CQRS_COMMIT_H__
 
 #include "cqrs/exceptions.h"
-#include "event_engine/clock.h"
+//#include "event_engine/clock.h"
 #include <sequence.h>
 
 namespace cddd {
@@ -11,7 +11,8 @@ namespace cqrs {
 template<class T>
 class commit {
 public:
-   typedef cddd::event_engine::clock::time_point time_point;
+   //typedef cddd::event_engine::clock::time_point time_point;
+   typedef int time_point;
    typedef sequencing::sequence<T> sequence_type;
 
    explicit inline commit(const boost::uuids::uuid &cid_, const boost::uuids::uuid &sid_, std::size_t version, std::size_t seq,
