@@ -2,8 +2,8 @@
 #define CDDD_CQRS_COMMIT_H__
 
 #include "cqrs/exceptions.h"
-//#include "event_engine/clock.h"
 #include <sequence.h>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 
 namespace cddd {
 namespace cqrs {
@@ -11,32 +11,35 @@ namespace cqrs {
 template<class T>
 class commit {
 public:
-   //typedef cddd::event_engine::clock::time_point time_point;
-   typedef int time_point;
+   typedef boost::posix_time::ptime timestamp_type;
    typedef sequencing::sequence<T> sequence_type;
 
    explicit inline commit(const boost::uuids::uuid &cid_, const boost::uuids::uuid &sid_, std::size_t version, std::size_t seq,
-                          sequence_type values, time_point ts_) :
+                          sequence_type values, timestamp_type ts_) :
       cid(cid_),
       sid(sid_),
       revision(version),
       sequence(seq),
       commit_values(std::move(values)),
-      ts(ts_) {
+      ts(ts_)
+   {
       if (commit_id().is_nil()) {
-         throw null_id_exception("commit id");
+         throw null_id_exception{"commit id"};
       }
       else if (stream_id().is_nil()) {
-         throw null_id_exception("stream id");
+         throw null_id_exception{"stream id"};
       }
       else if (stream_revision() == 0) {
-         throw std::out_of_range("stream revision cannot be 0 (zero).");
+         throw std::out_of_range{"stream revision cannot be 0 (zero)."};
       }
       else if (commit_sequence() == 0) {
-         throw std::out_of_range("commit sequence cannot be 0 (zero).");
+         throw std::out_of_range{"commit sequence cannot be 0 (zero)."};
       }
       else if (events().empty()) {
-         throw std::invalid_argument("events cannot be empty.");
+         throw std::invalid_argument{"events cannot be empty."};
+      }
+      else if (timestamp().is_not_a_date_time()) {
+         throw std::invalid_argument{"timestamp is invalid."};
       }
    }
 
@@ -60,7 +63,7 @@ public:
       return commit_values;
    }
 
-   inline time_point timestamp() const {
+   inline const timestamp_type &timestamp() const {
       return ts;
    }
 
@@ -70,7 +73,7 @@ private:
    std::size_t revision;
    std::size_t sequence;
    sequence_type commit_values;
-   time_point ts;
+   timestamp_type ts;
 };
 
 }

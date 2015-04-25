@@ -54,7 +54,7 @@ public:
    boost::uuids::uuid sequenceID;
    std::size_t version;
    std::size_t sequenceNumber;
-   typename commit<T>::time_point time_of_commit;
+   typename commit<T>::timestamp_type time_of_commit;
    std::deque<T> committed_values_script;
    std::shared_ptr<spy_type> spy;
 };

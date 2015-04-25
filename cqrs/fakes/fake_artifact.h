@@ -15,8 +15,7 @@ public:
    explicit inline fake_artifact(std::shared_ptr<event_dispatcher> d) :
       artifact(d)
    {
-      add_handler<fake_event>(std::bind(&fake_artifact::on_fake_event, this,
-                              std::placeholders::_1));
+      add_handler([this](const fake_event &e) { on_fake_event(e); });
    }
    virtual ~fake_artifact() = default;
 
