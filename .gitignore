@@ -26,18 +26,17 @@ lib
 *.exe
 *.out
 *.app
-bin
-
-# Makefiles get generated
-Makefile
-
-# Third-party linked areas
-#sequence
 
 # Specific IDE settings
 .kdev4
 *.kdev4
 .kdev_include_paths
 
-# CMake build directory
-build
+# BiiCode outputs
+bii/build
+bii/deps
+bii/cmake
+bii/settings.bii
+bii/policies.bii
+bii/.hive.db
+bin

@@ -1,13 +1,16 @@
 #ifndef CDDD_MESSAGING_MESSAGE_H__
 #define CDDD_MESSAGING_MESSAGE_H__
 
-#include "messaging/header.h"
+//#include "messaging/header.h"
 #include <algorithm>
 #include <deque>
+#include <string>
 #include <tuple>
 
 namespace cddd {
 namespace messaging {
+
+typedef std::tuple<std::string, std::string> header;
 
 class message {
 public:

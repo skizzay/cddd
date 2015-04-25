@@ -191,13 +191,14 @@ TEST_F(artifact_test, add_handler_registers_event_handler) {
 
 TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
    // Given
+   size_t expected = 0;
    auto target = create_target();
 
    // When
    auto actual = target.revision();
 
    // Then
-   ASSERT_EQ(0, actual);
+   ASSERT_EQ(expected, actual);
 }
 
 
@@ -226,6 +227,7 @@ TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_with_a_sing
    // Given
    use_nice(dispatcher_spy);
    use_nice(collection_spy);
+   size_t expected = 1;
    auto target = create_target();
    fake_event e;
    target.apply_change(std::move(e));
@@ -234,7 +236,7 @@ TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_with_a_sing
    auto actual = target.uncommitted_events() | sequencing::count();
 
    // Then
-   ASSERT_EQ(1, actual);
+   ASSERT_EQ(expected, actual);
 }
 
 
@@ -265,6 +267,7 @@ TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_without_any
    // Given
    use_nice(dispatcher_spy);
    use_nice(collection_spy);
+   size_t expected = 0;
    auto target = create_target();
    fake_event e;
    target.apply_change(std::move(e));
@@ -274,7 +277,7 @@ TEST_F(artifact_test, DISABLED_uncommitted_events_returns_a_sequence_without_any
    auto actual = target.uncommitted_events() | sequencing::count();
 
    // Then
-   ASSERT_EQ(0, actual);
+   ASSERT_EQ(expected, actual);
 }
 
 }
