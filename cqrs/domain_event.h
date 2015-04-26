@@ -26,18 +26,16 @@ typedef std::shared_ptr<domain_event> domain_event_ptr;
 typedef sequencing::sequence<domain_event_ptr> domain_event_sequence;
 
 
-namespace details_ {
-
 template<class Evt>
-class domain_event_wrapper : public domain_event {
+class basic_domain_event final : public domain_event {
 public:
-   explicit constexpr domain_event_wrapper(Evt &&e, std::size_t ver_) :
+   explicit constexpr basic_domain_event(Evt &&e, std::size_t ver_) :
       evt(std::forward<Evt>(e)),
       ver(ver_)
    {
    }
 
-   virtual ~domain_event_wrapper() {}
+   virtual ~basic_domain_event() final {}
 
    virtual std::type_index type() const final override {
       return typeid(Evt);
@@ -47,13 +45,14 @@ public:
       return ver;
    }
 
-   const Evt evt;
+   constexpr const Evt & event() const {
+      return evt;
+   }
 
 private:
+   const Evt evt;
    const std::size_t ver;
 };
-
-}
 
 }
 }

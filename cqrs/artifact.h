@@ -53,13 +53,13 @@ public:
 
    template<class Evt>
    inline void apply_change(Evt && e) {
-      auto ptr = std::make_shared<details_::domain_event_wrapper<Evt>>(std::forward<Evt>(e), next_revision());
+      auto ptr = std::make_shared<basic_domain_event<Evt>>(std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<domain_event>(ptr));
    }
 
    template<class EvtAlloc, class Evt>
    inline void apply_change(const EvtAlloc &alloc, Evt && e) {
-      auto ptr = std::allocate_shared<details_::domain_event_wrapper<Evt>>(alloc, std::forward<Evt>(e), next_revision());
+      auto ptr = std::allocate_shared<basic_domain_event<Evt>>(alloc, std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<domain_event>(ptr));
    }
 

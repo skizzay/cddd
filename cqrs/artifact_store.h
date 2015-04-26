@@ -14,6 +14,7 @@ template<class ArtifactType, class StreamFactory, class ArtifactFactory=simple_a
 class artifact_store : public store<typename Traits::pointer> {
 public:
    typedef Traits traits_type;
+   typedef boost::uuids::uuid key_type;
    typedef typename traits_type::artifact_type value_type;
    typedef typename traits_type::pointer pointer;
    typedef typename traits_type::memento_type memento_type;
@@ -39,7 +40,7 @@ public:
    artifact_store &operator =(const artifact_store &) = delete;
    artifact_store &operator =(artifact_store &&) = default;
 
-   virtual bool has(const boost::uuids::uuid &id) const final override {
+   virtual bool has(const key_type &id) const final override {
       return !id.is_nil() && events_provider->has(id);
    }
 
@@ -51,7 +52,7 @@ public:
       }
    }
 
-   virtual pointer get(const boost::uuids::uuid &id, std::size_t version) const override {
+   virtual pointer get(const key_type &id, std::size_t version) const override {
       traits_type::validate_object_id(id);
       return load_object(id, version);
    }
@@ -64,15 +65,15 @@ private:
       traits_type::clear_uncommitted_events(object);
    }
 
-   inline std::shared_ptr<domain_event_stream> get_event_stream(const boost::uuids::uuid &id) {
+   inline std::shared_ptr<domain_event_stream> get_event_stream(const key_type &id) {
       return has(id) ? events_provider->get(id) : create_stream(id);
    }
 
-   inline domain_event_sequence load_events(const boost::uuids::uuid &id, std::size_t min_revision, std::size_t max_revision) const {
+   inline domain_event_sequence load_events(const key_type &id, std::size_t min_revision, std::size_t max_revision) const {
       return events_provider->get(id)->load(min_revision, max_revision);
    }
 
-   inline auto load_object(const boost::uuids::uuid &id, std::size_t revision) const {
+   inline auto load_object(const key_type &id, std::size_t revision) const {
       pointer object = create_artifact(id);
       traits_type::apply_memento_to_object(*object, revision, *memento_provider);
       std::size_t object_revision = traits_type::revision_of(*object);
