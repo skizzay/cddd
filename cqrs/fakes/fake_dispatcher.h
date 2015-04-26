@@ -28,7 +28,7 @@ public:
    inline void add_message_handler(Fun f) {
       typedef messaging::message_from_argument<Fun> event_type;
       domain_event_handler closure{[f=std::forward<Fun>(f)](const domain_event &e) {
-         f(static_cast<const details_::domain_event_wrapper<event_type>&>(e).evt);
+         f(static_cast<const basic_domain_event<event_type>&>(e).event());
       }};
       spy->add_message_handler(std::move(closure));
    }
