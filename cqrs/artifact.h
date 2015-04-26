@@ -51,23 +51,16 @@ public:
       apply_change(evt, true);
    }
 
-   template<class Evt>
-   inline void apply_change(Evt && e) {
-      auto ptr = std::make_shared<basic_domain_event<Evt>>(std::forward<Evt>(e), next_revision());
-      apply_change(std::static_pointer_cast<domain_event>(ptr));
-   }
-
-   template<class EvtAlloc, class Evt>
-   inline void apply_change(const EvtAlloc &alloc, Evt && e) {
+   template<class Evt, class Alloc=std::allocator<Evt>>
+   inline void apply_change(Evt && e, const Alloc &alloc={}) {
       auto ptr = std::allocate_shared<basic_domain_event<Evt>>(alloc, std::forward<Evt>(e), next_revision());
       apply_change(std::static_pointer_cast<domain_event>(ptr));
    }
 
 protected:
-   inline basic_artifact(size_type revision_ = 0,
-                         std::shared_ptr<domain_event_dispatcher_type> dispatcher_ = std::make_shared<domain_event_dispatcher_type>(),
+   inline basic_artifact(std::shared_ptr<domain_event_dispatcher_type> dispatcher_ = std::make_shared<domain_event_dispatcher_type>(),
                          domain_event_container_type &&events_ = domain_event_container_type{}) :
-      artifact_version(revision_),
+      artifact_version(0),
       dispatcher(dispatcher_),
       pending_events(std::forward<domain_event_container_type>(events_)) {
    }
@@ -79,11 +72,32 @@ protected:
    basic_artifact &operator =(const basic_artifact &) = delete;
 
    template<class Fun>
-   inline void add_handler(Fun f) {
-      typedef messaging::message_from_argument<Fun> event_type;
-      static_assert(std::is_base_of<domain_event, event_type>{}(),
-                    "Handler must handle domain events.");
+   inline std::enable_if_t<utils::function_traits<Fun>::arity == 1 &&
+                           std::is_base_of<domain_event, messaging::message_from_argument<Fun>>::value> add_handler(Fun f) {
       dispatcher->add_message_handler(std::move(f));
+   }
+
+   template<class Fun>
+   inline std::enable_if_t<utils::function_traits<Fun>::arity == 1 &&
+                           !std::is_base_of<domain_event, messaging::message_from_argument<Fun>>::value> add_handler(Fun f) {
+      typedef messaging::message_from_argument<Fun> event_type;
+      add_handler([f] (const basic_domain_event<event_type> &evt) {
+            f(evt.event());
+         });
+   }
+
+   template<class Fun>
+   inline std::enable_if_t<utils::function_traits<Fun>::arity == 2> add_handle(Fun f) {
+      typedef messaging::message_from_argument<Fun> event_type;
+      static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+                    "Handler's second argument must be size_t to get version.");
+      add_handler([f] (const basic_domain_event<event_type> &evt) {
+            f(evt.event(), evt.version());
+         });
+   }
+
+   inline void set_version(size_type version) {
+      artifact_version = version;
    }
 
 private:

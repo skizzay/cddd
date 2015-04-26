@@ -81,7 +81,7 @@ public:
    typedef fake_event_collection::spy_type collection_spy;
 
    inline artifact_spy(std::shared_ptr<dispatcher_spy> ds, std::shared_ptr<collection_spy> cs) :
-      base_type(0, std::make_shared<fake_dispatcher>(ds), fake_event_collection{cs})
+      base_type(std::make_shared<fake_dispatcher>(ds), fake_event_collection{cs})
    {
    }
 
@@ -124,24 +124,6 @@ TEST_F(artifact_test, apply_change_does_invoke_dispatcher_to_dispatch_events) {
 
    // When
    target.apply_change(std::move(event));
-
-   // Then
-   ASSERT_TRUE(Mock::VerifyAndClear(dispatcher_spy.get()));
-}
-
-
-TEST_F(artifact_test, apply_change_with_allocator_does_invoke_dispatcher_to_dispatch_events) {
-   // Given
-   use_nice(collection_spy);
-   use_strict(dispatcher_spy);
-   auto target = create_target();
-   fake_event event;
-   std::allocator<fake_event> allocator;
-   EXPECT_CALL(*dispatcher_spy, dispatch_message(_)).
-      Times(1);
-
-   // When
-   target.apply_change(allocator, std::move(event));
 
    // Then
    ASSERT_TRUE(Mock::VerifyAndClear(dispatcher_spy.get()));
