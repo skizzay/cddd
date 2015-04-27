@@ -18,8 +18,6 @@ public:
    typedef DomainEventContainer domain_event_container_type;
    typedef typename DomainEventContainer::size_type size_type;
 
-   basic_artifact() = delete;
-
    inline size_type revision() const {
       return artifact_version;
    }
@@ -58,11 +56,16 @@ public:
    }
 
 protected:
-   inline basic_artifact(std::shared_ptr<domain_event_dispatcher_type> dispatcher_ = std::make_shared<domain_event_dispatcher_type>(),
+   inline basic_artifact(std::shared_ptr<domain_event_dispatcher_type> dispatcher_,
                          domain_event_container_type &&events_ = domain_event_container_type{}) :
       artifact_version(0),
       dispatcher(dispatcher_),
       pending_events(std::forward<domain_event_container_type>(events_)) {
+   }
+
+   inline basic_artifact() :
+      basic_artifact{std::make_shared<domain_event_dispatcher_type>()}
+   {
    }
 
    basic_artifact(basic_artifact &&) = default;
