@@ -42,6 +42,12 @@ struct function_traits<R(Args...)> {
 
 
 template<class R, class C, class... Args>
+struct function_traits<R (C::*)(Args...)> : function_traits<R(Args...)> {
+   typedef C class_type;
+};
+
+
+template<class R, class C, class... Args>
 struct function_traits<R (C::*)(Args...) const> : function_traits<R(Args...)> {
    typedef std::add_const_t<C> class_type;
 };

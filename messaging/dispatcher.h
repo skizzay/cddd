@@ -45,7 +45,7 @@ public:
    typedef typename ErrorPolicy::result_type result_type;
 
    template<class MessageHandler, class MessageFilter>
-   inline std::enable_if_t<details_::is_translator<MessageHandler>{}(), result_type> add_message_handler(MessageHandler mh, MessageFilter mf) {
+   inline std::enable_if_t<details_::is_translator<MessageHandler>::value, result_type> add_message_handler(MessageHandler mh, MessageFilter mf) {
       typedef message_from_argument<MessageHandler> message_type;
       static_assert(std::is_convertible<message_type, message_from_argument<MessageFilter>>::value,
                     "Translation function must accept same argument as filter function.");
@@ -94,7 +94,7 @@ public:
    }
 
    template<class MessageHandler, class MessageFilter>
-   inline std::enable_if_t<!details_::is_translator<MessageHandler>{}(), result_type> add_message_handler(MessageHandler mh, MessageFilter mf) {
+   inline std::enable_if_t<!details_::is_translator<MessageHandler>::value, result_type> add_message_handler(MessageHandler mh, MessageFilter mf) {
       typedef message_from_argument<MessageHandler> message_type;
       static_assert(std::is_convertible<message_type, message_from_argument<MessageFilter>>::value,
                     "Handling function must accept same argument as filter function.");
