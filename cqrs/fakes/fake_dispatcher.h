@@ -24,13 +24,9 @@ public:
    fake_dispatcher(fake_dispatcher &&) = default;
    virtual ~fake_dispatcher() = default;
 
-   template<class Fun>
-   inline void add_message_handler(Fun f) {
-      typedef messaging::message_from_argument<Fun> event_type;
-      domain_event_handler closure{[f=std::forward<Fun>(f)](const domain_event &e) {
-         f(static_cast<const basic_domain_event<event_type>&>(e).event());
-      }};
-      spy->add_message_handler(std::move(closure));
+   template<class Fun, class Filter>
+   inline void add_message_handler(Fun, Filter) {
+      spy->add_message_handler(domain_event_handler{});
    }
 
    inline void dispatch_message(const domain_event &e) {

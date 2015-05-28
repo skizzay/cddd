@@ -1,20 +1,22 @@
 #ifndef CDDD_CQRS_DOMAIN_EVENT_H__
 #define CDDD_CQRS_DOMAIN_EVENT_H__
 
+#include "utils/type_id_generator.h"
 #include <sequence.h>
 #include <memory>
-#include <typeindex>
 #include <utility>
 
 
 namespace cddd {
 namespace cqrs {
 
+typedef utils::type_id_generator::type_id event_type_id;
+
 class domain_event {
 public:
    virtual ~domain_event() = 0;
 
-   virtual std::type_index type() const = 0;
+   virtual event_type_id type() const = 0;
    virtual std::size_t version() const = 0;
 };
 
@@ -37,8 +39,8 @@ public:
 
    virtual ~basic_domain_event() final {}
 
-   virtual std::type_index type() const final override {
-      return typeid(Evt);
+   virtual event_type_id type() const final override {
+      return utils::type_id_generator::get_id_for_type<Evt>();
    }
 
    virtual std::size_t version() const final override {

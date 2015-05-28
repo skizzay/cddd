@@ -45,7 +45,10 @@ protected:
 
 private:
    inline header_collection_type::const_iterator find_header_by_name(const header::name_type &name) const {
-      return std::find_if(std::begin(headers()), std::end(headers()), [&name](const header &h) { return name == h.name; });
+      using std::begin;
+      using std::end;
+      using std::find_if;
+      return find_if(begin(headers()), end(headers()), [&name](const header &h) { return name == h.name; });
    }
 
    header_collection_type hdrs;

@@ -14,8 +14,8 @@ struct fake_event final : domain_event {
    int i;
    char c[cache_line_size-(alignof(d) + alignof(i))];
 
-   virtual std::type_index type() const final override {
-      return typeid(*this);
+   virtual event_type_id type() const final override {
+      return utils::type_id_generator::get_id_for_type<fake_event>();
    }
    virtual std::size_t version() const final override {
       return static_cast<std::size_t>(i);

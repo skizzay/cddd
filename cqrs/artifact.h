@@ -10,6 +10,70 @@
 namespace cddd {
 namespace cqrs {
 
+namespace details_ {
+
+template<size_t I> struct int_to_type {};
+template<class T> struct argument_to_type {};
+
+template<class Fun, class EventType>
+auto create_handler(Fun f, int_to_type<1>, argument_to_type<EventType>, std::true_type) {
+   return [f](const domain_event &event) {
+         const EventType &e = static_cast<const EventType &>(event);
+         return f(e);
+      };
+}
+
+template<class Fun, class EventType>
+auto create_handler(Fun f, int_to_type<1>, argument_to_type<EventType>, std::false_type) {
+   return [f](const domain_event &event) {
+         const basic_domain_event<EventType> &e = static_cast<const basic_domain_event<EventType> &>(event);
+         return f(e.event());
+      };
+}
+
+template<class Fun, class EventType>
+auto create_handler(Fun f, int_to_type<1>, argument_to_type<basic_domain_event<EventType>>, std::true_type) {
+   return [f](const domain_event &event) {
+         const basic_domain_event<EventType> &e = static_cast<const basic_domain_event<EventType> &>(event);
+         return f(e.event());
+      };
+}
+
+template<class Fun, class EventType>
+auto create_handler(Fun f, int_to_type<2>, argument_to_type<EventType>, std::true_type) {
+   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+                 "Handler's second argument must be size_t to get version.");
+
+   return [f](const domain_event &event) {
+         const EventType &e = static_cast<const EventType &>(event);
+         return f(e, e.version());
+      };
+}
+
+template<class Fun, class EventType>
+auto create_handler(Fun f, int_to_type<2>, argument_to_type<EventType>, std::false_type) {
+   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+                 "Handler's second argument must be size_t to get version.");
+
+   return [f](const domain_event &event) {
+         const basic_domain_event<EventType> &e = static_cast<const basic_domain_event<EventType> &>(event);
+         return f(e.event(), e.version());
+      };
+}
+
+template<class Fun, class EventType>
+auto create_handler(Fun f, int_to_type<2>, argument_to_type<basic_domain_event<EventType>>, std::true_type) {
+   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+                 "Handler's second argument must be size_t to get version.");
+
+   return [f](const domain_event &event) {
+         const basic_domain_event<EventType> &e = static_cast<const basic_domain_event<EventType> &>(event);
+         return f(e.event(), e.version());
+      };
+}
+
+}
+
 template<class DomainEventDispatcher, class DomainEventContainer>
 class basic_artifact {
 public:
@@ -75,27 +139,15 @@ protected:
    basic_artifact &operator =(const basic_artifact &) = delete;
 
    template<class Fun>
-   inline std::enable_if_t<utils::function_traits<Fun>::arity == 1 &&
-                           std::is_base_of<domain_event, messaging::message_from_argument<Fun>>::value> add_handler(Fun f) {
-      dispatcher->add_message_handler(std::move(f));
-   }
-
-   template<class Fun>
-   inline std::enable_if_t<utils::function_traits<Fun>::arity == 1 &&
-                           !std::is_base_of<domain_event, messaging::message_from_argument<Fun>>::value> add_handler(Fun f) {
+   void add_handler(Fun f) {
       typedef messaging::message_from_argument<Fun> event_type;
-      add_handler([f] (const basic_domain_event<event_type> &evt) {
-            f(evt.event());
-         });
-   }
+      typedef details_::int_to_type<utils::function_traits<Fun>::arity> num_arguments;
+      typedef details_::argument_to_type<event_type> argument_type;
 
-   template<class Fun>
-   inline std::enable_if_t<utils::function_traits<Fun>::arity == 2> add_handle(Fun f) {
-      typedef messaging::message_from_argument<Fun> event_type;
-      static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
-                    "Handler's second argument must be size_t to get version.");
-      add_handler([f] (const basic_domain_event<event_type> &evt) {
-            f(evt.event(), evt.version());
+      auto handler = details_::create_handler(std::move(f), num_arguments{}, argument_type{},
+                                              std::is_base_of<domain_event, event_type>{});
+      dispatcher->add_message_handler(handler, [](const domain_event &event) {
+            return event.type() == utils::type_id_generator::get_id_for_type<event_type>();
          });
    }
 

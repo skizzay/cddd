@@ -44,8 +44,6 @@ public:
    std::unique_ptr<dispatcher<>> target;
 };
 
-}
-
 
 GIVEN("^a message dispatcher$") {
    ScenarioScope<active_command> context;
@@ -60,7 +58,7 @@ WHEN("^I send a dummy command message: \"([^\\\"]+)\"$") {
    REGEX_PARAM(std::string, message);
    ScenarioScope<active_command> context;
 
-   context->target->dispatch_message(message);
+   context->target->dispatch_message(std::string{message});
 }
 
 
@@ -71,4 +69,6 @@ THEN("^the last command should be: (\\w+) (\\d+)$") {
 
    ASSERT_EQ(s, context->last_command.string_value);
    ASSERT_EQ(i, context->last_command.int_value);
+}
+
 }

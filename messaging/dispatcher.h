@@ -96,7 +96,8 @@ public:
    template<class MessageHandler, class MessageFilter>
    inline std::enable_if_t<!details_::is_translator<MessageHandler>::value, result_type> add_message_handler(MessageHandler mh, MessageFilter mf) {
       typedef message_from_argument<MessageHandler> message_type;
-      static_assert(std::is_convertible<message_type, message_from_argument<MessageFilter>>::value,
+      typedef message_from_argument<MessageFilter> filter_arg;
+      static_assert(std::is_convertible<message_type, filter_arg>::value || std::is_same<message_type, filter_arg>::value,
                     "Handling function must accept same argument as filter function.");
       static_assert(std::is_same<message_from_result<MessageFilter>, bool>::value,
                     "Filter function must be a predicate (have a return type of bool).");
@@ -146,8 +147,18 @@ public:
       return handlers.find(id) != std::end(handlers);
    }
 
+   template<class MessageType>
+   inline bool has_message_handler() const {
+      return has_message_handler(utils::type_id_generator::get_id_for_type<MessageType>());
+   }
+
    inline bool has_message_translator(message_type_id id) const {
       return translators.find(id) != std::end(translators);
+   }
+
+   template<class MessageType>
+   inline bool has_message_translator() const {
+      return has_message_translator(utils::type_id_generator::get_id_for_type<MessageType>());
    }
 
 private:
