@@ -19,7 +19,7 @@ public:
    const std::string what;
 };
 
-class active_artifact : cddd::cqrs::artifact {
+class active_artifact : public cddd::cqrs::artifact {
 public:
    active_artifact(std::shared_ptr<cddd::messaging::dispatcher<>> dispatcher) :
       cddd::cqrs::artifact(dispatcher)
@@ -48,6 +48,14 @@ public:
 
 GIVEN("^I have an artifact that does cool things$") {
    ScenarioScope<active_entity> context;
+}
+
+
+GIVEN("^the artifact won the lottery$") {
+   ScenarioScope<active_entity> context;
+   const char *cool_thing = "wins the lottery";
+   context->things_done.push_back(cool_thing);
+   context->entity->apply_change(something_cool_happened{cool_thing});
 }
 
 

@@ -15,3 +15,10 @@ Feature: Artifact
       | wins the lottery     |
       | becomes President    |
       | executes time travel |
+
+
+   Scenario: Does another cool thing
+      Given I have an artifact that does cool things
+      And the artifact won the lottery
+      When it becomes President
+      Then its events should reflect the cool things done
