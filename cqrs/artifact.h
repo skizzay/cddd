@@ -42,7 +42,7 @@ auto create_handler(Fun f, int_to_type<1>, argument_to_type<basic_domain_event<E
 
 template<class Fun, class EventType>
 auto create_handler(Fun f, int_to_type<2>, argument_to_type<EventType>, std::true_type) {
-   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument<1>::type>::value,
                  "Handler's second argument must be size_t to get version.");
 
    return [f](const domain_event &event) {
@@ -53,7 +53,7 @@ auto create_handler(Fun f, int_to_type<2>, argument_to_type<EventType>, std::tru
 
 template<class Fun, class EventType>
 auto create_handler(Fun f, int_to_type<2>, argument_to_type<EventType>, std::false_type) {
-   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument<1>::type>::value,
                  "Handler's second argument must be size_t to get version.");
 
    return [f](const domain_event &event) {
@@ -64,7 +64,7 @@ auto create_handler(Fun f, int_to_type<2>, argument_to_type<EventType>, std::fal
 
 template<class Fun, class EventType>
 auto create_handler(Fun f, int_to_type<2>, argument_to_type<basic_domain_event<EventType>>, std::true_type) {
-   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument_at<1>::type>::value,
+   static_assert(std::is_convertible<size_t, typename utils::function_traits<Fun>::template argument<1>::type>::value,
                  "Handler's second argument must be size_t to get version.");
 
    return [f](const domain_event &event) {
