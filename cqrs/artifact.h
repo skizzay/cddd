@@ -5,6 +5,7 @@
 #include "messaging/dispatcher.h"
 #include <deque>
 #include <sequence.h>
+#include <boost/uuid/uuid.hpp>
 
 
 namespace cddd {
@@ -74,54 +75,78 @@ auto create_handler(Fun f, int_to_type<2>, argument_to_type<basic_domain_event<E
 
 }
 
+
+class base_artifact {
+public:
+   typedef std::shared_ptr<domain_event> domain_event_ptr;
+   typedef size_t size_type;
+   typedef boost::uuids::uuid id_type;
+
+   virtual const id_type & id() const = 0;
+   virtual size_type revision() const = 0;
+   virtual domain_event_sequence uncommitted_events() const = 0;
+   virtual bool has_uncommitted_events() const = 0;
+   virtual size_type size_uncommitted_events() const = 0;
+   virtual void clear_uncommitted_events() = 0;
+   virtual void load_from_history(domain_event_sequence &events) = 0;
+   virtual void apply_change(domain_event_ptr evt) = 0;
+};
+
+
 template<class DomainEventDispatcher, class DomainEventContainer>
-class basic_artifact {
+class basic_artifact : public base_artifact {
 public:
    typedef std::shared_ptr<domain_event> domain_event_ptr;
    typedef DomainEventDispatcher domain_event_dispatcher_type;
    typedef DomainEventContainer domain_event_container_type;
-   typedef typename DomainEventContainer::size_type size_type;
+   using base_artifact::size_type;
 
-   inline size_type revision() const {
+   virtual const id_type & id() const final override {
+      return artifact_id;
+   }
+
+   virtual size_type revision() const final override {
       return artifact_version;
    }
 
-   inline domain_event_sequence uncommitted_events() const {
+   virtual domain_event_sequence uncommitted_events() const final override {
       return sequencing::from(std::begin(pending_events), std::end(pending_events));
    }
 
-   inline bool has_uncommitted_events() const {
+   virtual bool has_uncommitted_events() const final override {
       return !pending_events.empty();
    }
 
-   inline void clear_uncommitted_events() {
+   virtual void clear_uncommitted_events() final override {
       pending_events.clear();
    }
 
-   inline size_type size_uncommitted_events() const {
+   virtual size_type size_uncommitted_events() const final override {
       return pending_events.size();
    }
 
-   template<class DomainEventStream>
-   inline void load_from_history(const DomainEventStream &stream) {
-      for (auto evt : stream.load(next_revision())) {
+   virtual void load_from_history(domain_event_sequence &events) final override {
+      for (auto evt : std::move(events)) {
          apply_change(evt, false);
       }
    }
 
-   inline void apply_change(domain_event_ptr evt) {
+   virtual void apply_change(domain_event_ptr evt) final override {
       apply_change(evt, true);
    }
 
    template<class Evt, class Alloc=std::allocator<Evt>>
    inline void apply_change(Evt && e, const Alloc &alloc={}) {
-      auto ptr = std::allocate_shared<basic_domain_event<Evt>>(alloc, std::forward<Evt>(e), next_revision());
-      apply_change(std::static_pointer_cast<domain_event>(ptr));
+      const size_type next_revision = this->revision() + this->size_uncommitted_events() + 1;
+      auto ptr = std::allocate_shared<basic_domain_event<Evt>>(alloc, std::forward<Evt>(e), next_revision);
+      this->apply_change(std::static_pointer_cast<domain_event>(ptr), true);
    }
 
 protected:
    inline basic_artifact(std::shared_ptr<domain_event_dispatcher_type> dispatcher_,
+                         const id_type &aid,
                          domain_event_container_type &&events_ = domain_event_container_type{}) :
+      artifact_id{aid},
       artifact_version(0),
       dispatcher(dispatcher_),
       pending_events(std::forward<domain_event_container_type>(events_)) {
@@ -165,10 +190,7 @@ private:
       }
    }
 
-   inline size_type next_revision() const {
-      return revision() + size_uncommitted_events() + 1;
-   }
-
+   id_type artifact_id;
    size_type artifact_version;
    std::shared_ptr<domain_event_dispatcher_type> dispatcher;
    domain_event_container_type pending_events;

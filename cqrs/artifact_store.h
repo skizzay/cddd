@@ -1,11 +1,13 @@
 #ifndef CDDD_CQRS_ARTIFACT_STORE_H__
 #define CDDD_CQRS_ARTIFACT_STORE_H__
 
+#include "cqrs/artifact.h"
 #include "cqrs/domain_event.h"
 #include "cqrs/null_store.h"
 #include "cqrs/simple_artifact_factory.h"
 #include "cqrs/source.h"
 #include "cqrs/traits.h"
+#include <iostream>
 
 namespace cddd {
 namespace cqrs {
@@ -13,6 +15,9 @@ namespace cqrs {
 template<class ArtifactType, class StreamFactory, class ArtifactFactory=simple_artifact_factory<ArtifactType>, class Traits=artifact_traits<ArtifactType, ArtifactFactory>>
 class artifact_store : public store<typename Traits::pointer> {
 public:
+   static_assert(std::is_same<ArtifactType, base_artifact>::value || std::is_base_of<base_artifact, ArtifactType>::value,
+                 "artifact_store can only store artifacts.");
+
    typedef Traits traits_type;
    typedef boost::uuids::uuid key_type;
    typedef typename traits_type::artifact_type value_type;
@@ -60,7 +65,8 @@ public:
 private:
    inline void save_object(ArtifactType &object) {
       auto str = get_event_stream(traits_type::id_of(object));
-      str->save(traits_type::uncommitted_events_of(object));
+      auto events = traits_type::uncommitted_events_of(object);
+      str->save(events);
       events_provider->put(std::move(str));
       traits_type::clear_uncommitted_events(object);
    }
@@ -78,7 +84,8 @@ private:
       traits_type::apply_memento_to_object(*object, revision, *memento_provider);
       std::size_t object_revision = traits_type::revision_of(*object);
       if (object_revision < revision) {
-         traits_type::load_artifact_from_history(*object, load_events(id, object_revision + 1, revision));
+         domain_event_sequence events = load_events(id, object_revision + 1, revision);
+         traits_type::load_artifact_from_history(*object, events);
       }
       return object;
    }

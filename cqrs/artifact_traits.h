@@ -31,8 +31,8 @@ public:
       object.clear_uncommitted_events();
    }
 
-   static inline void load_artifact_from_history(T &object, domain_event_sequence events) {
-      object.load_from_history(std::move(events));
+   static inline void load_artifact_from_history(T &object, domain_event_sequence &events) {
+      object.load_from_history(events);
    }
 
    static inline bool does_artifact_have_uncommitted_events(const T &object) {

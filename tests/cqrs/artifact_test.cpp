@@ -1,6 +1,8 @@
 #include "cqrs/artifact.h"
 #include "cqrs/fakes/fake_event.h"
 #include "messaging/dispatcher.h"
+#include <kerchow/kerchow.h>
+#include <boost/uuid/uuid_generators.hpp>
 #include <gmock/gmock.h>
 
 
@@ -12,11 +14,13 @@ namespace {
 
 using namespace cddd::cqrs;
 
+boost::uuids::basic_random_generator<decltype(kerchow::picker)> gen_id{kerchow::picker};
+
 
 class artifact_spy : public artifact {
 public:
-   inline artifact_spy() :
-      artifact{std::make_shared<cddd::messaging::dispatcher<>>()}
+   inline artifact_spy(const id_type &id_) :
+      artifact{std::make_shared<cddd::messaging::dispatcher<>>(), id_}
    {
    }
 
@@ -30,8 +34,10 @@ public:
 class artifact_test : public ::testing::Test {
 public:
    inline auto create_target() {
-      return artifact_spy{};
+      return artifact_spy{id};
    }
+
+   boost::uuids::uuid id = gen_id();
 };
 
 
