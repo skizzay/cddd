@@ -19,7 +19,7 @@ public:
    }
 
    pointer operator()(const key_type &id) const {
-      return PointerTraits::make_pointer(alloc, std::move(id));
+      return PointerTraits::make_pointer(alloc, id);
    }
 
 private:

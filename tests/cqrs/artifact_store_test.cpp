@@ -122,7 +122,7 @@ TEST_F(artifact_store_test, put_throws_null_id_exception_when_object_id_is_null)
    When(Method(entity, id)).Return(boost::uuids::nil_uuid());
 
    // When
-   ASSERT_THROW(target->put(entity_pointer()), null_id_exception);
+   ASSERT_THROW(target->put(entity_pointer()), cddd::utils::null_id_exception);
 }
 
 
@@ -225,7 +225,7 @@ TEST_F(artifact_store_test, get_will_throw_null_id_exception_when_object_id_is_n
    auto target = create_target();
 
    // When
-   ASSERT_THROW(target->get(boost::uuids::nil_uuid()), null_id_exception);
+   ASSERT_THROW(target->get(boost::uuids::nil_uuid()), cddd::utils::null_id_exception);
 }
 
 
@@ -235,7 +235,7 @@ TEST_F(artifact_store_test, get_with_version_will_throw_null_id_exception_when_o
    size_t version = kerchow::picker.pick<size_t>(1);
 
    // When
-   ASSERT_THROW(target->get(boost::uuids::nil_uuid(), version), null_id_exception);
+   ASSERT_THROW(target->get(boost::uuids::nil_uuid(), version), cddd::utils::null_id_exception);
 }
 
 

@@ -1,5 +1,4 @@
-#ifndef CDDD_CQRS_ARTIFACT_H__
-#define CDDD_CQRS_ARTIFACT_H__
+#pragma once
 
 #include "cqrs/domain_event.h"
 #include "messaging/dispatcher.h"
@@ -143,23 +142,19 @@ public:
    }
 
 protected:
-   inline basic_artifact(std::shared_ptr<domain_event_dispatcher_type> dispatcher_,
-                         const id_type &aid,
-                         domain_event_container_type &&events_ = domain_event_container_type{}) :
+   inline basic_artifact(const id_type &aid,
+		         std::shared_ptr<domain_event_dispatcher_type> dispatcher_=std::make_shared<domain_event_dispatcher_type>()) :
       artifact_id{aid},
       artifact_version(0),
-      dispatcher(dispatcher_),
-      pending_events(std::forward<domain_event_container_type>(events_)) {
-   }
-
-   inline basic_artifact() :
-      basic_artifact{std::make_shared<domain_event_dispatcher_type>()}
+      dispatcher{std::move(dispatcher_)},
+      pending_events{}
    {
    }
 
    basic_artifact(basic_artifact &&) = default;
    basic_artifact &operator =(basic_artifact &&) = default;
 
+   basic_artifact() = delete;
    basic_artifact(const basic_artifact &) = delete;
    basic_artifact &operator =(const basic_artifact &) = delete;
 
@@ -201,5 +196,3 @@ typedef basic_artifact<messaging::dispatcher<>, std::deque<domain_event_ptr>> ar
 
 }
 }
-
-#endif

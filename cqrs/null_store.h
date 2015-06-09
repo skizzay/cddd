@@ -2,7 +2,7 @@
 #define CDDD_CQRS_NULL_STORE_H__
 
 #include "cqrs/store.h"
-#include "cqrs/exceptions.h"
+#include "utils/exceptions.h"
 
 namespace cddd {
 namespace cqrs {
@@ -17,7 +17,7 @@ public:
    }
 
    virtual T get(const boost::uuids::uuid &id, std::size_t) const {
-      throw aggregate_not_found(id);
+      throw utils::aggregate_not_found{id, "id"};
    }
 
    virtual void put(T) {

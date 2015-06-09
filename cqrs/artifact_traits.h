@@ -1,7 +1,7 @@
-#ifndef CDDD_CQRS_ARTIFACT_TRAITS_H__
-#define CDDD_CQRS_ARTIFACT_TRAITS_H__
+#pragma once
 
-#include "cqrs/exceptions.h"
+#include "cqrs/store.h"
+#include "utils/validation.h"
 #include <type_traits>
 
 namespace cddd {
@@ -15,46 +15,18 @@ public:
    typedef decltype(std::declval<F>()(std::declval<const boost::uuids::uuid &>())) pointer;
    struct memento_type {};
 
-   static inline const boost::uuids::uuid & id_of(const T &object) {
-      return object.id();
-   }
-
-   static inline std::size_t revision_of(const T &object) {
-      return object.revision();
-   }
-
-   static inline domain_event_sequence uncommitted_events_of(const T &object) {
-      return object.uncommitted_events();
-   }
-
-   static inline void clear_uncommitted_events(T &object) {
-      object.clear_uncommitted_events();
-   }
-
-   static inline void load_artifact_from_history(T &object, domain_event_sequence &events) {
-      object.load_from_history(events);
-   }
-
-   static inline bool does_artifact_have_uncommitted_events(const T &object) {
-      return object.has_uncommitted_events();
-   }
-
-   static inline void apply_memento_to_object(T &, std::size_t, store<memento_type> &) {
+   static inline void apply_memento_to_object(T &, size_t, store<memento_type> &) {
    }
 
    static inline void validate_artifact(pointer object) {
       if (object == nullptr) {
-         throw null_pointer_exception("object");
+         throw utils::null_pointer_exception{"object"};
       }
-      else if (id_of(*object).is_nil()) {
-         throw null_id_exception("object->id()");
-      }
+      utils::validate_id(object->id());
    }
 
    static inline void validate_object_id(const boost::uuids::uuid &id) {
-      if (id.is_nil()) {
-         throw null_id_exception("id");
-      }
+      utils::validate_id(id);
    }
 };
 
@@ -66,14 +38,12 @@ public:
    using artifact_traits<T, void>::pointer;
    typedef typename T::memento_type memento_type;
 
-   static inline void apply_memento_to_object(T &object, std::size_t revision, store<memento_type> &memento_provider) {
-      if (memento_provider.has(id_of(object))) {
-         object.apply_memento(memento_provider.get(id_of(object), revision));
+   static inline void apply_memento_to_object(T &object, size_t revision, store<memento_type> &memento_provider) {
+      if (memento_provider.has(object.id())) {
+         object.apply_memento(memento_provider.get(object.id(), revision));
       }
    }
 };
 
 }
 }
-
-#endif

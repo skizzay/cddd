@@ -1,7 +1,6 @@
-#ifndef CDDD_CQRS_COMMIT_H__
-#define CDDD_CQRS_COMMIT_H__
+#pragma once
 
-#include "cqrs/exceptions.h"
+#include "utils/validation.h"
 #include <sequence.h>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
@@ -23,13 +22,9 @@ public:
       commit_values(std::move(values)),
       ts(ts_)
    {
-      if (commit_id().is_nil()) {
-         throw null_id_exception{"commit id"};
-      }
-      else if (stream_id().is_nil()) {
-         throw null_id_exception{"stream id"};
-      }
-      else if (stream_revision() == 0) {
+      utils::validate_id(commit_id());
+      utils::validate_id(stream_id());
+      if (stream_revision() == 0) {
          throw std::out_of_range{"stream revision cannot be 0 (zero)."};
       }
       else if (commit_sequence() == 0) {
@@ -78,5 +73,3 @@ private:
 
 }
 }
-
-#endif

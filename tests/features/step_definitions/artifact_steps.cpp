@@ -1,4 +1,6 @@
 #include "cqrs/artifact.h"
+#include "kerchow/kerchow.h"
+#include <boost/uuid/random_generator.hpp>
 #include <cassert>
 #include <gtest/gtest.h>
 #include <cucumber-cpp/defs.hpp>
@@ -8,6 +10,8 @@ using cucumber::ScenarioScope;
 using namespace cddd::cqrs;
 
 namespace {
+
+boost::uuids::basic_random_generator<decltype(kerchow::picker)> generate_id{kerchow::picker};
 
 class something_cool_happened {
 public:
@@ -22,7 +26,7 @@ public:
 class active_artifact : public cddd::cqrs::artifact {
 public:
    active_artifact(std::shared_ptr<cddd::messaging::dispatcher<>> dispatcher) :
-      cddd::cqrs::artifact(dispatcher)
+      cddd::cqrs::artifact{generate_id(), dispatcher}
    {
       add_handler([this](const something_cool_happened &cool_thing) {
             cool_things_done.push_back(cool_thing.what);

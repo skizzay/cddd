@@ -20,7 +20,7 @@ boost::uuids::basic_random_generator<decltype(kerchow::picker)> gen_id{kerchow::
 class artifact_spy : public artifact {
 public:
    inline artifact_spy(const id_type &id_) :
-      artifact{std::make_shared<cddd::messaging::dispatcher<>>(), id_}
+      artifact{id_, std::make_shared<cddd::messaging::dispatcher<>>()}
    {
    }
 
