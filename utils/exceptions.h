@@ -108,7 +108,7 @@ public:
 
 class entity_exists : public std::invalid_argument {
 public:
-   using std::invalid_argument;
+   using std::invalid_argument::invalid_argument;
    virtual ~entity_exists() = default;
 };
 
