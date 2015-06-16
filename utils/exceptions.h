@@ -105,6 +105,13 @@ public:
    virtual ~event_not_handled() = default;
 };
 
+
+class entity_exists : public std::invalid_argument {
+public:
+   using std::invalid_argument;
+   virtual ~entity_exists() = default;
+};
+
 }
 }
 
