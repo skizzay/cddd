@@ -1,30 +1,12 @@
-#ifndef CDDD_UTILS_FUNCTION_TRAITS_H__
-#define CDDD_UTILS_FUNCTION_TRAITS_H__
+#pragma once
 
+#include "utils/parameter_pack.h"
 #include <type_traits>
 
 namespace cddd {
 namespace utils {
 
 template<class> struct function_traits;
-template<class... Args> struct parameter_pack {
-};
-
-
-namespace details_ {
-
-template<std::size_t, class> struct argument_at;
-
-template<std::size_t I, class Head, class... Tail>
-struct argument_at<I, parameter_pack<Head, Tail...>> : argument_at<I - 1, parameter_pack<Tail...>> {
-};
-
-template<class Head, class... Tail>
-struct argument_at<0, parameter_pack<Head, Tail...>> {
-   typedef Head type;
-};
-
-}
 
 
 template<class R, class... Args>
@@ -36,7 +18,7 @@ struct function_traits<R(Args...)> {
 
    template<std::size_t I, class=std::enable_if<(I < arity)>>
    struct argument {
-      typedef typename details_::argument_at<I, argument_types>::type type;
+      using type = typename parameter_at<I, argument_types>::type;
    };
 };
 
@@ -81,5 +63,3 @@ template<class T> struct function_traits : function_traits<decltype(&T::operator
 
 }
 }
-
-#endif
