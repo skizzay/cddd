@@ -2,9 +2,8 @@
 
 #include "cqrs/domain_event.h"
 #include "messaging/dispatcher.h"
+#include "utils/validation.h"
 #include <deque>
-#include <sequence.h>
-#include <boost/uuid/uuid.hpp>
 
 
 namespace cddd {
@@ -75,80 +74,71 @@ auto create_handler(Fun f, int_to_type<2>, argument_to_type<basic_domain_event<E
 }
 
 
-class base_artifact {
-public:
-   typedef std::shared_ptr<domain_event> domain_event_ptr;
-   typedef size_t size_type;
-   typedef boost::uuids::uuid id_type;
-
-   virtual const id_type & id() const = 0;
-   virtual size_type revision() const = 0;
-   virtual domain_event_sequence uncommitted_events() const = 0;
-   virtual bool has_uncommitted_events() const = 0;
-   virtual size_type size_uncommitted_events() const = 0;
-   virtual void clear_uncommitted_events() = 0;
-   virtual void load_from_history(domain_event_sequence &events) = 0;
-   virtual void apply_change(domain_event_ptr evt) = 0;
-};
-
-
 template<class DomainEventDispatcher, class DomainEventContainer>
-class basic_artifact : public base_artifact {
+class basic_artifact {
 public:
-   typedef std::shared_ptr<domain_event> domain_event_ptr;
+   typedef boost::uuids::uuid id_type;
    typedef DomainEventDispatcher domain_event_dispatcher_type;
    typedef DomainEventContainer domain_event_container_type;
-   using base_artifact::size_type;
+   using size_type = typename domain_event_container_type::size_type;
 
-   virtual const id_type & id() const final override {
+   const id_type & id() const {
       return artifact_id;
    }
 
-   virtual size_type revision() const final override {
+   size_type revision() const {
       return artifact_version;
    }
 
-   virtual domain_event_sequence uncommitted_events() const final override {
-      return sequencing::from(std::begin(pending_events), std::end(pending_events));
+   const auto &uncommitted_events() const {
+      using std::begin;
+      using std::end;
+
+      return pending_events;
    }
 
-   virtual bool has_uncommitted_events() const final override {
+   bool has_uncommitted_events() const {
       return !pending_events.empty();
    }
 
-   virtual void clear_uncommitted_events() final override {
+   void clear_uncommitted_events() {
       pending_events.clear();
    }
 
-   virtual size_type size_uncommitted_events() const final override {
+   size_type size_uncommitted_events() const {
       return pending_events.size();
    }
 
-   virtual void load_from_history(domain_event_sequence &events) final override {
-      for (auto evt : std::move(events)) {
+   template<class EventsContainer>
+   void load_from_history(EventsContainer &&events) {
+      using std::move;
+
+      for (auto evt : move(events)) {
          apply_change(evt, false);
       }
    }
 
-   virtual void apply_change(domain_event_ptr evt) final override {
-      apply_change(evt, true);
-   }
+   template<class Evt>
+   inline void apply_change(Evt && e) {
+      using std::allocate_shared;
+      using std::forward;
+      using std::static_pointer_cast;
+      using allocator_type = typename domain_event_container_type::allocator_type::template rebind<basic_domain_event<Evt>>::other;
 
-   template<class Evt, class Alloc=std::allocator<Evt>>
-   inline void apply_change(Evt && e, const Alloc &alloc={}) {
-      const size_type next_revision = this->revision() + this->size_uncommitted_events() + 1;
-      auto ptr = std::allocate_shared<basic_domain_event<Evt>>(alloc, std::forward<Evt>(e), next_revision);
-      this->apply_change(std::static_pointer_cast<domain_event>(ptr), true);
+      allocator_type allocator{pending_events.get_allocator()};
+      size_type next_revision = revision() + size_uncommitted_events() + 1;
+      auto ptr = allocate_shared<basic_domain_event<Evt>>(allocator, forward<Evt>(e), next_revision);
+      apply_change(static_pointer_cast<domain_event>(ptr), true);
    }
 
 protected:
-   inline basic_artifact(const id_type &aid,
-		         std::shared_ptr<domain_event_dispatcher_type> dispatcher_=std::make_shared<domain_event_dispatcher_type>()) :
-      artifact_id{aid},
+   inline basic_artifact(const id_type &aid) :
+      artifact_id(aid),
       artifact_version(0),
-      dispatcher{std::move(dispatcher_)},
+      dispatcher{},
       pending_events{}
    {
+      utils::validate_id(id());
    }
 
    basic_artifact(basic_artifact &&) = default;
@@ -160,13 +150,14 @@ protected:
 
    template<class Fun>
    void add_handler(Fun f) {
+      using std::move;
       typedef messaging::message_from_argument<Fun> event_type;
       typedef details_::int_to_type<utils::function_traits<Fun>::arity> num_arguments;
       typedef details_::argument_to_type<event_type> argument_type;
 
-      auto handler = details_::create_handler(std::move(f), num_arguments{}, argument_type{},
+      auto handler = details_::create_handler(move(f), num_arguments{}, argument_type{},
                                               std::is_base_of<domain_event, event_type>{});
-      dispatcher->add_message_handler(handler, [](const domain_event &event) {
+      dispatcher.add_message_handler(handler, [](const domain_event &event) {
             return event.type() == utils::type_id_generator::get_id_for_type<event_type>();
          });
    }
@@ -176,23 +167,36 @@ protected:
    }
 
 private:
-   inline void apply_change(domain_event_ptr evt, bool is_new) {
+   template<class DomainEventPointer>
+   inline void apply_change(DomainEventPointer evt, bool is_new) {
       if (evt != nullptr) {
+         // We need to append to the pending events so that our next apply_change
+         // call will have an accurate revision.  We do this by placing a null pointer
+	 // as a placeholder.  If the dispatch fails, we need to discard this event
+	 // because it was not properly handled.  If it succeeds, then we replace
+	 // the placeholder with the actual event.
          if (is_new) {
-            pending_events.push_back(evt);
+            pending_events.emplace_back(nullptr);
          }
-         dispatcher->dispatch_message(*evt);
+         try {
+            dispatcher.dispatch_message(*evt);
+	    pending_events.back() = std::move(evt);
+         }
+         catch (...) {
+            pending_events.pop_back();
+            throw;
+         }
       }
    }
 
    id_type artifact_id;
    size_type artifact_version;
-   std::shared_ptr<domain_event_dispatcher_type> dispatcher;
+   domain_event_dispatcher_type dispatcher;
    domain_event_container_type pending_events;
 };
 
 
-typedef basic_artifact<messaging::dispatcher<>, std::deque<domain_event_ptr>> artifact;
+typedef basic_artifact<messaging::dispatcher<>, std::deque<std::shared_ptr<domain_event>>> artifact;
 
 }
 }

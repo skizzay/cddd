@@ -24,10 +24,6 @@ public:
 inline domain_event::~domain_event() {}
 
 
-typedef std::shared_ptr<domain_event> domain_event_ptr;
-typedef sequencing::sequence<domain_event_ptr> domain_event_sequence;
-
-
 template<class Evt>
 class basic_domain_event final : public domain_event {
 public:

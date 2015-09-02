@@ -1,25 +1,37 @@
 #pragma once
 
 #include "utils/validation.h"
-#include <sequence.h>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
+#include <boost/uuid/nil_generator.hpp>
 
 namespace cddd {
 namespace cqrs {
 
-template<class T>
 class commit {
+   // Create default constructor for noncommits only.
+   explicit inline commit() :
+      cid(boost::uuids::nil_uuid()),
+      sid(boost::uuids::nil_uuid()),
+      revision(0),
+      sequence(0),
+      ts()
+   {
+   }
+
 public:
    typedef boost::posix_time::ptime timestamp_type;
-   typedef sequencing::sequence<T> sequence_type;
 
-   explicit inline commit(const boost::uuids::uuid &cid_, const boost::uuids::uuid &sid_, std::size_t version, std::size_t seq,
-                          sequence_type values, timestamp_type ts_) :
+   static inline commit noncommit() {
+      return commit{};
+   }
+
+   explicit inline commit(const boost::uuids::uuid &cid_, const boost::uuids::uuid &sid_,
+                          std::size_t version, std::size_t seq,
+                          timestamp_type ts_) :
       cid(cid_),
       sid(sid_),
       revision(version),
       sequence(seq),
-      commit_values(std::move(values)),
       ts(ts_)
    {
       utils::validate_id(commit_id());
@@ -29,9 +41,6 @@ public:
       }
       else if (commit_sequence() == 0) {
          throw std::out_of_range{"commit sequence cannot be 0 (zero)."};
-      }
-      else if (events().empty()) {
-         throw std::invalid_argument{"events cannot be empty."};
       }
       else if (timestamp().is_not_a_date_time()) {
          throw std::invalid_argument{"timestamp is invalid."};
@@ -54,12 +63,16 @@ public:
       return sequence;
    }
 
-   inline const domain_event_sequence &events() const {
-      return commit_values;
-   }
-
    inline const timestamp_type &timestamp() const {
       return ts;
+   }
+
+   inline bool is_noncommit() const {
+      return cid == boost::uuids::nil_uuid() &&
+             sid == boost::uuids::nil_uuid() &&
+             revision == 0 &&
+             sequence == 0 &&
+             ts.is_not_a_date_time();
    }
 
 private:
@@ -67,7 +80,6 @@ private:
    boost::uuids::uuid sid;
    std::size_t revision;
    std::size_t sequence;
-   sequence_type commit_values;
    timestamp_type ts;
 };
 

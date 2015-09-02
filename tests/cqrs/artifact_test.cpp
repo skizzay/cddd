@@ -4,6 +4,7 @@
 #include <kerchow/kerchow.h>
 #include <boost/uuid/uuid_generators.hpp>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 
 // The purpose of these tests is to ensure that our basic_artifact and artifact
@@ -19,8 +20,10 @@ boost::uuids::basic_random_generator<decltype(kerchow::picker)> gen_id{kerchow::
 
 class artifact_spy : public artifact {
 public:
+   using artifact::basic_artifact;
+
    inline artifact_spy(const id_type &id_) :
-      artifact{id_, std::make_shared<cddd::messaging::dispatcher<>>()}
+      artifact{id_}
    {
    }
 
@@ -80,7 +83,6 @@ TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not
    ASSERT_TRUE(actual);
 }
 
-
 TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
    // Given
    size_t expected = 0;
@@ -102,7 +104,7 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event)
    target.apply_change(std::move(e));
 
    // When
-   auto actual = target.uncommitted_events() | sequencing::count();
+   auto actual = target.uncommitted_events().size();
 
    // Then
    ASSERT_EQ(expected, actual);
@@ -133,7 +135,7 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_without_any_events_a
    target.clear_uncommitted_events();
 
    // When
-   auto actual = target.uncommitted_events() | sequencing::count();
+   auto actual = target.uncommitted_events().size();
 
    // Then
    ASSERT_EQ(expected, actual);

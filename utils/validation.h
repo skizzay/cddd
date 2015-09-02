@@ -10,7 +10,7 @@ inline bool is_valid(const boost::uuids::uuid &id) noexcept {
 }
 
 
-void do_validate_id_(const boost::uuids::uuid &id, std::experimental::string_view parameter) {
+inline void do_validate_id_(const boost::uuids::uuid &id, std::experimental::string_view parameter) {
    if (id.is_nil()) {
       throw null_id_exception{parameter};
    }

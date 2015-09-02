@@ -7,19 +7,33 @@
 namespace cddd {
 namespace cqrs {
 
-template<class T>
+template<class Derived>
 class stream {
 public:
-   typedef T value_type;
-
-   virtual ~stream() = default;
-
-   sequencing::sequence<value_type> load() const {
-      return load(1, std::numeric_limits<std::size_t>::max());
+   inline auto load() const {
+      std::size_t min_revision = 1;
+      std::size_t max_revision = std::numeric_limits<std::size_t>::max();
+      return load(min_revision, max_revision);
    }
-   virtual sequencing::sequence<value_type> load(std::size_t min_version, std::size_t max_version) const = 0;
-   virtual void save(sequencing::sequence<value_type> &objects) = 0;
-   virtual commit<value_type> persist() = 0;
+
+   inline auto load(std::size_t min_revision, std::size_t max_revision) const {
+      typedef decltype(std::declval<const Derived &>().load_revisions(min_revision, max_revision)) sequence_type;
+
+      return ((min_revision == 0) || (max_revision < min_revision)) ? sequence_type{} :
+         static_cast<const Derived *>(this)->load_revisions(min_revision, max_revision);
+   }
+
+   template<class DomainEventContainer>
+   inline void save(const DomainEventContainer &container) {
+      using std::begin;
+      using std::end;
+
+      static_cast<Derived *>(this)->save_sequence(sequencing::from(begin(container), end(container)));
+   }
+
+   inline commit persist() {
+      return static_cast<Derived *>(this)->persist_changes();
+   }
 };
 
 }
