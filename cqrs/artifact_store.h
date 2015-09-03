@@ -21,13 +21,13 @@ public:
    typedef DomainEventSource domain_event_source;
    typedef decltype(std::declval<artifact_factory>()(std::declval<const key_type &>())) pointer;
 
-   inline artifact_store(domain_event_source &es, memento_store<ArtifactType> &ms, artifact_factory af) :
+   inline artifact_store(domain_event_source &es, memento_store<ArtifactType> &ms, artifact_factory af) noexcept :
       event_stream_provider(es),
       memento_provider(ms),
       create_artifact(std::move(af)) {
    }
 
-   inline artifact_store(domain_event_source &es, artifact_factory af) :
+   inline artifact_store(domain_event_source &es, artifact_factory af) noexcept :
       event_stream_provider(es),
       memento_provider(memento_store<ArtifactType>::instance()),
       create_artifact(std::move(af)) {
@@ -36,16 +36,16 @@ public:
    artifact_store(const artifact_store &) = delete;
    artifact_store(artifact_store &&) = default;
 
-   ~artifact_store() = default;
+   inline ~artifact_store() noexcept = default;
 
    artifact_store &operator =(const artifact_store &) = delete;
    artifact_store &operator =(artifact_store &&) = default;
 
-   bool has(const key_type &id) const {
+   inline bool has(const key_type &id) const noexcept {
       return event_stream_provider.has(id);
    }
 
-   commit put(ArtifactType &object) {
+   inline commit put(ArtifactType &object) {
       utils::validate_id(object.id());
       if (object.has_uncommitted_events()) {
          commit result = save_object(object);
@@ -56,7 +56,7 @@ public:
    }
 
    // When version==0, then we are essentially just creating an object.
-   pointer get(const key_type &id, std::size_t version) {
+   inline pointer get(const key_type &id, std::size_t version) {
       utils::validate_id(id);
       return load_object(id, version);
    }
