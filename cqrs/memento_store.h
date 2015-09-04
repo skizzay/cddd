@@ -4,6 +4,11 @@
 
 namespace cddd {
 namespace cqrs {
+namespace details_ {
+
+template<class ... Args>
+using void_t = void;
+}
 
 template<class T, class=void>
 class memento_store final {
@@ -19,7 +24,7 @@ public:
 
 
 template<class T>
-class memento_store<T, typename T::memento_type> {
+class memento_store<T, details_::void_t<typename T::memento_type>> {
 public:
    virtual ~memento_store() noexcept = default;
 
@@ -27,7 +32,6 @@ public:
       store.apply_memento_to_object(object, revision);
    }
 
-private:
    virtual void apply_memento_to_object(T &object, std::size_t revision) = 0;
 };
 

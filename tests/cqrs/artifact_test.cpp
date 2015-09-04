@@ -3,7 +3,6 @@
 #include "messaging/dispatcher.h"
 #include <kerchow/kerchow.h>
 #include <boost/uuid/uuid_generators.hpp>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 
