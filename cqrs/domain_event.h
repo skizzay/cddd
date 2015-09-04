@@ -14,14 +14,14 @@ typedef utils::type_id_generator::type_id event_type_id;
 
 class domain_event {
 public:
-   virtual ~domain_event() = 0;
+   virtual ~domain_event() noexcept = 0;
 
    virtual event_type_id type() const = 0;
    virtual std::size_t version() const = 0;
 };
 
 
-inline domain_event::~domain_event() {}
+inline domain_event::~domain_event() noexcept {}
 
 
 template<class Evt>
