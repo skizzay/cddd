@@ -76,6 +76,8 @@ auto create_handler(Fun f, int_to_type<2>, argument_to_type<basic_domain_event<E
 
 template<class DomainEventDispatcher, class DomainEventContainer>
 class basic_artifact {
+   template<class> friend class basic_artifact_view;
+
 public:
    typedef boost::uuids::uuid id_type;
    typedef DomainEventDispatcher domain_event_dispatcher_type;
@@ -172,15 +174,15 @@ private:
       if (evt != nullptr) {
          // We need to append to the pending events so that our next apply_change
          // call will have an accurate revision.  We do this by placing a null pointer
-	 // as a placeholder.  If the dispatch fails, we need to discard this event
-	 // because it was not properly handled.  If it succeeds, then we replace
-	 // the placeholder with the actual event.
+         // as a placeholder.  If the dispatch fails, we need to discard this event
+         // because it was not properly handled.  If it succeeds, then we replace
+         // the placeholder with the actual event.
          if (is_new) {
             pending_events.emplace_back(nullptr);
          }
          try {
             dispatcher.dispatch_message(*evt);
-	    pending_events.back() = std::move(evt);
+            pending_events.back() = std::move(evt);
          }
          catch (...) {
             pending_events.pop_back();

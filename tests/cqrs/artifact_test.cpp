@@ -82,6 +82,7 @@ TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not
    ASSERT_TRUE(actual);
 }
 
+
 TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
    // Given
    size_t expected = 0;
