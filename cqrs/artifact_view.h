@@ -23,9 +23,9 @@ public:
    }
 
    template<class Evt>
-   inline void apply_change(Evt &&e) {
+   inline auto apply_change(Evt &&e) {
       using std::forward;
-      artifact_.apply_change(forward<Evt>(e));
+      return artifact_.apply_change(forward<Evt>(e));
    }
 
 protected:
