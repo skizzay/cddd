@@ -119,7 +119,7 @@ public:
    }
 
    template<class Evt>
-   inline void apply_change(Evt && e) {
+   inline auto apply_change(Evt && e) {
       using std::allocate_shared;
       using std::forward;
       using std::static_pointer_cast;
@@ -129,6 +129,7 @@ public:
       size_type next_revision = revision() + size_uncommitted_events() + 1;
       auto ptr = allocate_shared<basic_domain_event<Evt>>(allocator, forward<Evt>(e), next_revision);
       apply_change(static_pointer_cast<domain_event>(ptr), true);
+      return ptr;
    }
 
 protected:
