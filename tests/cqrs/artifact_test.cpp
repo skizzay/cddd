@@ -61,11 +61,12 @@ TEST_F(artifact_test, apply_change_does_invoke_dispatcher_to_dispatch_events) {
 TEST_F(artifact_test, apply_change_returns_pointer_to_created_domain_event) {
    // Given
    auto expected = cddd::utils::type_id_generator::get_id_for_type<fake_event>();
+   fake_event event;
    auto target = create_target();
    target.handle([](const fake_event &) {});
 
    // When
-   auto actual = target.apply_change(fake_event{});
+   auto actual = target.apply_change(event);
 
    // Then
    ASSERT_NE(nullptr, actual);

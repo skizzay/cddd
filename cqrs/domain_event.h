@@ -28,6 +28,8 @@ inline domain_event::~domain_event() noexcept {}
 template<class Evt>
 class basic_domain_event final : public domain_event {
 public:
+   using event_type = std::remove_const_t<std::remove_reference_t<Evt>>;
+
    explicit constexpr basic_domain_event(Evt &&e, std::size_t ver_) :
       evt(std::forward<Evt>(e)),
       ver(ver_)
@@ -37,19 +39,19 @@ public:
    virtual ~basic_domain_event() final {}
 
    virtual event_type_id type() const final override {
-      return utils::type_id_generator::get_id_for_type<Evt>();
+      return utils::type_id_generator::get_id_for_type<event_type>();
    }
 
    virtual std::size_t version() const final override {
       return ver;
    }
 
-   constexpr const Evt & event() const {
+   constexpr const event_type & event() const {
       return evt;
    }
 
 private:
-   const Evt evt;
+   const event_type evt;
    const std::size_t ver;
 };
 

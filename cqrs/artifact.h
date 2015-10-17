@@ -123,11 +123,13 @@ public:
       using std::allocate_shared;
       using std::forward;
       using std::static_pointer_cast;
-      using allocator_type = typename domain_event_container_type::allocator_type::template rebind<basic_domain_event<Evt>>::other;
+      using EventType = std::remove_const_t<std::remove_reference_t<Evt>>;
+      using DomainEventType = basic_domain_event<EventType>;
+      using allocator_type = typename domain_event_container_type::allocator_type::template rebind<DomainEventType>::other;
 
       allocator_type allocator{pending_events.get_allocator()};
       size_type next_revision = revision() + size_uncommitted_events() + 1;
-      auto ptr = allocate_shared<basic_domain_event<Evt>>(allocator, forward<Evt>(e), next_revision);
+      auto ptr = allocate_shared<DomainEventType>(allocator, forward<EventType>(e), next_revision);
       apply_change(static_pointer_cast<domain_event>(ptr), true);
       return ptr;
    }
