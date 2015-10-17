@@ -25,16 +25,14 @@ auto create_handler(Fun f, int_to_type<1>, argument_to_type<EventType>, std::tru
 template<class Fun, class EventType>
 auto create_handler(Fun f, int_to_type<1>, argument_to_type<EventType>, std::false_type) {
    return [f](const domain_event &event) {
-         const basic_domain_event<EventType> &e = static_cast<const basic_domain_event<EventType> &>(event);
-         return f(e.event());
+         return f(unsafe_event_cast<EventType>(event));
       };
 }
 
 template<class Fun, class EventType>
 auto create_handler(Fun f, int_to_type<1>, argument_to_type<basic_domain_event<EventType>>, std::true_type) {
    return [f](const domain_event &event) {
-         const basic_domain_event<EventType> &e = static_cast<const basic_domain_event<EventType> &>(event);
-         return f(e.event());
+         return f(unsafe_event_cast<EventType>(event));
       };
 }
 
@@ -160,7 +158,7 @@ protected:
       auto handler = details_::create_handler(move(f), num_arguments{}, argument_type{},
                                               std::is_base_of<domain_event, event_type>{});
       dispatcher.add_message_handler(handler, [](const domain_event &event) {
-            return event.type() == utils::type_id_generator::get_id_for_type<event_type>();
+            return is_event<event_type>(event);
          });
    }
 
