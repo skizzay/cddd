@@ -61,6 +61,10 @@ public:
       return load_object(id, version);
    }
 
+   inline pointer get_latest(const key_type &id) {
+      return get(id, std::numeric_limits<std::size_t>::max());
+   }
+
 private:
    inline commit save_object(const ArtifactType &object) {
       auto str = event_stream_provider.get_or_create(object.id());
