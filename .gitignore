@@ -40,3 +40,8 @@ bii/settings.bii
 bii/policies.bii
 bii/.hive.db
 bin
+
+# conan outputs
+conanbuildinfo.cmake
+conaninfo.*
+conanfile.pyc
