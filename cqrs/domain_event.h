@@ -2,7 +2,6 @@
 #define CDDD_CQRS_DOMAIN_EVENT_H__
 
 #include "utils/type_id_generator.h"
-#include <sequence.h>
 #include <memory>
 #include <typeinfo>
 #include <utility>
