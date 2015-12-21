@@ -1,0 +1,3 @@
+ADD_SUBDIRECTORY(messaging)
+#ADD_SUBDIRECTORY(cqrs)
+#ADD_SUBDIRECTORY(features)

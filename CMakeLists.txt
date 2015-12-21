@@ -1,4 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+PROJECT(cddd)
+
 SET(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 OPTION(GCC_LINK_TIME_OPTIMIZATION "Enable GCC Link Time Optimizations (LTO)" OFF)
@@ -17,54 +19,32 @@ IF( (CMAKE_BUILD_TYPE MATCHES Release) AND (GCC_LINK_TIME_OPTIMIZATION) )
    ENDIF()
 ENDIF()
 
-IF(BIICODE)
-   INCLUDE(biicode/cmake/tools)
-
-   ADD_BII_TARGETS()
-
-   TARGET_COMPILE_OPTIONS(${BII_BLOCK_TARGET} INTERFACE "-Wall")
-   TARGET_COMPILE_OPTIONS(${BII_BLOCK_TARGET} INTERFACE "-Wextra")
-   TARGET_COMPILE_OPTIONS(${BII_BLOCK_TARGET} INTERFACE "-Werror")
-   TARGET_COMPILE_OPTIONS(${BII_BLOCK_TARGET} INTERFACE "-DBOOST_NO_AUTO_PTR")
-   IF(APPLE)
-      TARGET_COMPILE_OPTIONS(${BII_BLOCK_TARGET} INTERFACE "-std=c++1y -stdlib=libc++")
-   ELSEIF(WIN32 OR UNIX)
-      TARGET_COMPILE_OPTIONS(${BII_BLOCK_TARGET} INTERFACE "-std=c++1y")
-   ENDIF()
-ELSEIF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/conanbuildinfo.cmake")
-   PROJECT(cddd)
-   SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}")
-   INCLUDE(CheckCXXCompilerFlag)
-   INCLUDE(conanbuildinfo.cmake)
-
-   CONAN_BASIC_SETUP()
-
-   ADD_LIBRARY(cddd utils/type_id_generator.cpp)
-
-   INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
-   IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-       SET(warnings "-Wall -Wextra -Werror")
-       SET(cxx_standard "-std=c++1z")
-       SET(c_standard "-std=c1z")
-   ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-       SET(warnings "/W4 /WX /EHsc")
-   ENDIF()
-
-   IF (NOT CONFIGURED_ONCE)
-       SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${cxx_standard} ${warnings}")
-       SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${c_standard} ${warnings}")
-   ENDIF()
-
-   IF(BUILD_TESTS)
-      ENABLE_TESTING()
-      MESSAGE("Testing has been enabled")
-      ADD_EXECUTABLE(messaging_tests tests/messaging/dispatcher_test.cpp)
-      TARGET_LINK_LIBRARIES(messaging_tests cddd ${CONAN_LIBS})
-      ADD_TEST(messaging_tests messaging_tests)
-   ENDIF()
-
-   SET(CONFIGURED_ONCE TRUE CACHE INTERNAL
-       "A flag indicating that we've been configured.")
-ELSE()
-   MESSAGE( FATAL_ERROR "Not a biicode build or not found conanbuildinfo.cmake")
+IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+   SET(warnings "-Wall -Wextra -Werror")
+   SET(cxx_standard "-std=c++1z")
+   SET(c_standard "-std=c1z")
+ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+   SET(warnings "/W4 /WX /EHsc")
 ENDIF()
+
+IF (NOT CONFIGURED_ONCE)
+   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${cxx_standard} ${warnings}")
+   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${c_standard} ${warnings}")
+ENDIF()
+
+SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}")
+INCLUDE(conanbuildinfo.cmake)
+CONAN_BASIC_SETUP()
+
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
+
+ADD_SUBDIRECTORY(utils)
+
+IF(BUILD_TESTS)
+  ENABLE_TESTING()
+  ADD_SUBDIRECTORY(tests)
+  TARGET_INCLUDE_DIRECTORIES(messaging_tests PUBLIC ${CMAKE_SOURCE_DIR})
+ENDIF()
+
+SET(CONFIGURED_ONCE TRUE CACHE INTERNAL
+   "A flag indicating that we've been configured.")
