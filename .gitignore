@@ -45,3 +45,5 @@ bin
 conanbuildinfo.cmake
 conaninfo.*
 conanfile.pyc
+Testing
+build
