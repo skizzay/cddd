@@ -32,18 +32,10 @@ lib
 *.kdev4
 .kdev_include_paths
 
-# BiiCode outputs
-bii/build
-bii/deps
-bii/cmake
-bii/settings.bii
-bii/policies.bii
-bii/.hive.db
-bin
-
 # conan outputs
 conanbuildinfo.cmake
 conaninfo.*
 conanfile.pyc
 Testing
-build
+Debug
+Release
