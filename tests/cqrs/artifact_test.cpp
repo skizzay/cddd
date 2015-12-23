@@ -71,7 +71,7 @@ TEST_F(artifact_test, apply_change_returns_pointer_to_created_domain_event) {
    // Then
    ASSERT_NE(nullptr, actual);
    ASSERT_EQ(expected, actual->type());
-   ASSERT_GT(actual->version(), 0);
+   ASSERT_GT(actual->version(), size_t{0});
 }
 
 

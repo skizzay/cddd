@@ -1,4 +1,6 @@
+// vim: sw=3 ts=3 expandtab smartindent autoindent cindent
 #include "cqrs/stream.h"
+#include <range/v3/view.hpp>
 #include <fakeit.hpp>
 #include <gtest/gtest.h>
 #include <kerchow/kerchow.h>
@@ -7,51 +9,48 @@
 namespace {
 
 using namespace fakeit;
-using namespace sequencing;
 using namespace cddd::cqrs;
 using kerchow::picker;
+using container_type = decltype(picker.create_fuzzy_container<int>());
+using save_range_type = ranges::iterator_range<std::vector<int>::const_iterator, std::vector<int>::const_iterator>;
+
+auto dont_delete = [](auto *){};
 
 boost::uuids::basic_random_generator<decltype(picker)> gen_id{picker};
 
 
-class test_stream : public stream<test_stream> {
+class stream_implementation {
 public:
-   virtual ~test_stream() noexcept = default;
+   virtual ~stream_implementation() noexcept = default;
 
-   virtual std::vector<int> load_revisions(std::size_t min_revision, std::size_t max_revision) const = 0;
-   virtual void save_sequence(sequence<int> &&s) = 0;
-   virtual commit persist_changes() = 0;
+   virtual std::vector<int> load(size_t min_revision, size_t max_revision) const = 0;
+   virtual void save(const save_range_type &container) = 0;
 };
 
 
 class stream_test : public ::testing::Test {
 public:
    inline std::vector<int> create_event_container() const {
-      std::size_t num_values = picker.pick<std::size_t>(1, 30);
-      std::vector<int> event_container(num_values);
-
-      for (int &event : event_container) {
-         event = picker.pick<std::size_t>();
-      }
-
-      return std::move(event_container);
+      return ranges::view::closed_ints(1, picker.pick(1, 30));
    }
 
-   inline commit create_commit() const {
-      return commit{gen_id(), gen_id(), picker.pick<std::size_t>(1), picker.pick<std::size_t>(1),
-                    boost::posix_time::microsec_clock::universal_time()};
+   inline auto create_target() {
+      std::unique_ptr<stream_implementation, decltype(dont_delete)> spy{&stream_spy.get(), dont_delete};
+      return stream<stream_implementation, decltype(dont_delete)> {std::move(spy)};
    }
+
+   Mock<stream_implementation> stream_spy;
 };
 
 
 TEST_F(stream_test, load_given_0_min_revision_will_return_empty_sequence) {
    // Given
-   Mock<test_stream> target;
+   auto target = create_target();
    std::size_t min_revision = 0;
    std::size_t max_revision = picker.pick<std::size_t>(1, 10);
 
    // When
-   bool actual = target.get().load(min_revision, max_revision).empty();
+   bool actual = target.load(min_revision, max_revision).empty();
 
    // Then
    ASSERT_TRUE(actual);
@@ -60,12 +59,12 @@ TEST_F(stream_test, load_given_0_min_revision_will_return_empty_sequence) {
 
 TEST_F(stream_test, load_given_min_revision_higher_than_max_revision_will_return_empty_sequence) {
    // Given
-   Mock<test_stream> target;
+   auto target = create_target();
    std::size_t min_revision = picker.pick<std::size_t>(11, 20);
    std::size_t max_revision = picker.pick<std::size_t>(1, 10);
 
    // When
-   bool actual = target.get().load(min_revision, max_revision).empty();
+   bool actual = target.load(min_revision, max_revision).empty();
 
    // Then
    ASSERT_TRUE(actual);
@@ -74,34 +73,52 @@ TEST_F(stream_test, load_given_min_revision_higher_than_max_revision_will_return
 
 TEST_F(stream_test, load_given_valid_min_revision_and_max_revision_will_return_derived_value) {
    // Given
-   Mock<test_stream> target;
+   auto target = create_target();
    std::size_t min_revision = picker.pick<std::size_t>(1, 10);
    std::size_t max_revision = picker.pick<std::size_t>(min_revision);
-   When(Method(target, load_revisions).Using(min_revision, max_revision)).Return(std::vector<int>{});
+   auto expected = create_event_container();
+   When(Method(stream_spy, load).Using(min_revision, max_revision)).Return(expected);
 
    // When
-   target.get().load(min_revision, max_revision);
+   std::vector<int> actual = target.load(min_revision, max_revision);
 
    // Then
-   Verify(Method(target, load_revisions).Using(min_revision, max_revision)).Once();
+   Verify(Method(stream_spy, load).Using(min_revision, max_revision)).Once();
+   ASSERT_EQ(expected, actual);
+}
+
+
+TEST_F(stream_test, load_not_given_revision_will_use_1_and_max) {
+   // Given
+   auto target = create_target();
+   std::size_t min_revision = 1;
+   std::size_t max_revision = std::numeric_limits<std::size_t>::max();
+   When(Method(stream_spy, load).Using(min_revision, max_revision)).Return(std::vector<int>{});
+
+   // When
+   target.load(min_revision, max_revision);
+
+   // Then
+   Verify(Method(stream_spy, load).Using(min_revision, max_revision)).Once();
 }
 
 
 TEST_F(stream_test, save_given_event_container_should_invoke_save_sequence_with_same_values) {
    // Given
-   Mock<test_stream> target;
-   std::vector<int> event_container{create_event_container()};
-   sequence<int> actual;
-   When(Method(target, save_sequence)).Do([&actual](sequence<int> &s) { actual = std::move(s); });
+   auto target = create_target();
+   std::vector<int> expected{create_event_container()};
+   std::vector<int> actual;
+   When(Method(stream_spy, save)).Do([&actual](auto &s) { actual = std::move(s); });
 
    // When
-   target.get().save(event_container);
+   target.save(expected);
 
    // Then
-   std::equal(std::begin(actual), std::end(actual), std::begin(event_container));
+   ASSERT_EQ(expected, actual);
 }
 
 
+#if 0
 TEST_F(stream_test, persist_should_invoke_derived_class_to_persist_changes) {
    // Given
    Mock<test_stream> target;
@@ -131,5 +148,6 @@ TEST_F(stream_test, persist_should_return_derived_commit) {
    ASSERT_EQ(expected.commit_sequence(), actual.commit_sequence());
    ASSERT_EQ(expected.timestamp(), actual.timestamp());
 }
+#endif
 
 }

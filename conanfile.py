@@ -7,7 +7,7 @@ class Cddd(ConanFile):
     name = "cddd"
     version = "0.1.0"
     url = "https://github.com/skizzay/cddd.git"
-    requires = "Boost/1.60.0@lasote/stable"
+    requires = "Boost/1.60.0@lasote/stable", "ranges/3.0.0@ericniebler/testing"
     settings = "os", "compiler", "build_type", "arch"
     generators = "cmake"
     options = {"shared": [False, True], "build_tests": [True, False]}
