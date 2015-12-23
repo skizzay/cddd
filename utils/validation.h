@@ -2,6 +2,7 @@
 #pragma once
 
 #include "utils/exceptions.h"
+#include <cassert>
 
 namespace cddd {
 namespace utils {
@@ -41,6 +42,14 @@ public:
 
    constexpr operator T () noexcept {
       return pointer;
+   }
+
+   constexpr auto operator->() const noexcept {
+      return pointer;
+   }
+
+   constexpr auto operator*() const noexcept {
+      return *pointer;
    }
 };
 

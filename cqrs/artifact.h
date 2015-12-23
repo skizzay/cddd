@@ -1,8 +1,10 @@
+// vim: sw=3 ts=3 expandtab smartindent autoindent cindent
 #pragma once
 
 #include "cqrs/domain_event.h"
 #include "messaging/dispatcher.h"
 #include "utils/validation.h"
+#include <range/v3/all.hpp>
 #include <deque>
 
 
@@ -90,11 +92,8 @@ public:
       return artifact_version;
    }
 
-   const auto &uncommitted_events() const {
-      using std::begin;
-      using std::end;
-
-      return pending_events;
+   auto uncommitted_events() const {
+      return ranges::view::all(pending_events);
    }
 
    bool has_uncommitted_events() const {
@@ -111,11 +110,10 @@ public:
 
    template<class EventsContainer>
    void load_from_history(EventsContainer &&events) {
-      using std::move;
-
-      for (auto evt : move(events)) {
-         apply_change(evt, false);
-      }
+      using std::for_each;
+      for_each(begin(events), end(events), [this](auto evt) {
+            this->apply_change(evt, false);
+         });
    }
 
    template<class Evt>
@@ -170,23 +168,50 @@ protected:
    }
 
 private:
-   template<class DomainEventPointer>
-   inline void apply_change(DomainEventPointer evt, bool is_new) {
-      if (evt != nullptr) {
-         // We need to append to the pending events so that our next apply_change
-         // call will have an accurate revision.  We do this by placing a null pointer
-         // as a placeholder.  If the dispatch fails, we need to discard this event
-         // because it was not properly handled.  If it succeeds, then we replace
-         // the placeholder with the actual event.
-         if (is_new) {
-            pending_events.emplace_back(nullptr);
-         }
+   inline void prepare_for_change(bool is_new) {
+      // We need to append to the pending events so that our next apply_change
+      // call will have an accurate revision.  We do this by placing a null pointer
+      // as a placeholder.  If the dispatch fails, we need to discard this event
+      // because it was not properly handled.  If it succeeds, then we replace
+      // the placeholder with the actual event.
+      if (is_new) {
          try {
-            dispatcher.dispatch_message(*evt);
-            pending_events.back() = std::move(evt);
+            pending_events.push_back(nullptr);
+         }
+         catch (const std::bad_alloc &) {
+            throw;
          }
          catch (...) {
             pending_events.pop_back();
+            throw;
+         }
+      }
+      else {
+         ++artifact_version;
+      }
+   }
+
+   inline void rollback_change(bool is_new) {
+      if (is_new) {
+         pending_events.pop_back();
+      }
+      else {
+         --artifact_version;
+      }
+   }
+
+   template<class DomainEventPointer>
+   inline void apply_change(DomainEventPointer evt, bool is_new) {
+      if (evt != nullptr) {
+         prepare_for_change(is_new);
+         try {
+            dispatcher.dispatch_message(*evt);
+            if (is_new) {
+               pending_events.back() = std::move(evt);
+            }
+         }
+         catch (...) {
+            rollback_change(is_new);
             throw;
          }
       }

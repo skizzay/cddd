@@ -1,3 +1,4 @@
+// vim: sw=3 ts=3 expandtab smartindent autoindent cindent
 #pragma once
 
 #include "cqrs/artifact.h"
@@ -24,13 +25,15 @@ public:
    inline artifact_store(domain_event_source &es, memento_store<ArtifactType> &ms, artifact_factory af) noexcept :
       event_stream_provider(es),
       memento_provider(ms),
-      create_artifact(std::move(af)) {
+      create_artifact(std::move(af))
+   {
    }
 
    inline artifact_store(domain_event_source &es, artifact_factory af) noexcept :
       event_stream_provider(es),
       memento_provider(memento_store<ArtifactType>::instance()),
-      create_artifact(std::move(af)) {
+      create_artifact(std::move(af))
+   {
    }
 
    artifact_store(const artifact_store &) = delete;
@@ -46,7 +49,6 @@ public:
    }
 
    inline commit put(ArtifactType &object) {
-      utils::validate_id(object.id());
       if (object.has_uncommitted_events()) {
          commit result = save_object(object);
          object.clear_uncommitted_events();
@@ -56,8 +58,7 @@ public:
    }
 
    // When version==0, then we are essentially just creating an object.
-   inline pointer get(const key_type &id, std::size_t version) {
-      utils::validate_id(id);
+   inline pointer get(utils::valid_uuid<const key_type &> id, std::size_t version) {
       return load_object(id, version);
    }
 

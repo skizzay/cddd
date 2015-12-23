@@ -1,14 +1,11 @@
+// vim: sw=3 ts=3 expandtab smartindent autoindent cindent
 #include "cqrs/artifact_store.h"
+#include "tests/cqrs/helpers.h"
 #include "cqrs/artifact.h"
 #include "cqrs/commit.h"
-#include "cqrs/fakes/fake_event.h"
-#include <kerchow/kerchow.h>
-#include <fakeit.hpp>
-#include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <gtest/gtest.h>
 #include <deque>
-#include <memory>
 
 
 namespace {
@@ -16,151 +13,72 @@ namespace {
 using namespace fakeit;
 using namespace cddd::cqrs;
 
-boost::uuids::basic_random_generator<decltype(kerchow::picker)> gen_id{kerchow::picker};
 
-
-auto nothing = [](auto &...) {};
-auto dont_delete = [](auto *) {};
-
-
-class test_artifact final : public artifact {
+class artifact_store_test : public ::testing::Test,
+                            public mock_factory {
 public:
-   using basic_artifact::set_version;
-
-   explicit inline test_artifact() :
-      artifact{gen_id()}
-   {
-      add_handler([](const fake_event &) {});
-   }
-};
-
-
-class base_domain_event_stream : public stream<base_domain_event_stream> {
-public:
-   typedef std::shared_ptr<domain_event> value_type;
-
-   virtual ~base_domain_event_stream() noexcept = default;
-   virtual sequencing::sequence<value_type> load_revisions(std::size_t, std::size_t) const = 0;
-   virtual void save_sequence(sequencing::sequence<value_type> &&) = 0;
-   virtual commit persist_changes() = 0;
-};
-
-
-class base_domain_event_stream_store : public domain_event_stream_store<base_domain_event_stream_store> {
-public:
-   virtual ~base_domain_event_stream_store() noexcept = default;
-   virtual bool has_stream_for(const boost::uuids::uuid &) const = 0;
-   virtual std::shared_ptr<base_domain_event_stream> get_stream_for(const boost::uuids::uuid &) = 0;
-   virtual std::shared_ptr<base_domain_event_stream> create_stream_for(const boost::uuids::uuid &) = 0;
-};
-
-
-class test_artifact_factory {
-public:
-   struct interface {
-      virtual ~interface() noexcept = default;
-      virtual std::shared_ptr<test_artifact> create_test_artifact(const boost::uuids::uuid &id) = 0;
-   };
-
-   // For testing, we're allowing implicit construction to make life easier.
-   inline test_artifact_factory(interface &pimpl_) :
-      pimpl{pimpl_}
-   {
+   std::shared_ptr<test_artifact> create_entity() {
+      return std::shared_ptr<test_artifact>{&entity, dont_delete};
    }
 
-   inline auto operator()(const boost::uuids::uuid &id) {
-      return pimpl.create_test_artifact(id);
-   }
-
-private:
-   interface &pimpl;
-};
-
-
-typedef artifact_store<test_artifact, base_domain_event_stream_store, test_artifact_factory> store_type;
-
-
-class artifact_store_test : public ::testing::Test {
-public:
-   virtual ~artifact_store_test() noexcept {
-   }
-
-   inline std::unique_ptr<store_type> create_target() {
-      return std::make_unique<store_type>(events_provider.get(), artifact_factory.get());
-   }
-
-   inline commit create_commit() {
-      return commit{gen_id(),
-                    gen_id(),
-                    kerchow::picker.pick<std::size_t>(1),
-                    kerchow::picker.pick<std::size_t>(1),
-                    boost::posix_time::microsec_clock::universal_time()};
-   }
-
-   Mock<base_domain_event_stream_store> events_provider;
-   Mock<test_artifact_factory::interface> artifact_factory;
-   Mock<base_domain_event_stream> events_stream;
    test_artifact entity;
 };
 
 
-TEST_F(artifact_store_test, has_returns_false_when_object_id_is_null) {
+TEST_F(artifact_store_test, has_asserts_false_when_object_id_is_null) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
 
-   // When
-   bool actual = target->has(boost::uuids::nil_uuid());
-
-   // Then
-   ASSERT_FALSE(actual);
+   // When and Then
+   ASSERT_DEATH(target->has(boost::uuids::nil_uuid()), "");
 }
 
 
 TEST_F(artifact_store_test, has_returns_false_when_events_provider_does_not_have_artifact) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
    auto id = gen_id();
-   When(Method(events_provider, has_stream_for).Using(id)).Return(false);
+   When(Method(source_spy, has_stream_for).Using(id)).Return(false);
 
    // When
    bool actual = target->has(id);
 
    // Then
    ASSERT_FALSE(actual);
-   Verify(Method(events_provider, has_stream_for).Using(id)).Exactly(1_Time);
+   Verify(Method(source_spy, has_stream_for).Using(id)).Once();
 }
 
 
 TEST_F(artifact_store_test, has_returns_true_when_events_provider_does_have_artifact) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
    auto id = gen_id();
-   When(Method(events_provider, has_stream_for).Using(id)).Return(true);
+   When(Method(source_spy, has_stream_for).Using(id)).Return(true);
 
    // When
    bool actual = target->has(id);
 
    // Then
    ASSERT_TRUE(actual);
-   Verify(Method(events_provider, has_stream_for).Using(id)).Exactly(1_Time);
+   Verify(Method(source_spy, has_stream_for).Using(id)).Once();
 }
 
 
 TEST_F(artifact_store_test, put_will_not_save_the_object_when_the_object_has_no_uncommitted_events) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
 
    // When
    target->put(entity);
 
    // Then
-   VerifyNoOtherInvocations(events_provider);
+   VerifyNoOtherInvocations(source_spy);
 }
 
 
 TEST_F(artifact_store_test, put_will_return_noncommit_when_the_object_has_no_uncommitted_events) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
 
    // When
    auto actual = target->put(entity);
@@ -172,89 +90,71 @@ TEST_F(artifact_store_test, put_will_return_noncommit_when_the_object_has_no_unc
 
 TEST_F(artifact_store_test, put_will_save_the_object_when_the_object_has_uncommitted_events) {
    // Given
-   auto target = create_target();
-   auto es = std::shared_ptr<base_domain_event_stream>{&events_stream.get(), dont_delete};
-   When(Method(events_provider, has_stream_for).Using(entity.id())).Return(true);
-   When(Method(events_provider, get_stream_for).Using(entity.id())).Return(es);
-   When(Method(events_stream, save_sequence)).Do(nothing);
-   When(Method(events_stream, persist_changes)).Return(create_commit());
+   auto target = create_simple_artifact_store();
+   persistance_result = create_commit();
+   auto es = create_stub_stream();
+   When(Method(source_spy, has_stream_for).Using(entity.id())).Return(true);
+   When(Method(source_spy, get_stream_for).Using(entity.id())).Return(es);
    entity.apply_change(fake_event{});
 
    // When
-   target->put(entity);
-
-   // Then
-   Verify(Method(events_stream, save_sequence)).Exactly(1_Time);
-   Verify(Method(events_stream, persist_changes)).Exactly(1_Time);
-}
-
-
-TEST_F(artifact_store_test, put_will_return_valid_commit_when_the_object_has_uncommitted_events) {
-   // Given
-   auto target = create_target();
-   auto es = std::shared_ptr<base_domain_event_stream>{&events_stream.get(), dont_delete};
-   When(Method(events_provider, has_stream_for).Using(entity.id())).Return(true);
-   When(Method(events_provider, get_stream_for).Using(entity.id())).Return(es);
-   When(Method(events_stream, save_sequence)).Do(nothing);
-   When(Method(events_stream, persist_changes)).Return(create_commit());
-   entity.apply_change(fake_event{});
-
-   // When
-   auto actual = target->put(entity);
+   commit actual = target->put(entity);
 
    // Then
    ASSERT_FALSE(actual.is_noncommit());
+   ASSERT_EQ(persistance_result.commit_id(), actual.commit_id());
+   ASSERT_EQ(persistance_result.stream_id(), actual.stream_id());
+   ASSERT_EQ(persistance_result.stream_revision(), actual.stream_revision());
+   ASSERT_EQ(persistance_result.timestamp(), actual.timestamp());
 }
 
 
-TEST_F(artifact_store_test, get_will_throw_null_id_exception_when_object_id_is_null) {
+TEST_F(artifact_store_test, get_will_assert_false_when_object_id_is_null) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
    size_t version = kerchow::picker.pick<size_t>();
 
    // When
-   ASSERT_THROW(target->get(boost::uuids::nil_uuid(), version), cddd::utils::null_id_exception);
+   ASSERT_DEATH(target->get(boost::uuids::nil_uuid(), version), "");
 }
 
 
 TEST_F(artifact_store_test, get_will_load_event_sequence_for_all_events) {
    // Given
-   typedef std::shared_ptr<domain_event> value_type;
-
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
    boost::uuids::uuid id = entity.id();
    size_t version = std::numeric_limits<size_t>::max();
-   size_t revision = 0;
-   auto es = std::shared_ptr<base_domain_event_stream>{&events_stream.get(), dont_delete};
-   auto entity_pointer = std::shared_ptr<test_artifact>{&entity, dont_delete};
-   When(Method(artifact_factory, create_test_artifact).Using(id)).Return(entity_pointer);
-   When(Method(events_provider, has_stream_for).Using(id)).Return(false);
-   When(Method(events_provider, create_stream_for).Using(id)).Return(es);
-   When(Method(events_stream, load_revisions).Using(revision + 1, version)).Do([](size_t, size_t) { return sequencing::sequence<value_type>{}; });
+   load_playback = create_event_container();
+   auto es = create_stub_stream();
+   auto entity_pointer = create_entity();
+   entity_pointer->handle([](const fake_event &){});
+   When(Method(artifact_factory_spy, create_test_artifact).Using(id)).Return(entity_pointer);
+   When(Method(source_spy, has_stream_for).Using(id)).Return(false);
+   When(Method(source_spy, create_stream_for).Using(id)).Return(es);
 
    // When
-   target->get(id, version);
+   auto actual = target->get(id, version);
 
    // Then
-   Verify(Method(events_stream, load_revisions).Using(revision + 1, version)).Exactly(1_Time);
+   ASSERT_EQ(entity_pointer, actual);
+   ASSERT_EQ(load_playback.size(), actual->revision());
 }
 
 
 TEST_F(artifact_store_test, get_with_revision_equal_to_requested_version_due_to_memento_loading_will_not_load_events) {
    // Given
-   auto target = create_target();
+   auto target = create_simple_artifact_store();
    boost::uuids::uuid id = entity.id();
    size_t version = kerchow::picker.pick<size_t>(1);
-   auto entity_pointer = std::shared_ptr<test_artifact>{&entity, dont_delete};
-   When(Method(artifact_factory, create_test_artifact).Using(id)).Return(entity_pointer);
+   auto entity_pointer = create_entity();
+   When(Method(artifact_factory_spy, create_test_artifact).Using(id)).Return(entity_pointer);
    entity.set_version(version);
 
    // When
    target->get(id, version);
 
    // Then
-   Verify(Method(events_stream, load_revisions)).Exactly(0_Times);
-   Verify(Method(events_provider, has_stream_for)).Exactly(0_Times);
+   Verify(Method(source_spy, has_stream_for)).Exactly(0_Times);
 }
 
 }

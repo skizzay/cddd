@@ -1,8 +1,6 @@
 #include "cqrs/artifact.h"
-#include "cqrs/fakes/fake_event.h"
+#include "tests/cqrs/helpers.h"
 #include "messaging/dispatcher.h"
-#include <kerchow/kerchow.h>
-#include <boost/uuid/uuid_generators.hpp>
 #include <gtest/gtest.h>
 
 
@@ -14,38 +12,16 @@ namespace {
 
 using namespace cddd::cqrs;
 
-boost::uuids::basic_random_generator<decltype(kerchow::picker)> gen_id{kerchow::picker};
 
-
-class artifact_spy : public artifact {
+class artifact_test : public ::testing::Test,
+                      public mock_factory {
 public:
-   using artifact::basic_artifact;
-
-   inline artifact_spy(const id_type &id_) :
-      artifact{id_}
-   {
-   }
-
-   template<class Fun>
-   inline void handle(Fun &&f) {
-      add_handler(std::forward<Fun>(f));
-   }
-};
-
-
-class artifact_test : public ::testing::Test {
-public:
-   inline auto create_target() {
-      return artifact_spy{id};
-   }
-
-   boost::uuids::uuid id = gen_id();
 };
 
 
 TEST_F(artifact_test, apply_change_does_invoke_dispatcher_to_dispatch_events) {
    // Given
-   auto target = create_target();
+   auto target = create_artifact();
    fake_event event;
    bool invoked = false;
    target.handle([&](const fake_event &) { invoked = true; });
@@ -62,7 +38,7 @@ TEST_F(artifact_test, apply_change_returns_pointer_to_created_domain_event) {
    // Given
    auto expected = cddd::utils::type_id_generator::get_id_for_type<fake_event>();
    fake_event event;
-   auto target = create_target();
+   auto target = create_artifact();
    target.handle([](const fake_event &) {});
 
    // When
@@ -78,7 +54,7 @@ TEST_F(artifact_test, apply_change_returns_pointer_to_created_domain_event) {
 
 TEST_F(artifact_test, has_uncommitted_events_returns_false_when_collection_is_empty) {
    // Given
-   auto target = create_target();
+   auto target = create_artifact();
 
    // When
    bool actual = target.has_uncommitted_events();
@@ -90,7 +66,7 @@ TEST_F(artifact_test, has_uncommitted_events_returns_false_when_collection_is_em
 
 TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not_empty) {
    // Given
-   auto target = create_target();
+   auto target = create_artifact();
    target.apply_change(fake_event{});
 
    // When
@@ -104,7 +80,7 @@ TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not
 TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
    // Given
    size_t expected = 0;
-   auto target = create_target();
+   auto target = create_artifact();
 
    // When
    auto actual = target.revision();
@@ -117,7 +93,7 @@ TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
 TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event) {
    // Given
    size_t expected = 1;
-   auto target = create_target();
+   auto target = create_artifact();
    fake_event e;
    target.apply_change(std::move(e));
 
@@ -131,7 +107,7 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event)
 
 TEST_F(artifact_test, has_uncommitted_events_returns_false_after_applying_an_event_and_clearing) {
    // Given
-   auto target = create_target();
+   auto target = create_artifact();
    fake_event e;
    target.apply_change(std::move(e));
    target.clear_uncommitted_events();
@@ -147,7 +123,7 @@ TEST_F(artifact_test, has_uncommitted_events_returns_false_after_applying_an_eve
 TEST_F(artifact_test, uncommitted_events_returns_a_sequence_without_any_events_after_clearing) {
    // Given
    size_t expected = 0;
-   auto target = create_target();
+   auto target = create_artifact();
    fake_event e;
    target.apply_change(std::move(e));
    target.clear_uncommitted_events();

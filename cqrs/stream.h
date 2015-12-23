@@ -2,6 +2,7 @@
 #ifndef CDDD_CQRS_STREAM_H__
 #define CDDD_CQRS_STREAM_H__
 
+#include "cqrs/commit.h"
 #include <limits>
 #include <memory>
 #include <range/v3/all.hpp>
@@ -33,6 +34,10 @@ public:
    template<class DomainEventContainer>
    inline void save(const DomainEventContainer &container) {
       impl->save(ranges::view::all(container));
+   }
+
+   inline commit persist() {
+      return impl->persist_changes();
    }
 
 private:

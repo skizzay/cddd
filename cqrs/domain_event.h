@@ -1,5 +1,5 @@
-#ifndef CDDD_CQRS_DOMAIN_EVENT_H__
-#define CDDD_CQRS_DOMAIN_EVENT_H__
+// vim: sw=3 ts=3 expandtab smartindent autoindent cindent
+#pragma once
 
 #include "utils/type_id_generator.h"
 #include <memory>
@@ -56,19 +56,19 @@ private:
 
 
 template<class Evt>
-inline bool is_event(const domain_event &evt) {
+inline bool is_event(const domain_event &evt) noexcept {
    return evt.type() == utils::type_id_generator::get_id_for_type<Evt>();
 }
 
 
 template<class Evt>
-inline const Evt & unsafe_event_cast(const domain_event &evt) {
+inline const Evt & unsafe_event_cast(const domain_event &evt) noexcept {
    return static_cast<const basic_domain_event<Evt> &>(evt).event();
 }
 
 
 template<class Evt>
-inline const Evt & safe_event_cast(const domain_event &evt) {
+inline const Evt & safe_event_cast(const domain_event &evt) throw(std::bad_cast) {
    // We'll do a fast check first.  If it passes, then things should be OK
    // to perform the cast.  If it fails, then we'll let c++ type system
    // take over.  As such, if dynamic_cast fails, we'll throw std::bad_cast.
@@ -80,5 +80,3 @@ inline const Evt & safe_event_cast(const domain_event &evt) {
 
 }
 }
-
-#endif
