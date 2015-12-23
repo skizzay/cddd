@@ -73,4 +73,3 @@ int main(int argc, char **argv) {
 
    return server_result == 0 ? client_result : server_result;
 }
-
