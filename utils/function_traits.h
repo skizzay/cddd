@@ -1,3 +1,4 @@
+// vim: sw=3 ts=3 expandtab cindent
 #pragma once
 
 #include "utils/parameter_pack.h"
@@ -16,7 +17,7 @@ struct function_traits<R(Args...)> {
 
    enum { arity = sizeof...(Args) };
 
-   template<std::size_t I, class=std::enable_if<(I < arity)>>
+   template<std::size_t I, class=std::enable_if_t<(I < arity)>>
    struct argument {
       using type = typename parameter_at<I, argument_types>::type;
    };
@@ -26,24 +27,32 @@ struct function_traits<R(Args...)> {
 template<class R, class C, class... Args>
 struct function_traits<R (C::*)(Args...)> : function_traits<R(Args...)> {
    typedef C class_type;
+   static constexpr bool is_const = false;
+   static constexpr bool is_volatile = false;
 };
 
 
 template<class R, class C, class... Args>
 struct function_traits<R (C::*)(Args...) const> : function_traits<R(Args...)> {
    typedef std::add_const_t<C> class_type;
+   static constexpr bool is_const = true;
+   static constexpr bool is_volatile = false;
 };
 
 
 template<class R, class C, class... Args>
 struct function_traits<R (C::*)(Args...) volatile> : function_traits<R(Args...)> {
    typedef std::add_volatile_t<C> class_type;
+   static constexpr bool is_const = false;
+   static constexpr bool is_volatile = true;
 };
 
 
 template<class R, class C, class... Args>
 struct function_traits<R (C::*)(Args...) const volatile> : function_traits<R(Args...)> {
    typedef std::add_cv_t<C> class_type;
+   static constexpr bool is_const = true;
+   static constexpr bool is_volatile = true;
 };
 
 

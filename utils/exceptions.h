@@ -18,7 +18,7 @@ inline std::string malformed_id(const boost::uuids::uuid &id, std::experimental:
 
    std::ostringstream error;
    error << '\'' << parameter << "' is a malformed id: '" << id << '\'';
-   return move(error.str());
+   return error.str();
 }
 
 
@@ -27,7 +27,7 @@ inline std::string null_value(std::experimental::string_view parameter) {
 
    std::ostringstream error;
    error << '\'' << parameter << "' cannot be null.";
-   return move(error.str());
+   return error.str();
 }
 
 
@@ -36,7 +36,7 @@ inline std::string not_found(const boost::uuids::uuid &id, std::experimental::st
 
    std::ostringstream error;
    error << '\'' << parameter << "' = '" << id << "' not found.";
-   return move(error.str());
+   return error.str();
 }
 
 }

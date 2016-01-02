@@ -1,5 +1,6 @@
 SET(cqrs_test_sources artifact_test.cpp
 	              artifact_store_test.cpp
+		      command_handler_test.cpp
 		      domain_event_test.cpp
 		      domain_event_stream_store_test.cpp
 		      memento_store_test.cpp

@@ -12,7 +12,7 @@ struct fake_event final : domain_event {
    enum { cache_line_size = 64 };
    double d;
    int i;
-   char c[cache_line_size-(alignof(d) + alignof(i))];
+   char c[cache_line_size-(alignof(decltype(d)) + alignof(decltype(i)))];
 
    virtual event_type_id type() const final override {
       return utils::type_id_generator::get_id_for_type<fake_event>();

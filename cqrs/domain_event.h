@@ -3,6 +3,7 @@
 
 #include "utils/type_id_generator.h"
 #include <memory>
+#include <stdexcept>
 #include <typeinfo>
 #include <utility>
 
@@ -62,8 +63,26 @@ inline bool is_event(const domain_event &evt) noexcept {
 
 
 template<class Evt>
+constexpr bool is_event(const basic_domain_event<Evt> &) noexcept {
+   return true;
+}
+
+
+template<class Evt, class SomethingElse>
+constexpr bool is_event(const basic_domain_event<SomethingElse> &) noexcept {
+   return false;
+}
+
+
+template<class Evt>
 inline const Evt & unsafe_event_cast(const domain_event &evt) noexcept {
    return static_cast<const basic_domain_event<Evt> &>(evt).event();
+}
+
+
+template<class Evt>
+inline const Evt & unsafe_event_cast(const basic_domain_event<Evt> &evt) noexcept {
+   return evt.event();
 }
 
 
@@ -76,6 +95,18 @@ inline const Evt & safe_event_cast(const domain_event &evt) throw(std::bad_cast)
       return unsafe_event_cast<Evt>(evt);
    }
    return dynamic_cast<const basic_domain_event<Evt> &>(evt).event();
+}
+
+
+template<class Evt>
+inline const Evt & safe_event_cast(const basic_domain_event<Evt> &evt) noexcept {
+   return evt.event();
+}
+
+
+template<class Evt, class SomethingElse>
+inline const Evt & safe_event_cast(const basic_domain_event<SomethingElse> &) throw(std::bad_cast) {
+   throw std::bad_cast();
 }
 
 }

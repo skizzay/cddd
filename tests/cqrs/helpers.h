@@ -1,6 +1,7 @@
 // vim: sw=3 ts=3 expandtab smartindent autoindent cindent
 #pragma once
 #include "cqrs/artifact_store.h"
+#include "cqrs/generic_command_handler.h"
 #include "cqrs/fakes/fake_event.h"
 #include <kerchow/kerchow.h>
 #include <fakeit.hpp>
@@ -74,7 +75,8 @@ public:
    using basic_artifact::set_version;
 
    explicit inline test_artifact() :
-      artifact{gen_id()}
+      artifact{gen_id()},
+      do_command()
    {
    }
 
@@ -82,6 +84,8 @@ public:
    inline void handle(Fun &&f) {
       add_handler(std::forward<Fun>(f));
    }
+
+   std::function<void()> do_command;
 };
 
 
@@ -107,6 +111,22 @@ private:
 };
 
 
+class fake_command final : public command<fake_command> {
+public:
+   inline const boost::uuids::uuid & artifact_id() const noexcept {
+      return id;
+   }
+
+   inline void execute_on(test_artifact &a) const {
+      if (a.do_command) {
+         a.do_command();
+      }
+   }
+
+   boost::uuids::uuid id = boost::uuids::nil_uuid();
+};
+
+
 class mock_factory {
    template<class Implementation>
    inline auto create_implementation(Implementation &ref) {
@@ -118,9 +138,10 @@ public:
    using stub_stream = stream<stream_stub_implementation>;
    using abstract_source = domain_event_stream_store<source_abstract_implementation, decltype(dont_delete)>;
    using artifact_store_type = artifact_store<test_artifact, abstract_source, test_artifact_factory>;
+   using validator_type = command_validator<fake_command, test_artifact>;
 
    inline std::vector<domain_event_pointer> create_event_container() {
-      std::vector<domain_event_pointer> result{kerchow::picker.pick<size_t>(1, 30)};
+      std::vector<domain_event_pointer> result{kerchow::picker.pick<size_t>(1, 30), nullptr};
       std::generate_n(begin(result), result.size(), []() { return std::make_shared<fake_event>(); });
       return result;
    }
@@ -144,7 +165,21 @@ public:
    }
 
    inline auto create_artifact() {
-      return test_artifact{};
+      return std::make_shared<test_artifact>();
+   }
+
+   inline auto create_passing_command_validator() {
+      When(Method(validator_spy, validate)).Do([](const fake_command &, const test_artifact &) {
+            return make_future_error_code();
+         });
+      return std::shared_ptr<command_validator<fake_command, test_artifact>>{&validator_spy.get(), dont_delete};
+   }
+
+   inline auto create_failing_command_validator() {
+      When(Method(validator_spy, validate)).Do([](const fake_command &, const test_artifact &) {
+            return make_future_error_code(std::errc::bad_address);
+         });
+      return std::shared_ptr<command_validator<fake_command, test_artifact>>{&validator_spy.get(), dont_delete};
    }
 
    inline commit create_commit() {
@@ -160,6 +195,7 @@ public:
    Mock<stream_abstract_implementation> stream_spy;
    Mock<source_abstract_implementation> source_spy;
    Mock<test_artifact_factory::interface> artifact_factory_spy;
+   Mock<command_validator<fake_command, test_artifact>> validator_spy;
    std::unique_ptr<abstract_source> source;
 };
 

@@ -36,6 +36,7 @@ lib
 conanbuildinfo.cmake
 conaninfo.*
 conanfile.pyc
+build
 Testing
 Debug
 Release

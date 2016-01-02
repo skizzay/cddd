@@ -1,4 +1,4 @@
-from conans import ConanFile, CMake
+from conans import ConanFile, CMake, GCC
 from conans.util.files import mkdir
 from os import getcwd, rename
 from os.path import join, exists, dirname, abspath
@@ -9,9 +9,10 @@ class Cddd(ConanFile):
     url = "https://github.com/skizzay/cddd.git"
     requires = "Boost/1.60.0@lasote/stable", "ranges/3.0.0@ericniebler/testing"
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake"
+    generators = "cmake", "ycm"
     options = {"shared": [False, True], "build_tests": [True, False]}
     default_options = "shared=False"
+    exports = "CMakeLists.txt", "cqrs/*", "utils/*", "messaging/*", "tests/*"
 
     def config(self):
         # Debug builds will build the tests by default
@@ -32,14 +33,30 @@ class Cddd(ConanFile):
         cmake = CMake(self.settings)
         self.output.info("cmake %s %s %s" % (self._directory_of_self, cmake.command_line, self._extra_cmake_flags))
         self.run("cmake %s %s %s" % (self._directory_of_self, cmake.command_line, self._extra_cmake_flags))
-        self.output.info("cmake --build . %s" % cmake.build_config)
-        self.run("cmake --build . %s" % cmake.build_config)
+        self.output.info("cmake --build %s %s" % (getcwd(), cmake.build_config))
+        self.run("cmake --build %s %s" % (getcwd(), cmake.build_config))
 
         if self.options.build_tests:
             self.run("ctest")
 
+    def package(self):
+        # Copying headers
+        self.copy(pattern="*.h", dst=join("utils"), src=join("utils"))
+        self.copy(pattern="*.h", dst=join("messaging"), src=join("messaging"))
+        self.copy(pattern="*.h", dst=join("cqrs"), src=join("cqrs"))
+
+        # Copying static libs
+        self.copy(pattern="*.a", dst="lib", src=".", keep_path=False)
+
+        # Copying dynamic libs
+        self.copy(pattern="*.lib", dst="lib", src=".", keep_path=False)
+        self.copy(pattern="*.dll", dst="bin", src=".", keep_path=False)
+        self.copy(pattern="*.so*", dst="lib", src=".", keep_path=False)
+        self.copy(pattern="*.dylib*", dst="lib", src=".", keep_path=False)      
+
     def package_info(self):
-        self.cpp_info.libs = ["cddd"]
+        self.cpp_info.libs = ["cddd_utils"]
+        self.cpp_info.includedirs = [self.conanfile_directory]
         if self.settings.compiler == "gcc":
             self._setup_gcc()
 
@@ -70,5 +87,6 @@ class Cddd(ConanFile):
         return dirname(abspath(__file__))
 
     def _setup_gcc(self):
-        if self.settings.compiler.version.major >= 5:
-            self.cpp_info.cppflags.append("-std=c++1z")
+        self.cpp_info.cppflags.append("-std=c++1z")
+        if self._lto_enabled:
+            self.cpp_info.cppflags.extend(["-flto=jobserver", "-fno-fat-lto-objects"])

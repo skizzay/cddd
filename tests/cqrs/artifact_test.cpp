@@ -1,3 +1,4 @@
+// vim: sw=3 ts=3 expandtab smartindent autoindent cindent
 #include "cqrs/artifact.h"
 #include "tests/cqrs/helpers.h"
 #include "messaging/dispatcher.h"
@@ -16,18 +17,21 @@ using namespace cddd::cqrs;
 class artifact_test : public ::testing::Test,
                       public mock_factory {
 public:
+   inline auto create_target() {
+      return create_artifact();
+   }
 };
 
 
 TEST_F(artifact_test, apply_change_does_invoke_dispatcher_to_dispatch_events) {
    // Given
-   auto target = create_artifact();
+   auto target = create_target();
    fake_event event;
    bool invoked = false;
-   target.handle([&](const fake_event &) { invoked = true; });
+   target->handle([&](const fake_event &) { invoked = true; });
 
    // When
-   target.apply_change(std::move(event));
+   target->apply_change(std::move(event));
 
    // Then
    ASSERT_TRUE(invoked);
@@ -38,11 +42,11 @@ TEST_F(artifact_test, apply_change_returns_pointer_to_created_domain_event) {
    // Given
    auto expected = cddd::utils::type_id_generator::get_id_for_type<fake_event>();
    fake_event event;
-   auto target = create_artifact();
-   target.handle([](const fake_event &) {});
+   auto target = create_target();
+   target->handle([](const fake_event &) {});
 
    // When
-   auto actual = target.apply_change(event);
+   auto actual = target->apply_change(event);
 
    // Then
    ASSERT_NE(nullptr, actual);
@@ -54,10 +58,10 @@ TEST_F(artifact_test, apply_change_returns_pointer_to_created_domain_event) {
 
 TEST_F(artifact_test, has_uncommitted_events_returns_false_when_collection_is_empty) {
    // Given
-   auto target = create_artifact();
+   auto target = create_target();
 
    // When
-   bool actual = target.has_uncommitted_events();
+   bool actual = target->has_uncommitted_events();
 
    // Then
    ASSERT_FALSE(actual);
@@ -66,11 +70,11 @@ TEST_F(artifact_test, has_uncommitted_events_returns_false_when_collection_is_em
 
 TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not_empty) {
    // Given
-   auto target = create_artifact();
-   target.apply_change(fake_event{});
+   auto target = create_target();
+   target->apply_change(fake_event{});
 
    // When
-   bool actual = target.has_uncommitted_events();
+   bool actual = target->has_uncommitted_events();
 
    // Then
    ASSERT_TRUE(actual);
@@ -80,10 +84,10 @@ TEST_F(artifact_test, has_uncommitted_events_returns_true_when_collection_is_not
 TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
    // Given
    size_t expected = 0;
-   auto target = create_artifact();
+   auto target = create_target();
 
    // When
-   auto actual = target.revision();
+   auto actual = target->revision();
 
    // Then
    ASSERT_EQ(expected, actual);
@@ -93,12 +97,12 @@ TEST_F(artifact_test, revision_returns_0_without_applying_an_event) {
 TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event) {
    // Given
    size_t expected = 1;
-   auto target = create_artifact();
+   auto target = create_target();
    fake_event e;
-   target.apply_change(std::move(e));
+   target->apply_change(std::move(e));
 
    // When
-   auto actual = target.uncommitted_events().size();
+   auto actual = target->uncommitted_events().size();
 
    // Then
    ASSERT_EQ(expected, actual);
@@ -107,13 +111,13 @@ TEST_F(artifact_test, uncommitted_events_returns_a_sequence_with_a_single_event)
 
 TEST_F(artifact_test, has_uncommitted_events_returns_false_after_applying_an_event_and_clearing) {
    // Given
-   auto target = create_artifact();
+   auto target = create_target();
    fake_event e;
-   target.apply_change(std::move(e));
-   target.clear_uncommitted_events();
+   target->apply_change(std::move(e));
+   target->clear_uncommitted_events();
 
    // When
-   bool actual = target.has_uncommitted_events();
+   bool actual = target->has_uncommitted_events();
 
    // Then
    ASSERT_FALSE(actual);
@@ -123,13 +127,13 @@ TEST_F(artifact_test, has_uncommitted_events_returns_false_after_applying_an_eve
 TEST_F(artifact_test, uncommitted_events_returns_a_sequence_without_any_events_after_clearing) {
    // Given
    size_t expected = 0;
-   auto target = create_artifact();
+   auto target = create_target();
    fake_event e;
-   target.apply_change(std::move(e));
-   target.clear_uncommitted_events();
+   target->apply_change(std::move(e));
+   target->clear_uncommitted_events();
 
    // When
-   auto actual = target.uncommitted_events().size();
+   auto actual = target->uncommitted_events().size();
 
    // Then
    ASSERT_EQ(expected, actual);

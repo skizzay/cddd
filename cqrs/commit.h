@@ -3,6 +3,7 @@
 #include "utils/validation.h"
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/uuid/nil_generator.hpp>
+#include <type_traits>
 
 namespace cddd {
 namespace cqrs {
@@ -27,7 +28,8 @@ public:
 
    explicit inline commit(const boost::uuids::uuid &cid_, const boost::uuids::uuid &sid_,
                           std::size_t version, std::size_t seq,
-                          timestamp_type ts_) :
+                          timestamp_type ts_) noexcept(std::is_nothrow_copy_constructible<boost::uuids::uuid>::value &&
+				                       std::is_nothrow_copy_assignable<timestamp_type>::value) :
       cid(cid_),
       sid(sid_),
       revision(version),
@@ -47,31 +49,31 @@ public:
       }
    }
 
-   inline const boost::uuids::uuid &commit_id() const {
+   inline const boost::uuids::uuid &commit_id() const noexcept {
       return cid;
    }
 
-   inline const boost::uuids::uuid &stream_id() const {
+   inline const boost::uuids::uuid &stream_id() const noexcept {
       return sid;
    }
 
-   inline std::size_t stream_revision() const {
+   inline std::size_t stream_revision() const noexcept {
       return revision;
    }
 
-   inline std::size_t commit_sequence() const {
+   inline std::size_t commit_sequence() const noexcept {
       return sequence;
    }
 
-   inline const timestamp_type &timestamp() const {
+   inline const timestamp_type &timestamp() const noexcept {
       return ts;
    }
 
-   inline bool is_noncommit() const {
-      return cid == boost::uuids::nil_uuid() &&
-             sid == boost::uuids::nil_uuid() &&
-             revision == 0 &&
-             sequence == 0 &&
+   inline bool is_noncommit() const noexcept {
+      return cid.is_nil() ||
+             sid.is_nil() ||
+             revision == 0 ||
+             sequence == 0 ||
              ts.is_not_a_date_time();
    }
 
