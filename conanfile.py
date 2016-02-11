@@ -11,28 +11,24 @@ class Cddd(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "cmake", "ycm"
     options = {"shared": [False, True], "build_tests": [True, False]}
-    default_options = "shared=False"
+    default_options = "shared=False", "build_tests=True"
     exports = "CMakeLists.txt", "cqrs/*", "utils/*", "messaging/*", "tests/*"
-
-    def config(self):
-        # Debug builds will build the tests by default
-        if not hasattr(self.options, "build_tests"):
-            self.options["build_tests"] = self.settings.build_type == "Debug"
-        self.output.info("We are%s building tests" % ("" if self.options.build_tests else " not"))
 
     def requirements(self):
         if self.options.build_tests:
             self.requires("FakeIt/2.0.3@skizzay/testing")
-            self.options["FakeIt"].framework = "standalone"
+            self.options["FakeIt"].framework = "gtest"
             self.requires("kerchow/1.0.1@skizzay/stable")
             self.options["kerchow"].shared = self.options.shared
             self.requires("gtest/1.7.0@lasote/stable")
             self.options["gtest"].shared = self.options.shared
+            self.requires("cucumber-cpp/0.3/skizzay/testing")
+            self.options["cucumber-cpp"].framework = "gtest"
 
     def build(self):
         cmake = CMake(self.settings)
-        self.output.info("cmake %s %s %s" % (self._directory_of_self, cmake.command_line, self._extra_cmake_flags))
-        self.run("cmake %s %s %s" % (self._directory_of_self, cmake.command_line, self._extra_cmake_flags))
+        self.output.info("cmake %s %s %s" % (self.conanfile_directory, cmake.command_line, self._extra_cmake_flags))
+        self.run("cmake %s %s %s" % (self.conanfile_directory, cmake.command_line, self._extra_cmake_flags))
         self.output.info("cmake --build %s %s" % (getcwd(), cmake.build_config))
         self.run("cmake --build %s %s" % (getcwd(), cmake.build_config))
 
@@ -81,10 +77,6 @@ class Cddd(ConanFile):
         return self.settings.compiler == "gcc" and \
                 self.settings.build_type == "Release" and \
                 not self.options.shared
-
-    @property
-    def _directory_of_self(self):
-        return dirname(abspath(__file__))
 
     def _setup_gcc(self):
         self.cpp_info.cppflags.append("-std=c++1z")
