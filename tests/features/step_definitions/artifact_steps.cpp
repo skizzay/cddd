@@ -3,7 +3,10 @@
 #include <boost/uuid/random_generator.hpp>
 #include <cassert>
 #include <gtest/gtest.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
 #include <cucumber-cpp/defs.hpp>
+#pragma GCC diagnostic pop
 #include <vector>
 
 using cucumber::ScenarioScope;

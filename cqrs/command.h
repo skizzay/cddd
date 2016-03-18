@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils/type_id_generator.h"
+#include "utils/validation.h"
 #include <boost/uuid/uuid.hpp>
 #include <type_traits>
 
@@ -12,15 +13,12 @@ typedef utils::type_id_generator::type_id command_type_id;
 
 class command {
 public:
-   virtual ~command() noexcept = 0;
+   virtual ~command() noexcept = default;
 
    virtual command_type_id type() const noexcept = 0;
    virtual const boost::uuids::uuid & artifact_id() const noexcept = 0;
    virtual std::size_t expected_artifact_version() const noexcept = 0;
 };
-
-
-inline command::~command() noexcept {}
 
 
 template<class Mixin>
@@ -42,7 +40,7 @@ public:
    }
 
 protected:
-   basic_command(const boost::uuids::uuid &id_, std::size_t version) :
+   basic_command(utils::valid_uuid<const boost::uuids::uuid &> id_, std::size_t version) noexcept :
       command{},
       id(id_),
       artifact_version{version}
