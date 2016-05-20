@@ -1,5 +1,7 @@
 from conans import ConanFile, CMake, GCC
 from conans.util.files import mkdir
+from conans.model.values import Values
+from conans.model.options import Options
 from os import getcwd, rename
 from os.path import join, exists, dirname, abspath
 
@@ -14,7 +16,7 @@ class Cddd(ConanFile):
     default_options = "shared=False", "build_tests=True"
     exports = "CMakeLists.txt", "cqrs/*", "utils/*", "messaging/*", "tests/*"
 
-    def requirements(self):
+    def config(self):
         if self.options.build_tests:
             self.requires("FakeIt/2.0.3@skizzay/testing")
             self.options["FakeIt"].framework = "gtest"
@@ -26,11 +28,10 @@ class Cddd(ConanFile):
             self.options["cucumber-cpp"].framework = "gtest"
 
     def build(self):
+        self.output.info(self.options)
         cmake = CMake(self.settings)
-        self.output.info("cmake %s %s %s" % (self.conanfile_directory, cmake.command_line, self._extra_cmake_flags))
-        self.run("cmake %s %s %s" % (self.conanfile_directory, cmake.command_line, self._extra_cmake_flags))
-        self.output.info("cmake --build %s %s" % (getcwd(), cmake.build_config))
-        self.run("cmake --build %s %s" % (getcwd(), cmake.build_config))
+        self._execute("cmake %s %s %s" % (self.conanfile_directory, cmake.command_line, self._extra_cmake_flags))
+        self._execute("cmake --build %s %s" % (getcwd(), cmake.build_config))
 
         if self.options.build_tests:
             self.run("ctest")
@@ -55,6 +56,10 @@ class Cddd(ConanFile):
         self.cpp_info.includedirs = [self.conanfile_directory]
         if self.settings.compiler == "gcc":
             self._setup_gcc()
+
+    def _execute(self, command):
+        self.output.info(command)
+        self.run(command)
 
     @property
     def _build_tests_flag(self):

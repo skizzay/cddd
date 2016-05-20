@@ -12,8 +12,8 @@ class dispatcher_tests : public ::testing::Test {
 public:
    typedef dispatcher<return_error_code_on_handling_errors, DispatchingTablePolicy> target_type;
 
-   inline auto create_target() {
-      return target_type{};
+   inline target_type create_target() {
+      return target_type();
    }
 };
 

@@ -4,6 +4,7 @@
 #include "cqrs/generic_command_handler.h"
 #include "cqrs/fakes/fake_event.h"
 #include <kerchow/kerchow.h>
+#include <gtest/gtest.h>
 #include <fakeit.hpp>
 #include <range/v3/view.hpp>
 #include <boost/uuid/uuid_generators.hpp>

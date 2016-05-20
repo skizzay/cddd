@@ -12,6 +12,7 @@ namespace details_ {
 
 class basic_message_handler {
 public:
+   virtual ~basic_message_handler() = default;
    virtual message_type_id translation_type_id() const = 0;
 };
 

@@ -1,9 +1,9 @@
 #include "cqrs/artifact.h"
 #include "cqrs/memento_store.h"
 #include <boost/uuid/uuid_generators.hpp>
+#include <gtest/gtest.h>
 #include <fakeit.hpp>
 #include <kerchow/kerchow.h>
-#include <gtest/gtest.h>
 
 namespace {
 

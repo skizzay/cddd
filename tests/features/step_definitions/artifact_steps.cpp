@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-qualifiers"
-#include <cucumber-cpp/defs.hpp>
+#include <cucumber-cpp/autodetect.hpp>
 #pragma GCC diagnostic pop
 #include <vector>
 
