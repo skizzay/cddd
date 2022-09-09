@@ -1,0 +1,15 @@
+{
+    "version": 4,
+    "configurations": [
+        {
+            "name": "default",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "linux-gcc-x64",
+            "includePath": [
+                "${workspaceFolder}/src/main/cpp"
+            ],
+            "cStandard": "c17",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ]
+}
