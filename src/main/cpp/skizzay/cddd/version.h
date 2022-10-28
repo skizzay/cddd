@@ -85,9 +85,9 @@ inline constexpr version_details::version_fn_ version = {};
 inline constexpr version_details::set_version_fn set_version = {};
 } // namespace version_fn_
 
-template <typename T>
-using version_t =
-    std::invoke_result_t<decltype(version), std::remove_reference_t<T> const &>;
+template <typename... Ts>
+using version_t = std::common_type_t<std::invoke_result_t<
+    decltype(version), std::remove_reference_t<Ts> const &>...>;
 
 namespace concepts {
 template <typename T>

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "skizzay/cddd/domain_event.h"
-#include "skizzay/cddd/handle.h"
 #include "skizzay/cddd/identifier.h"
-#include "skizzay/cddd/provider.h"
 
+#include <concepts>
+#include <type_traits>
 #include <utility>
 
 namespace skizzay::cddd {
@@ -107,19 +107,6 @@ concept event_stream_of = event_stream<T> &&
         ... &&std::invocable<decltype(skizzay::cddd::add_event),
                              std::add_lvalue_reference_t<T>,
                              std::add_rvalue_reference_t<DomainEvents>>);
-
-template <typename T, typename... DomainEvents>
-concept event_stream_handle =
-    handle<T> && event_stream_of<handled_t<T>, DomainEvents...>;
-
-template <typename T, typename... DomainEvents>
-concept event_stream_provider =
-    (domain_event<DomainEvents> && ...) && requires {
-  typename std::common_reference_t<id_t<DomainEvents>...>;
-}
-&&provider<T, std::common_reference_t<id_t<DomainEvents>...>> &&event_stream_of<
-    provided_t<T, std::common_reference_t<id_t<DomainEvents>...>>,
-    DomainEvents...>;
 } // namespace concepts
 
 namespace event_stream_details_ {

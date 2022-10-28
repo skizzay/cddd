@@ -6,7 +6,8 @@
             "cppStandard": "c++20",
             "intelliSenseMode": "linux-gcc-x64",
             "includePath": [
-                "${workspaceFolder}/src/main/cpp"
+                "${workspaceFolder}/src/main/cpp",
+                "${HOME}/Documents/vcpkg/installed/x64-linux/include"
             ],
             "cStandard": "c17",
             "configurationProvider": "ms-vscode.cmake-tools"

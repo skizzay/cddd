@@ -3,7 +3,7 @@
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/event_store.h"
 #include "skizzay/cddd/event_stream.h"
-#include "skizzay/cddd/handle.h"
+#include "skizzay/cddd/timestamp.h"
 #include "skizzay/cddd/version.h"
 
 #include <catch.hpp>
@@ -12,11 +12,13 @@ using namespace skizzay::cddd;
 
 namespace {
 struct fake_clock {
-  using time_point = std::chrono::local_seconds;
+  std::chrono::system_clock::time_point now() noexcept {
+    return std::exchange(result, skizzay::cddd::now(system_clock));
+  }
 
-  time_point now() noexcept { return result; }
-
-  time_point result;
+  [[no_unique_address]] std::chrono::system_clock system_clock;
+  std::chrono::system_clock::time_point result =
+      skizzay::cddd::now(system_clock);
 };
 
 template <std::size_t N>
@@ -45,8 +47,7 @@ SCENARIO("In-memory event store provides an event stream",
     in_memory_event_store<fake_clock, test_event<1>, test_event<2>> target;
 
     using event_ptr =
-        std::unique_ptr<in_memory_event_store_details_::event_interface<
-            test_event<1>, test_event<2>>>;
+        std::unique_ptr<event_interface<test_event<1>, test_event<2>>>;
     using event_interface = std::iter_value_t<event_ptr>;
     REQUIRE(std::is_class_v<event_ptr>);
     REQUIRE(std::indirectly_readable<event_ptr>);

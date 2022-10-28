@@ -1,9 +1,11 @@
 #pragma once
 
+#include "skizzay/cddd/aggregate_root.h"
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_stream.h"
 #include "skizzay/cddd/identifier.h"
+#include "skizzay/cddd/narrow_cast.h"
 #include "skizzay/cddd/optimistic_concurrency_collision.h"
 #include "skizzay/cddd/timestamp.h"
 #include "skizzay/cddd/version.h"
@@ -21,84 +23,16 @@
 namespace skizzay::cddd {
 namespace in_memory_event_store_details_ {
 
-template <concepts::domain_event DomainEvent> struct event_visitor_interface {
-  virtual void visit(DomainEvent const &domain_event) = 0;
-};
-
-template <concepts::domain_event... DomainEvents>
-struct event_visitor
-    : virtual event_visitor_interface<std::remove_cvref_t<DomainEvents>>... {};
-
-template <concepts::domain_event... DomainEvents> struct event_interface {
-  using id_type =
-      std::add_const_t<std::common_reference_t<id_t<DomainEvents>...>>;
-  using version_type = std::common_type_t<version_t<DomainEvents>...>;
-  using timestamp_type = std::common_type_t<timestamp_t<DomainEvents>...>;
-
-  virtual id_type id() const noexcept = 0;
-  virtual version_type version() const noexcept = 0;
-  virtual timestamp_type timestamp() const noexcept = 0;
-  virtual void set_timestamp(timestamp_type const) noexcept = 0;
-  virtual void accept_event_visitor(event_visitor<DomainEvents...> &) const = 0;
-};
-
-template <concepts::domain_event DomainEvent,
-          concepts::domain_event... DomainEvents>
-struct event_holder_impl final : public event_interface<DomainEvents...> {
-
-  explicit event_holder_impl(
-      std::remove_reference_t<DomainEvent>
-          &&domain_event) noexcept(std::
-                                       is_nothrow_move_constructible_v<
-                                           std::remove_cvref_t<DomainEvent>>)
-      : event{std::forward<decltype(domain_event)>(domain_event)} {}
-
-  typename event_interface<DomainEvents...>::id_type
-  id() const noexcept override {
-    using skizzay::cddd::id;
-    return id(event);
-  }
-
-  typename event_interface<DomainEvents...>::version_type
-  version() const noexcept override {
-    using skizzay::cddd::version;
-    return version(event);
-  }
-
-  typename event_interface<DomainEvents...>::timestamp_type
-  timestamp() const noexcept override {
-    using skizzay::cddd::timestamp;
-    return timestamp(event);
-  }
-
-  void
-  set_timestamp(typename event_interface<DomainEvents...>::timestamp_type const
-                    timestamp) noexcept override {
-    using skizzay::cddd::set_timestamp;
-    set_timestamp(event, timestamp);
-  }
-
-  void
-  accept_event_visitor(event_visitor<DomainEvents...> &visitor) const override {
-    static_cast<event_visitor_interface<std::remove_cvref_t<DomainEvent>> &>(
-        visitor)
-        .visit(event);
-  }
-
-  std::remove_cvref_t<DomainEvent> event;
-};
-
 template <concepts::clock Clock, concepts::domain_event... DomainEvents>
 requires(0 < sizeof...(DomainEvents)) struct store_impl;
 
 template <concepts::clock Clock, concepts::domain_event... DomainEvents>
 struct event_stream final {
-  using id_type = std::common_reference_t<id_t<DomainEvents>...>;
+  using id_type = id_t<DomainEvents...>;
   using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
   using buffer_type = std::vector<event_ptr>;
-  using version_type = std::common_type_t<typename buffer_type::size_type,
-                                          version_t<DomainEvents>...>;
-  using timestamp_type = std::common_type_t<timestamp_t<DomainEvents>...>;
+  using version_type = version_t<DomainEvents...>;
+  using timestamp_type = timestamp_t<DomainEvents...>;
 
   explicit event_stream(auto &&id, version_type const starting_version,
                         store_impl<Clock, DomainEvents...> &store)
@@ -109,7 +43,7 @@ struct event_stream final {
     return id_;
   }
 
-  template <concepts::domain_event DomainEvent>
+  template <concepts::mutable_domain_event DomainEvent>
   requires(std::same_as<std::remove_cvref_t<DomainEvent>,
                         std::remove_cvref_t<DomainEvents>> ||
            ...) void add_event(DomainEvent &&domain_event) {
@@ -134,8 +68,10 @@ struct event_stream final {
 
   constexpr void rollback() noexcept { pending_events_.clear(); }
 
-  constexpr version_type version() const noexcept {
-    return starting_version_ + std::size(pending_events_);
+  constexpr version_type version() const noexcept(
+      is_nothrow_narrow_cast_v<version_type, typename buffer_type::size_type>) {
+    return starting_version_ +
+           narrow_cast<version_type>(std::size(pending_events_));
   }
 
   constexpr version_type next_version() const noexcept { return version() + 1; }
@@ -183,9 +119,9 @@ private:
 };
 
 template <concepts::domain_event... DomainEvents> struct buffer final {
-  using id_type = std::common_reference_t<id_t<DomainEvents>...>;
-  using version_type = std::common_type_t<version_t<DomainEvents>...>;
-  using timestamp_type = std::common_type_t<timestamp_t<DomainEvents>...>;
+  using id_type = id_t<DomainEvents...>;
+  using version_type = version_t<DomainEvents...>;
+  using timestamp_type = timestamp_t<DomainEvents...>;
   using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
   using storage_type = std::vector<event_ptr>;
 
@@ -236,20 +172,15 @@ private:
 
 template <concepts::domain_event... DomainEvents> struct event_source final {
   using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
-  using version_type = std::common_type_t<version_t<DomainEvents>...>;
+  using version_type = version_t<DomainEvents...>;
 
   explicit event_source(
       std::shared_ptr<buffer<DomainEvents...>> buffer_ptr) noexcept
       : buffer_{std::move(buffer_ptr)} {}
 
-  template <concepts::versioned Aggregate>
-  requires std::same_as<version_type, version_t<Aggregate>> &&
-      (std::invocable<decltype(skizzay::cddd::apply),
-                      std::add_lvalue_reference_t<Aggregate>,
-                      std::remove_reference_t<DomainEvents> const &>
-           &&...) void load_from_history(Aggregate &aggregate,
-                                         version_t<decltype(aggregate)> const
-                                             target_version) {
+  template <concepts::aggregate_root<DomainEvents...> Aggregate>
+  void load_from_history(Aggregate &aggregate,
+                         version_t<decltype(aggregate)> const target_version) {
     std::unsigned_integral auto const aggregate_version = version(aggregate);
     assert((aggregate_version < target_version) &&
            "Aggregate version cannot exceed target version");
@@ -276,9 +207,9 @@ template <concepts::clock Clock, concepts::domain_event... DomainEvents>
 requires(0 < sizeof...(DomainEvents)) struct store_impl {
   friend event_stream<Clock, DomainEvents...>;
 
-  using id_type = std::common_reference_t<id_t<DomainEvents>...>;
-  using version_type = std::common_type_t<version_t<DomainEvents>...>;
-  using timestamp_type = std::common_type_t<timestamp_t<DomainEvents>...>;
+  using id_type = id_t<DomainEvents...>;
+  using version_type = version_t<DomainEvents...>;
+  using timestamp_type = timestamp_t<DomainEvents...>;
   using buffer_type = buffer<DomainEvents...>;
   using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
 
@@ -335,7 +266,7 @@ private:
   }
 
   mutable std::shared_mutex m_;
-  Clock clock_;
+  [[no_unique_address]] Clock clock_;
   std::unordered_map<std::remove_cvref_t<id_type>, std::shared_ptr<buffer_type>>
       event_buffers_;
 };

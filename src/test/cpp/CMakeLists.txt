@@ -1,12 +1,17 @@
 find_package(Catch2 CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(aws-cpp-sdk-core REQUIRED)
 
 add_executable(cddd_unit_tests)
-target_link_libraries(cddd_unit_tests PRIVATE Catch2::Catch2 Catch2::Catch2WithMain)
-set_property(TARGET cddd_unit_tests PROPERTY CXX_STANDARD 20)
 target_include_directories(cddd_unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/src/main/cpp)
+
 target_sources(cddd_unit_tests PRIVATE
+  skizzay/cddd/dynamodb_version_service.t.cpp
   skizzay/cddd/in_memory_event_stream.t.cpp
 )
+target_compile_definitions(cddd_unit_tests PUBLIC AWS_CUSTOM_MEMORY_MANAGEMENT)
+target_link_libraries(cddd_unit_tests PRIVATE Catch2::Catch2 Catch2::Catch2WithMain cddd_dynamodb aws-cpp-sdk-core)
+set_property(TARGET cddd_unit_tests PROPERTY CXX_STANDARD 20)
 
 # add_executable(fsm_integration_tests)
 # target_link_libraries(fsm_integration_tests PRIVATE Catch2::Catch2 Catch2::Catch2WithMain)
@@ -22,7 +27,6 @@ target_sources(cddd_unit_tests PRIVATE
   include(Catch)
   catch_discover_tests(cddd_unit_tests)
   # catch_discover_tests(cddd_integration_tests)
-  enable_testing()
 
 
 if(CMAKE_COMPILER_IS_GNUCXX)

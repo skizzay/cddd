@@ -144,7 +144,8 @@ template <concepts::clock T> struct impl<T> {
 };
 } // namespace timestamp_t_details_
 
-template <typename T>
-using timestamp_t = typename timestamp_t_details_::impl<T>::type;
+template <typename... Ts>
+using timestamp_t =
+    std::common_type_t<typename timestamp_t_details_::impl<Ts>::type...>;
 
 } // namespace skizzay::cddd

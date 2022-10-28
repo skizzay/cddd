@@ -116,6 +116,7 @@ requires(!concepts::identifiable<T>) && requires { typename T::id_type; }
 };
 } // namespace id_details_
 
-template <typename T> using id_t = typename id_details_::impl<T>::type;
+template <typename... Ts>
+using id_t = std::common_reference_t<typename id_details_::impl<Ts>::type...>;
 
 } // namespace skizzay::cddd

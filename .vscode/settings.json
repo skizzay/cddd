@@ -68,7 +68,11 @@
       "semaphore": "cpp",
       "cassert": "cpp",
       "cfenv": "cpp",
-      "forward_list": "cpp"
+      "forward_list": "cpp",
+      "list": "cpp",
+      "unordered_set": "cpp",
+      "span": "cpp",
+      "charconv": "cpp"
    },
    "cmake.configureSettings": {
       "CMAKE_TOOLCHAIN_FILE": "/home/andrew/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake"
