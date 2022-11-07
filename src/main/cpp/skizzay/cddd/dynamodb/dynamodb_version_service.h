@@ -19,6 +19,12 @@
 #include <system_error>
 
 namespace skizzay::cddd::dynamodb {
+
+struct update_version_failed
+    : operation_failed_error<std::runtime_error, Aws::DynamoDB::DynamoDBError> {
+  using operation_failed_error::operation_failed_error;
+};
+
 namespace version_service_details_ {
 inline std::string const version_record_message_type = "version_";
 inline std::string const version_field_value = "0";
@@ -35,17 +41,25 @@ struct impl {
     if (outcome.IsSuccess()) {
       apply_version(outcome.GetResult().GetItem());
     } else {
-      throw operation_failed_error{outcome.GetError()};
+      throw update_version_failed{outcome.GetError()};
     }
   }
 
   Aws::DynamoDB::Model::Put
-  create_starting_version_record(int num_items_in_commit,
-                                 item_type item) const {
+  create_starting_version_record(int num_items_in_commit, item_type item,
+                                 std::chrono::sys_seconds timestamp) const {
     item.emplace(config_.max_version_name(),
                  attribute_value(version_ + num_items_in_commit));
     item.emplace(config_.type_name(),
                  attribute_value(version_record_message_type));
+    item.emplace(config_.timestamp_name(),
+                 attribute_value(timestamp.time_since_epoch().count()));
+    if (config_.ttl()) {
+      std::chrono::sys_seconds const expiration =
+          timestamp + config_.ttl()->value;
+      item.emplace(config_.ttl()->name,
+                   attribute_value(expiration.time_since_epoch().count()));
+    }
     return Aws::DynamoDB::Model::Put{}
         .WithTableName(config_.table_name())
         .WithItem(std::move(item))
@@ -54,18 +68,41 @@ struct impl {
   }
 
   Aws::DynamoDB::Model::Update
-  update_starting_version_record(int num_items_in_commit,
-                                 item_type &&key) const {
+  update_starting_version_record(int num_items_in_commit, item_type &&key,
+                                 std::chrono::sys_seconds timestamp) const {
+    auto const expression_attribute_values = [&]() {
+      item_type result{
+          {":inc", attribute_value(num_items_in_commit)},
+          {":ver", attribute_value(version_)},
+          {":ts", attribute_value(timestamp.time_since_epoch().count())}};
+      if (config_.ttl()) {
+        std::chrono::sys_seconds const expiration =
+            timestamp + config_.ttl()->value;
+        result.emplace(":ttl",
+                       attribute_value(expiration.time_since_epoch().count()));
+      }
+      return result;
+    };
+    auto const expression_attribute_names = [&]() {
+      names_type result{{"#ver", config_.max_version_name()},
+                        {"#ts", config_.timestamp_name()}};
+      if (config_.ttl()) {
+        result.emplace("#ttl", config_.ttl()->name);
+      }
+      return result;
+    };
+    auto const update_expression = [&]() {
+      return config_.ttl().has_value()
+                 ? "set #ver = #ver + :inc, #ts = :ts, #ttl = :ttl"
+                 : "set #ver = #ver + :inc, #ts = :ts";
+    };
     return Aws::DynamoDB::Model::Update{}
         .WithTableName(config_.table_name())
         .WithKey(std::move(key))
-        .WithUpdateExpression("#ver = #ver + :inc")
+        .WithUpdateExpression(update_expression())
         .WithConditionExpression("#ver = :ver")
-        .WithExpressionAttributeNames(
-            names_type{{"#ver", config_.max_version_name()}})
-        .WithExpressionAttributeValues(
-            item_type{{":inc", attribute_value(num_items_in_commit)},
-                      {":ver", attribute_value(version_)}});
+        .WithExpressionAttributeNames(expression_attribute_names())
+        .WithExpressionAttributeValues(expression_attribute_values());
   }
 
   void apply_version(item_type const &version_record) {
@@ -107,15 +144,20 @@ struct version_service : private version_service_details_::impl {
   id_t<DomainEvents...> id() const noexcept { return id_; }
 
   Aws::DynamoDB::Model::TransactWriteItem
-  version_record(std::unsigned_integral auto num_items_in_commit) const {
+  version_record(std::unsigned_integral auto num_items_in_commit,
+                 timestamp_t<DomainEvents...> timestamp) const {
     using Aws::DynamoDB::Model::TransactWriteItem;
     if (0 == this->version_) {
       return TransactWriteItem{}.WithPut(this->create_starting_version_record(
-          narrow_cast<int>(num_items_in_commit), key()));
+          narrow_cast<int>(num_items_in_commit), key(),
+          std::chrono::time_point_cast<std::chrono::sys_seconds::duration>(
+              timestamp)));
     } else {
       return TransactWriteItem{}.WithUpdate(
           this->update_starting_version_record(
-              narrow_cast<int>(num_items_in_commit), key()));
+              narrow_cast<int>(num_items_in_commit), key(),
+              std::chrono::time_point_cast<std::chrono::sys_seconds::duration>(
+                  timestamp)));
     }
   }
 

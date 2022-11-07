@@ -14,24 +14,17 @@ template <typename T>
 concept enum_value = std::is_enum_v<T>;
 } // namespace operation_failed_error_details_
 
-struct basic_operation_failed_error : std::runtime_error {
-  template <typename T>
-  requires requires(T const &tc) { {std::runtime_error{tc.GetMessage()}}; }
-  explicit basic_operation_failed_error(T const &t)
-      : std::runtime_error{t.GetMessage()} {}
-};
-
-template <typename T>
+template <std::derived_from<std::exception> E, typename T>
 requires requires(T const &t) {
   { t.GetErrorType() } -> operation_failed_error_details_::enum_value;
   { t.GetMessage() } -> std::same_as<Aws::String const &>;
 }
-struct operation_failed_error : basic_operation_failed_error {
+struct operation_failed_error : E {
   using error_type =
       std::remove_cvref_t<decltype(std::declval<T const &>().GetErrorType())>;
 
   operation_failed_error(T const &t)
-      : basic_operation_failed_error{t}, error_{t.GetErrorType()} {}
+      : E{t.GetMessage()}, error_{t.GetErrorType()} {}
 
   error_type error() const noexcept { return error_; }
 

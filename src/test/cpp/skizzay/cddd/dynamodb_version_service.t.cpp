@@ -31,21 +31,6 @@ template <std::size_t N>
 struct test_event : basic_domain_event<test_event<N>, std::string, std::size_t,
                                        timestamp_t<fake_clock>> {};
 
-struct fake_aggregate {
-  using event_type = std::variant<test_event<1>, test_event<2>>;
-  using event_storage_type = std::vector<event_type>;
-
-  template <std::size_t N>
-  requires(1 == N) || (2 == N) void apply(test_event<N> const &event) {
-    version = skizzay::cddd::version(event);
-    events.push_back(event);
-  }
-
-  std::string id;
-  std::size_t version = {};
-  event_storage_type events = {};
-};
-
 } // namespace
 
 SCENARIO("Versions can be synced with DynamoDB",
@@ -101,6 +86,7 @@ SCENARIO("Reading and writing versions",
       "TestEventLog",
       "ttl",
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::years{1})};
+  fake_clock clock;
 
   dynamodb::event_log_table event_log_table{client, event_log_config};
 
@@ -112,11 +98,11 @@ SCENARIO("Reading and writing versions",
       THEN("version is 0") { REQUIRE(0 == skizzay::cddd::version(target)); }
 
       AND_WHEN("a version record is committed") {
-        std::size_t const num_items_in_commit =
-            Catch::Generators::random(1ull, 50ull).get();
-        auto const commit_outcome = client.TransactWriteItems(
+        auto random_number_generator = Catch::Generators::random(1ull, 50ull);
+        std::size_t num_items_in_commit = random_number_generator.get();
+        auto commit_outcome = client.TransactWriteItems(
             Aws::DynamoDB::Model::TransactWriteItemsRequest{}.AddTransactItems(
-                target.version_record(num_items_in_commit)));
+                target.version_record(num_items_in_commit, clock.now())));
         if (commit_outcome.IsSuccess()) {
           AND_WHEN("the version is cached from source") {
             target.update_version(client);
@@ -129,9 +115,31 @@ SCENARIO("Reading and writing versions",
             THEN("the version is the number of items committed") {
               REQUIRE(num_items_in_commit == skizzay::cddd::version(target));
             }
+
+            AND_WHEN("a version record is committed") {
+              std::size_t expected_version = num_items_in_commit;
+              num_items_in_commit = random_number_generator.get();
+              expected_version += num_items_in_commit;
+              commit_outcome = client.TransactWriteItems(
+                  Aws::DynamoDB::Model::TransactWriteItemsRequest{}
+                      .AddTransactItems(target.version_record(
+                          num_items_in_commit, clock.now())));
+              if (commit_outcome.IsSuccess()) {
+                AND_WHEN("the version is cached from source") {
+                  target.update_version(client);
+                  THEN("the version is the number of items committed") {
+                    REQUIRE(expected_version == skizzay::cddd::version(target));
+                  }
+                }
+              } else {
+                FAIL("Commit did not succeed: " +
+                     commit_outcome.GetError().GetMessage());
+              }
+            }
           }
         } else {
-          FAIL("Commit did not succeed: " + commit_outcome.GetError().GetMessage());
+          FAIL("Commit did not succeed: " +
+               commit_outcome.GetError().GetMessage());
         }
       }
     }

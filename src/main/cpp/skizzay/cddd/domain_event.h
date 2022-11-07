@@ -119,4 +119,6 @@ struct event_holder_impl final : public event_interface<DomainEvents...> {
   std::remove_cvref_t<DomainEvent> event;
 };
 
+template <concepts::domain_event> struct event_type {};
+
 } // namespace skizzay::cddd

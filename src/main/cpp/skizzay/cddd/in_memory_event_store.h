@@ -136,8 +136,8 @@ template <concepts::domain_event... DomainEvents> struct buffer final {
     using skizzay::cddd::version;
 
     auto const expected_version = version(std::ranges::begin(range)) - 1;
-    auto const actual_version = std::size(storage_);
     std::lock_guard l_{m_};
+    auto const actual_version = std::size(storage_);
     if (expected_version == actual_version) {
       storage_.reserve(actual_version + std::ranges::size(range));
       std::ranges::transform(std::make_move_iterator(std::ranges::begin(range)),
@@ -159,6 +159,7 @@ template <concepts::domain_event... DomainEvents> struct buffer final {
   concepts::domain_event_range auto
   get_events(version_type const begin_version,
              version_type const target_version) {
+    std::shared_lock l_{m_};
     auto const begin_iterator = std::begin(storage_);
     return std::ranges::subrange(
         begin_iterator + begin_version - 1,
@@ -235,17 +236,18 @@ private:
   template <std::ranges::random_access_range Range>
   requires std::same_as<std::ranges::range_value_t<Range>, event_ptr>
   void commit(id_type id, Range &range) {
-    using skizzay::cddd::now;
     if (!std::empty(range)) {
-      std::shared_ptr<buffer_type> buffer_ptr = find_buffer(id);
-      if (nullptr == buffer_ptr) {
-        buffer_ptr = std::make_shared<buffer_type>();
-        buffer_ptr->append(current_timestamp(), range);
-        std::lock_guard l_{m_};
-        event_buffers_.emplace(id, std::move(buffer_ptr));
-      } else {
-        buffer_ptr->append(current_timestamp(), range);
-      }
+      auto buffer_ptr = [&]() {
+        auto const result = find_buffer(id);
+        if (nullptr == result) {
+          std::lock_guard l_{m_};
+          return event_buffers_.emplace(id, std::make_shared<buffer_type>())
+              .first->second;
+        } else {
+          return result;
+        }
+      }();
+      buffer_ptr->append(current_timestamp(), range);
     }
   }
 

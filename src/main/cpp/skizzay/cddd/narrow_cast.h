@@ -30,6 +30,10 @@ struct is_nothrow_narrow_cast<To, From>
                          (sizeof(To) >= sizeof(From) &&
                           std::is_signed_v<To> == std::is_signed_v<From>)> {};
 
+template <std::signed_integral To, std::unsigned_integral From>
+struct is_nothrow_narrow_cast<To, From>
+    : std::bool_constant<(sizeof(To) > sizeof(From))> {};
+
 template <typename To, typename From,
           std::invocable OnFailure = decltype(throw_bad_cast)>
 requires is_nothrow_narrow_cast_v<To, From>

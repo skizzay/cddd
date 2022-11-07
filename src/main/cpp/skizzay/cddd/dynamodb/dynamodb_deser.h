@@ -13,7 +13,7 @@ namespace deser_details_ {
 template <concepts::domain_event DomainEvent> struct serializer_interface {
   virtual Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>
   serialize(DomainEvent &&) const = 0;
-  virtual std::string_view message_type() const noexcept = 0;
+  virtual std::string_view message_type(event_type<DomainEvent> const) const noexcept = 0;
 };
 
 template <concepts::domain_event DomainEvent> struct deserializer_interface {

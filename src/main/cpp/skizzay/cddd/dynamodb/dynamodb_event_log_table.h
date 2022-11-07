@@ -8,6 +8,11 @@
 #include <exception>
 
 namespace skizzay::cddd::dynamodb {
+using create_table_error =
+    operation_failed_error<std::runtime_error, Aws::DynamoDB::DynamoDBError>;
+using delete_table_error =
+    operation_failed_error<std::runtime_error, Aws::DynamoDB::DynamoDBError>;
+
 struct event_log_table {
   explicit event_log_table(Aws::DynamoDB::DynamoDBClient &client,
                            event_log_config const &config)
@@ -20,7 +25,7 @@ struct event_log_table {
     auto outcome = client_.CreateTable(request);
 
     if (!outcome.IsSuccess()) {
-      throw operation_failed_error{outcome.GetError()};
+      throw create_table_error{outcome.GetError()};
     }
   }
 
@@ -32,7 +37,7 @@ struct event_log_table {
     if (!outcome.IsSuccess() &&
         Aws::DynamoDB::DynamoDBErrors::TABLE_NOT_FOUND !=
             outcome.GetError().GetErrorType()) {
-      throw operation_failed_error{outcome.GetError()};
+      throw delete_table_error{outcome.GetError()};
     }
   }
 
