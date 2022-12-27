@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skizzay/cddd/aggregate_root.h"
+#include "skizzay/cddd/concurrent_repository.h"
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_stream.h"
@@ -27,66 +28,60 @@ template <concepts::clock Clock, concepts::domain_event... DomainEvents>
 requires(0 < sizeof...(DomainEvents)) struct store_impl;
 
 template <concepts::clock Clock, concepts::domain_event... DomainEvents>
-struct event_stream final {
-  using id_type = id_t<DomainEvents...>;
+struct event_stream final
+    : event_stream_base<event_stream<Clock, DomainEvents...>, Clock,
+                        std::unique_ptr<event_interface<DomainEvents...>>,
+                        DomainEvents...> {
+  using base_type =
+      event_stream_base<event_stream<Clock, DomainEvents...>, Clock,
+                        std::unique_ptr<event_interface<DomainEvents...>>,
+                        DomainEvents...>;
+  using typename base_type::buffer_type;
+  using typename base_type::element_type;
+  using typename base_type::id_type;
+  using typename base_type::timestamp_type;
+  using typename base_type::version_type;
   using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
-  using buffer_type = std::vector<event_ptr>;
-  using version_type = version_t<DomainEvents...>;
-  using timestamp_type = timestamp_t<DomainEvents...>;
 
-  explicit event_stream(auto &&id, version_type const starting_version,
+  explicit event_stream(auto &&id, Clock clock,
                         store_impl<Clock, DomainEvents...> &store)
-      : id_{std::forward<decltype(id)>(id)},
-        starting_version_{starting_version}, store_{store} {}
+      : base_type{std::move(clock)}, id_{std::forward<decltype(id)>(id)},
+        store_{store} {}
 
   constexpr std::remove_cvref_t<id_type> const &id() const noexcept {
     return id_;
   }
 
-  template <concepts::mutable_domain_event DomainEvent>
-  requires(std::same_as<std::remove_cvref_t<DomainEvent>,
-                        std::remove_cvref_t<DomainEvents>> ||
-           ...) void add_event(DomainEvent &&domain_event) {
-    update_event_stream_info(domain_event);
-    pending_events_.emplace_back(
-        std::make_unique<event_holder_impl<std::remove_cvref_t<DomainEvent>,
-                                           DomainEvents...>>(
-            std::move(domain_event)));
+  constexpr version_type version() const noexcept {
+    auto event_buffer = store_.event_buffers_.get(id());
+    return nullptr == event_buffer ? 0
+                                   : narrow_cast<version_type>(
+                                         skizzay::cddd::version(*event_buffer));
   }
 
-  constexpr void commit_events() {
-    version_type const next_starting_version = version();
-    try {
-      store_.commit(id(), pending_events_);
-      pending_events_.clear();
-      starting_version_ = next_starting_version;
-    } catch (optimistic_concurrency_collision const &e) {
-      starting_version_ = e.version_found();
-      throw;
-    }
+  void commit_buffered_events(buffer_type &&buffer, timestamp_type const,
+                              version_type const expected_version) {
+    store_.event_buffers_.get_or_add(id())->append(std::move(buffer),
+                                                   expected_version);
   }
 
-  constexpr void rollback() noexcept { pending_events_.clear(); }
-
-  constexpr version_type version() const noexcept(
-      is_nothrow_narrow_cast_v<version_type, typename buffer_type::size_type>) {
-    return starting_version_ +
-           narrow_cast<version_type>(std::size(pending_events_));
+  element_type
+  make_buffer_element(concepts::domain_event auto &&domain_event) const {
+    set_id(domain_event, id());
+    return std::make_unique<event_holder_impl<
+        std::remove_cvref_t<decltype(domain_event)>, DomainEvents...>>(
+        std::move(domain_event));
   }
 
-  constexpr version_type next_version() const noexcept { return version() + 1; }
+  void populate_commit_info(timestamp_type const timestamp,
+                            version_type const version, event_ptr &event) {
+    set_timestamp(*event, timestamp);
+    set_version(*event, version);
+  }
 
 private:
-  void
-  update_event_stream_info(concepts::domain_event auto &domain_event) const {
-    set_id(domain_event, id_);
-    set_version(domain_event, next_version());
-  }
-
   std::remove_cvref_t<id_type> id_;
-  version_type starting_version_;
   store_impl<Clock, DomainEvents...> &store_;
-  buffer_type pending_events_;
 };
 
 template <typename Derived, concepts::domain_event DomainEvent>
@@ -130,29 +125,20 @@ template <concepts::domain_event... DomainEvents> struct buffer final {
     return std::size(storage_);
   }
 
-  template <std::ranges::random_access_range Range>
-  requires std::same_as<std::ranges::range_value_t<Range>, event_ptr>
-  void append(timestamp_type const timestamp, Range &range) {
+  void append(storage_type &&events, version_type const expected_version) {
     using skizzay::cddd::version;
 
-    auto const expected_version = version(std::ranges::begin(range)) - 1;
     std::lock_guard l_{m_};
     auto const actual_version = std::size(storage_);
     if (expected_version == actual_version) {
-      storage_.reserve(actual_version + std::ranges::size(range));
-      std::ranges::transform(std::make_move_iterator(std::ranges::begin(range)),
-                             std::make_move_iterator(std::ranges::end(range)),
-                             std::back_inserter(storage_),
-                             [timestamp](event_ptr event) -> event_ptr {
-                               event->set_timestamp(timestamp);
-                               return event;
-                             });
+      storage_.insert(std::end(storage_),
+                      std::move_iterator(std::ranges::begin(events)),
+                      std::move_iterator(std::ranges::end(events)));
     } else {
       std::ostringstream message;
       message << "Saving events, expected version " << expected_version
               << ", but found " << actual_version;
-      throw optimistic_concurrency_collision{message.str(), actual_version,
-                                             expected_version};
+      throw optimistic_concurrency_collision{message.str(), expected_version};
     }
   }
 
@@ -219,9 +205,7 @@ requires(0 < sizeof...(DomainEvents)) struct store_impl {
     using skizzay::cddd::version;
 
     std::shared_ptr<buffer_type> const buffer_ptr = find_buffer(id);
-    return event_stream{std::forward<decltype(id)>(id),
-                        (nullptr == buffer_ptr ? 0 : version(*buffer_ptr)),
-                        *this};
+    return event_stream{std::forward<decltype(id)>(id), clock_, *this};
   }
 
   event_source<DomainEvents...> get_event_source(auto const &id) noexcept {
@@ -237,28 +221,12 @@ private:
   requires std::same_as<std::ranges::range_value_t<Range>, event_ptr>
   void commit(id_type id, Range &range) {
     if (!std::empty(range)) {
-      auto buffer_ptr = [&]() {
-        auto const result = find_buffer(id);
-        if (nullptr == result) {
-          std::lock_guard l_{m_};
-          return event_buffers_.emplace(id, std::make_shared<buffer_type>())
-              .first->second;
-        } else {
-          return result;
-        }
-      }();
-      buffer_ptr->append(current_timestamp(), range);
+      event_buffers_.get_or_add(id)->append(current_timestamp(), range);
     }
   }
 
   std::shared_ptr<buffer_type> find_buffer(id_type id) const noexcept {
-    std::shared_lock l_{m_};
-    if (auto const buffer_iter = event_buffers_.find(id);
-        std::end(event_buffers_) != buffer_iter) {
-      return buffer_iter->second;
-    } else {
-      return nullptr;
-    }
+    return event_buffers_.get(id);
   }
 
   timestamp_type current_timestamp() {
@@ -267,10 +235,8 @@ private:
         now(clock_));
   }
 
-  mutable std::shared_mutex m_;
   [[no_unique_address]] Clock clock_;
-  std::unordered_map<std::remove_cvref_t<id_type>, std::shared_ptr<buffer_type>>
-      event_buffers_;
+  concurrent_table<std::shared_ptr<buffer_type>, id_type> event_buffers_;
 };
 } // namespace in_memory_event_store_details_
 

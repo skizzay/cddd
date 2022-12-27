@@ -20,4 +20,31 @@ concept aggregate_root =
      ...);
 } // namespace concepts
 
+template <typename Derived, concepts::domain_event DomainEvent>
+struct aggregate_visitor_impl : virtual event_visitor_interface<DomainEvent> {
+  void visit(DomainEvent const &domain_event) override {
+    using skizzay::cddd::apply;
+    apply(static_cast<Derived *>(this)->get_aggregate(), domain_event);
+  }
+};
+
+template <typename Aggregate, concepts::domain_event... DomainEvents>
+requires concepts::aggregate_root<Aggregate, DomainEvents...>
+struct aggregate_visitor final
+    : virtual event_visitor<DomainEvents...>,
+      aggregate_visitor_impl<aggregate_visitor<Aggregate, DomainEvents...>,
+                             std::remove_cvref_t<DomainEvents>>... {
+  aggregate_visitor(Aggregate &aggregate) noexcept : aggregate_{aggregate} {}
+
+  Aggregate &get_aggregate() noexcept { return aggregate_; }
+
+private:
+  Aggregate &aggregate_;
+};
+
+template <typename Aggregate, concepts::domain_event... DomainEvents>
+requires concepts::aggregate_root<Aggregate, DomainEvents...>
+aggregate_visitor(Aggregate &)
+->aggregate_visitor<Aggregate, DomainEvents...>;
+
 } // namespace skizzay::cddd

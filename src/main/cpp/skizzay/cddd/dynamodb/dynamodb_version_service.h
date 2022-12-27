@@ -45,6 +45,14 @@ struct impl {
     }
   }
 
+  void apply_version(item_type const &version_record) {
+    auto const max_version_iterator =
+        version_record.find(config_.max_version_name());
+    version_ = (std::end(version_record) == max_version_iterator)
+                   ? 0
+                   : parse_version(max_version_iterator->second.GetN());
+  }
+
   Aws::DynamoDB::Model::Put
   create_starting_version_record(int num_items_in_commit, item_type item,
                                  std::chrono::sys_seconds timestamp) const {
@@ -67,13 +75,14 @@ struct impl {
         .WithExpressionAttributeNames(names_type{{"#hk", config_.key_name()}});
   }
 
-  Aws::DynamoDB::Model::Update
-  update_starting_version_record(int num_items_in_commit, item_type &&key,
-                                 std::chrono::sys_seconds timestamp) const {
+  Aws::DynamoDB::Model::Update update_starting_version_record(
+      std::unsigned_integral auto const num_items_in_commit,
+      concepts::version expected_version, item_type &&key,
+      std::chrono::sys_seconds timestamp) const {
     auto const expression_attribute_values = [&]() {
       item_type result{
           {":inc", attribute_value(num_items_in_commit)},
-          {":ver", attribute_value(version_)},
+          {":ver", attribute_value(expected_version)},
           {":ts", attribute_value(timestamp.time_since_epoch().count())}};
       if (config_.ttl()) {
         std::chrono::sys_seconds const expiration =
@@ -103,14 +112,6 @@ struct impl {
         .WithConditionExpression("#ver = :ver")
         .WithExpressionAttributeNames(expression_attribute_names())
         .WithExpressionAttributeValues(expression_attribute_values());
-  }
-
-  void apply_version(item_type const &version_record) {
-    auto const max_version_iterator =
-        version_record.find(config_.max_version_name());
-    version_ = (std::end(version_record) == max_version_iterator)
-                   ? 0
-                   : parse_version(max_version_iterator->second.GetN());
   }
 
   int parse_version(std::string const &version_string) {
@@ -143,19 +144,23 @@ struct version_service : private version_service_details_::impl {
 
   id_t<DomainEvents...> id() const noexcept { return id_; }
 
+  using version_service_details_::impl::apply_version;
+
   Aws::DynamoDB::Model::TransactWriteItem
-  version_record(std::unsigned_integral auto num_items_in_commit,
+  version_record(concepts::identifier auto const &id,
+                 std::unsigned_integral auto num_items_in_commit,
+                 version_t<DomainEvents...> expected_version,
                  timestamp_t<DomainEvents...> timestamp) const {
     using Aws::DynamoDB::Model::TransactWriteItem;
-    if (0 == this->version_) {
+    if (0 == expected_version) {
       return TransactWriteItem{}.WithPut(this->create_starting_version_record(
-          narrow_cast<int>(num_items_in_commit), key(),
+          narrow_cast<int>(num_items_in_commit), key(id),
           std::chrono::time_point_cast<std::chrono::sys_seconds::duration>(
               timestamp)));
     } else {
       return TransactWriteItem{}.WithUpdate(
           this->update_starting_version_record(
-              narrow_cast<int>(num_items_in_commit), key(),
+              num_items_in_commit, expected_version, key(id),
               std::chrono::time_point_cast<std::chrono::sys_seconds::duration>(
                   timestamp)));
     }
@@ -167,9 +172,14 @@ struct version_service : private version_service_details_::impl {
   }
 
   inline Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>
-  key() const {
-    return {{this->config_.key_name(), attribute_value(id())},
+  key(concepts::identifier auto const &id) const {
+    return {{this->config_.key_name(), attribute_value(id)},
             {this->config_.version_name(), attribute_value(0)}};
+  }
+
+  inline Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>
+  key() const {
+    return key(id());
   }
 
   inline void

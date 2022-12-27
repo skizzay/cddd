@@ -184,4 +184,5 @@ inline constexpr cpo_details_::load_from_history_fn load_from_history = {};
 inline constexpr cpo_details_::load_from_snapshot_fn load_from_snapshot = {};
 } // namespace cpo_fn_
 
+
 } // namespace skizzay::cddd

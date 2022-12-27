@@ -1,3 +1,5 @@
+find_package(range-v3 CONFIG REQUIRED)
+
 add_library(cddd INTERFACE)
 target_include_directories(cddd INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/main/cpp>
@@ -15,6 +17,7 @@ target_sources(cddd INTERFACE
   skizzay/cddd/timestamp.h
   skizzay/cddd/version.h
 )
+target_link_libraries(cddd INTERFACE range-v3 range-v3-meta range-v3::meta range-v3-concepts)
 
 if (CDDD_WITH_KAFKA)
   find_package(RdKafka CONFIG REQUIRED)
@@ -28,6 +31,7 @@ if (CDDD_WITH_KAFKA)
 endif()
 
 if (CDDD_WITH_DYNAMODB)
+
 conan_cmake_configure(REQUIRES zlib/1.2.13 aws-sdk-cpp/1.9.234
                       OPTIONS "aws-sdk-cpp:dynamodb=True;aws-sdk-cpp:text-to-speech=False"
                       SETTINGS cppstd=20

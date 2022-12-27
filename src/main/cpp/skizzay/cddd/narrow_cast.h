@@ -10,7 +10,9 @@ struct bad_narrow_cast : std::bad_cast {
   char const *what() const noexcept override { return "Failed to narrow"; }
 };
 
-inline constexpr auto throw_bad_cast = []() { throw bad_narrow_cast{}; };
+inline constexpr auto throw_bad_cast = []() noexcept(false) {
+  throw bad_narrow_cast{};
+};
 
 template <typename, typename>
 struct is_nothrow_narrow_cast : std::false_type {};

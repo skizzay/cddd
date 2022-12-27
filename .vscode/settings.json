@@ -72,7 +72,10 @@
       "list": "cpp",
       "unordered_set": "cpp",
       "span": "cpp",
-      "charconv": "cpp"
+      "charconv": "cpp",
+      "complex": "cpp",
+      "coroutine": "cpp",
+      "source_location": "cpp"
    },
    "cmake.configureSettings": {
       "CMAKE_TOOLCHAIN_FILE": "/home/andrew/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake"

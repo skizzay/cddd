@@ -6,8 +6,10 @@ add_executable(cddd_unit_tests)
 target_include_directories(cddd_unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/src/main/cpp)
 
 target_sources(cddd_unit_tests PRIVATE
-  skizzay/cddd/dynamodb_version_service.t.cpp
+  # skizzay/cddd/dynamodb_version_service.t.cpp
+  skizzay/cddd/dynamodb_event_dispatcher.t.cpp
   skizzay/cddd/dynamodb_event_stream.t.cpp
+  skizzay/cddd/dynamodb_event_source.t.cpp
   skizzay/cddd/in_memory_event_stream.t.cpp
 )
 target_compile_definitions(cddd_unit_tests PUBLIC AWS_CUSTOM_MEMORY_MANAGEMENT)

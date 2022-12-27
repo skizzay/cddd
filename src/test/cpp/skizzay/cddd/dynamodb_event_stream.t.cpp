@@ -2,7 +2,6 @@
 
 #include "skizzay/cddd//dynamodb/aws_sdk_raii.h"
 #include "skizzay/cddd/dynamodb/dynamodb_event_log_table.h"
-#include "skizzay/cddd/dynamodb/dynamodb_version_service.h"
 #include "skizzay/cddd/event_stream.h"
 #include "skizzay/cddd/timestamp.h"
 #include "skizzay/cddd/version.h"
@@ -27,8 +26,7 @@ struct test_event : basic_domain_event<test_event<N>, std::string, std::size_t,
                                        timestamp_t<fake_clock>> {};
 
 struct fake_serializer : dynamodb::serializer<test_event<1>, test_event<2>> {
-  Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>
-  serialize(test_event<1> &&) const override {
+  Aws::DynamoDB::Model::Put serialize(test_event<1> &&) const override {
     return {};
   }
   std::string_view
@@ -36,8 +34,7 @@ struct fake_serializer : dynamodb::serializer<test_event<1>, test_event<2>> {
     return "test event 1";
   }
 
-  Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>
-  serialize(test_event<2> &&) const override {
+  Aws::DynamoDB::Model::Put serialize(test_event<2> &&) const override {
     return {};
   }
   std::string_view
@@ -70,17 +67,13 @@ SCENARIO("Events can be streamed to DynamoDB",
   fake_clock clock;
 
   dynamodb::event_log_table event_log_table{client, event_log_config};
-  auto version_service =
-      dynamodb::version_service<test_event<1>, test_event<2>>{target_id,
-                                                              event_log_config};
   fake_serializer serializer;
 
   random_number_generator.next();
   GIVEN("a DynamoDB event stream") {
     using target_type =
         dynamodb::event_stream<fake_clock, test_event<1>, test_event<2>>;
-    target_type target{serializer, event_log_config, client, version_service,
-                       clock};
+    target_type target{target_id, serializer, event_log_config, client, clock};
 
     AND_GIVEN("events have been added") {
       int one_or_two = 1;
@@ -95,7 +88,9 @@ SCENARIO("Events can be streamed to DynamoDB",
         }
       }
 
-      WHEN("events are committed") { skizzay::cddd::commit_events(target); }
-    } // 3792437580
+      WHEN("events are committed") {
+        skizzay::cddd::commit_events(target, std::size_t{0});
+      }
+    }
   }
 }

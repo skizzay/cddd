@@ -38,8 +38,6 @@ struct basic_domain_event<Tag, Id, Version, Timestamp> {
   Timestamp timestamp = {};
 };
 
-template <concepts::domain_event...> struct domain_of_events final {};
-
 template <concepts::domain_event DomainEvent> struct event_visitor_interface {
   virtual void visit(DomainEvent const &domain_event) = 0;
 };
@@ -47,6 +45,8 @@ template <concepts::domain_event DomainEvent> struct event_visitor_interface {
 template <concepts::domain_event... DomainEvents>
 struct event_visitor
     : virtual event_visitor_interface<std::remove_cvref_t<DomainEvents>>... {};
+
+template <concepts::domain_event... DomainEvents> struct event_holder_impl;
 
 template <concepts::domain_event... DomainEvents> struct event_interface {
   using id_type = std::add_const_t<id_t<DomainEvents...>>;
@@ -59,12 +59,28 @@ template <concepts::domain_event... DomainEvents> struct event_interface {
   virtual void set_id(id_type) = 0;
   virtual void set_version(version_type const) noexcept = 0;
   virtual void set_timestamp(timestamp_type const) noexcept = 0;
-  virtual void accept_event_visitor(event_visitor<DomainEvents...> &) const = 0;
+  inline event_visitor<DomainEvents...> &
+  accept_event_visitor(event_visitor<DomainEvents...> &visitor) const {
+    this->do_accept_event_visitor(visitor);
+    return visitor;
+  }
+
+  template <concepts::domain_event DomainEvent>
+  requires(
+      std::same_as<std::remove_cvref_t<DomainEvent>, DomainEvents> ||
+      ...) static inline event_holder_impl<std::remove_cvref_t<DomainEvent>,
+                                           DomainEvents...> from_domain_event(DomainEvent
+                                                                                  &&domain_event);
+
+private:
+  virtual void
+  do_accept_event_visitor(event_visitor<DomainEvents...> &) const = 0;
 };
 
 template <concepts::domain_event DomainEvent,
           concepts::domain_event... DomainEvents>
-struct event_holder_impl final : public event_interface<DomainEvents...> {
+struct event_holder_impl<DomainEvent, DomainEvents...> final
+    : public event_interface<DomainEvents...> {
 
   explicit event_holder_impl(
       std::remove_reference_t<DomainEvent>
@@ -109,15 +125,26 @@ struct event_holder_impl final : public event_interface<DomainEvents...> {
     set_timestamp(event, timestamp);
   }
 
-  void
-  accept_event_visitor(event_visitor<DomainEvents...> &visitor) const override {
+  std::remove_cvref_t<DomainEvent> event;
+
+private:
+  void do_accept_event_visitor(
+      event_visitor<DomainEvents...> &visitor) const override {
     static_cast<event_visitor_interface<std::remove_cvref_t<DomainEvent>> &>(
         visitor)
         .visit(event);
   }
-
-  std::remove_cvref_t<DomainEvent> event;
 };
+
+template <concepts::domain_event... DomainEvents>
+template <concepts::domain_event DomainEvent>
+requires(
+    std::same_as<std::remove_cvref_t<DomainEvent>, DomainEvents> ||
+    ...) inline event_holder_impl<std::remove_cvref_t<DomainEvent>,
+                                  DomainEvents...> event_interface<DomainEvents...>::
+    from_domain_event(DomainEvent &&domain_event) {
+  return {std::forward<DomainEvent>(domain_event)};
+}
 
 template <concepts::domain_event> struct event_type {};
 
