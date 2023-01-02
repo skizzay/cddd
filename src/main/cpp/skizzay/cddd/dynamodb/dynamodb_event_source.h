@@ -25,7 +25,8 @@ template <concepts::domain_event... DomainEvents> struct impl {
   template <
       typename GetRequest = default_factory<Aws::DynamoDB::Model::QueryRequest>>
   explicit impl(event_dispatcher<DomainEvents...> &dispatcher,
-                event_log_config &config, Aws::DynamoDB::DynamoDBClient &client,
+                event_log_config const &config,
+                Aws::DynamoDB::DynamoDBClient &client,
                 GetRequest get_request = {})
       : event_dispatcher_{dispatcher}, config_{config}, client_{client},
         get_request_{std::move_if_noexcept(get_request)} {}
@@ -58,11 +59,11 @@ private:
   }
 
   void playback_events(auto const &items, auto &aggregate) {
-    aggregate_visitor visitor{aggregate};
-    std::ranges::for_each(items, [visitor = aggregate_visitor{aggregate},
-                                  this](auto const &item) mutable {
-      event_dispatcher_.dispatch(item, visitor);
-    });
+    std::ranges::for_each(
+        items, [visitor = as_event_visitor<DomainEvents...>(aggregate),
+                this](auto const &item) mutable {
+          event_dispatcher_.dispatch(item, visitor);
+        });
   }
 
   Aws::Map<Aws::String, Aws::String> make_expression_attribute_names() const {
@@ -79,9 +80,20 @@ private:
   }
 
   event_dispatcher<DomainEvents...> &event_dispatcher_;
-  event_log_config &config_;
+  event_log_config const &config_;
   Aws::DynamoDB::DynamoDBClient &client_;
   std::function<Aws::DynamoDB::Model::QueryRequest()> get_request_;
 };
+
+template <typename GetRequest, concepts::domain_event... DomainEvents>
+impl(event_dispatcher<DomainEvents...> &, event_log_config const &,
+     Aws::DynamoDB::DynamoDBClient &, GetRequest &&) -> impl<DomainEvents...>;
+
+template <typename GetRequest, concepts::domain_event... DomainEvents>
+impl(event_dispatcher<DomainEvents...> &, event_log_config const &,
+     Aws::DynamoDB::DynamoDBClient &) -> impl<DomainEvents...>;
 } // namespace event_source_details_
+
+template <concepts::domain_event... DomainEvents>
+using event_source = event_source_details_::impl<DomainEvents...>;
 } // namespace skizzay::cddd::dynamodb

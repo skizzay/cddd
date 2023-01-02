@@ -47,4 +47,11 @@ requires concepts::aggregate_root<Aggregate, DomainEvents...>
 aggregate_visitor(Aggregate &)
 ->aggregate_visitor<Aggregate, DomainEvents...>;
 
+template <concepts::domain_event... DomainEvents,
+          concepts::aggregate_root<DomainEvents...> AggregateRoot>
+aggregate_visitor<AggregateRoot, DomainEvents...>
+as_event_visitor(AggregateRoot &aggregate) {
+  return {aggregate};
+}
+
 } // namespace skizzay::cddd

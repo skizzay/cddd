@@ -1,6 +1,6 @@
 #include <skizzay/cddd/dynamodb/dynamodb_event_stream.h>
 
-#include "skizzay/cddd//dynamodb/aws_sdk_raii.h"
+#include "skizzay/cddd/dynamodb/aws_sdk_raii.h"
 #include "skizzay/cddd/dynamodb/dynamodb_event_log_table.h"
 #include "skizzay/cddd/event_stream.h"
 #include "skizzay/cddd/timestamp.h"
