@@ -74,13 +74,12 @@ SCENARIO("Events from DynamoDB can be dispatched to handlers",
   fake_clock clock;
 
   GIVEN("An event dispatcher") {
-    using target_type =
-        dynamodb::event_dispatcher<test_event<1>, test_event<2>>;
+    using events_list = domain_event_sequence<test_event<1>, test_event<2>>;
+    using target_type = dynamodb::event_dispatcher<events_list>;
 
     target_type target{event_log_config};
     fake_aggregate aggregate;
-    aggregate_visitor<fake_aggregate, test_event<1>, test_event<2>> visitor{
-        aggregate};
+    aggregate_visitor<fake_aggregate, events_list> visitor{aggregate};
 
     WHEN("a translator is registered for test event 1") {
       std::string const type = "test event 1";

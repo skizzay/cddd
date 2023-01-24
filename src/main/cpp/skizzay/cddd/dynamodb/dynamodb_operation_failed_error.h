@@ -1,5 +1,7 @@
 #pragma once
 
+#include "skizzay/cddd/commit_failed.h"
+
 #include <aws/core/client/AWSError.h>
 #include <aws/core/utils/memory/stl/AWSString.h>
 #include <concepts>
@@ -32,4 +34,6 @@ private:
   error_type error_;
 };
 
+template <typename T>
+using commit_error = operation_failed_error<commit_failed, T>;
 } // namespace skizzay::cddd::dynamodb

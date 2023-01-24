@@ -142,6 +142,12 @@ template <concepts::timestamped T> struct impl<T> {
 template <concepts::clock T> struct impl<T> {
   using type = std::invoke_result_t<decltype(skizzay::cddd::now), T &>;
 };
+
+template <typename T>
+requires(!concepts::timestamped<T>) && requires { typename T::timestamp_type; }
+&&concepts::timestamp<typename T::timestamp_type> struct impl<T> {
+  using type = typename T::timestamp_type;
+};
 } // namespace timestamp_t_details_
 
 template <typename... Ts>

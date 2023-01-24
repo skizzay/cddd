@@ -1,6 +1,7 @@
 #include <skizzay/cddd/dynamodb/dynamodb_event_source.h>
 
 #include "skizzay/cddd/dynamodb/aws_sdk_raii.h"
+#include "skizzay/cddd/dynamodb/dynamodb_client.h"
 #include "skizzay/cddd/dynamodb/dynamodb_event_log_table.h"
 #include "skizzay/cddd/dynamodb/dynamodb_event_stream.h"
 
@@ -91,8 +92,9 @@ SCENARIO("Aggregates can be loaded from a DynamoDB event source",
   dynamodb::aws_sdk_raii aws_sdk{options};
   Aws::Client::ClientConfiguration client_configuration("default");
   client_configuration.endpointOverride = "http://localhost:4566";
-  Aws::DynamoDB::DynamoDBClient client{client_configuration};
-  dynamodb::event_log_table event_log_table{client, event_log_config};
+  dynamodb::basic_client<std::string, std::size_t> client{
+      "TestEventLog", "hk", "sk", client_configuration};
+  dynamodb::event_log_table event_log_table{client.handle(), event_log_config};
   dynamodb::event_dispatcher<test_event<1>, test_event<2>> event_dispatcher{
       event_log_config};
   fake_clock clock;
@@ -106,7 +108,7 @@ SCENARIO("Aggregates can be loaded from a DynamoDB event source",
   random_number_generator.next();
 
   GIVEN("a DynamoDB event source") {
-    dynamodb::event_source target{event_dispatcher, event_log_config, client};
+    dynamodb::event_source target{aggregate_id, event_dispatcher, client};
 
     WHEN("an aggregate is loaded from history") {
       skizzay::cddd::load_from_history(target, aggregate);
@@ -119,8 +121,8 @@ SCENARIO("Aggregates can be loaded from a DynamoDB event source",
     AND_GIVEN("there are events on the stream") {
       fake_serializer serializer;
       dynamodb::event_stream<fake_clock, test_event<1>, test_event<2>>
-          event_stream{aggregate_id, serializer, event_log_config, client,
-                       clock};
+          event_stream{aggregate_id, serializer, event_log_config,
+                       client.handle(), clock};
       std::size_t const num_events_to_add = random_number_generator.get();
       int one_or_two = 1;
       for (std::size_t i = 0; i != num_events_to_add; ++i) {

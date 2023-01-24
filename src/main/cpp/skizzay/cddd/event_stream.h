@@ -1,6 +1,6 @@
 #pragma once
 
-#include "skizzay/cddd/domain_event.h"
+#include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/views.h"
 
@@ -182,18 +182,17 @@ type_erase(concepts::event_stream_of<DomainEvents...> auto event_stream) {
 }
 
 template <typename Derived, concepts::clock Clock, typename Element,
-          concepts::domain_event... DomainEvents>
+          concepts::domain_event_sequence DomainEvents>
 struct event_stream_base {
-  using id_type = id_t<DomainEvents...>;
+  using id_type = id_t<DomainEvents>;
   using element_type = Element;
   using buffer_type = std::vector<element_type>;
-  using version_type = version_t<DomainEvents...>;
-  using timestamp_type = timestamp_t<DomainEvents...>;
+  using version_type = version_t<DomainEvents>;
+  using timestamp_type = timestamp_t<DomainEvents>;
 
   template <concepts::mutable_domain_event DomainEvent>
-  requires(std::same_as<std::remove_cvref_t<DomainEvent>,
-                        std::remove_cvref_t<DomainEvents>> ||
-           ...) void add_event(DomainEvent &&domain_event) {
+  requires(DomainEvents::template contains<DomainEvent>) void add_event(
+      DomainEvent &&domain_event) {
     buffer_.emplace_back(
         derived().make_buffer_element(std::move(domain_event)));
   }
@@ -202,7 +201,7 @@ struct event_stream_base {
   commit_events(std::convertible_to<version_type> auto const expected_version) {
     buffer_type buffer = std::exchange(buffer_, buffer_type{});
     if (not std::empty(buffer)) {
-      timestamp_t<DomainEvents...> const timestamp = now(clock_);
+      timestamp_t<DomainEvents> const timestamp = now(clock_);
       for (auto &&[i, element] : views::enumerate(buffer)) {
         version_type const event_version =
             narrow_cast<version_type>(i) + expected_version + 1;

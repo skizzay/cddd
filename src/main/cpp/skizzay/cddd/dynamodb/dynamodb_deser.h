@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skizzay/cddd/domain_event.h"
+#include "skizzay/cddd/domain_event_visitor.h"
 #include "skizzay/cddd/dynamodb/dynamodb_attribute_value.h"
 #include <aws/dynamodb/model/AttributeValue.h>
 #include <aws/dynamodb/model/Put.h>
@@ -28,10 +29,6 @@ template <concepts::domain_event DomainEvent> struct deserializer_interface {
 template <concepts::domain_event... DomainEvents>
 struct serializer
     : virtual deser_details_::serializer_interface<DomainEvents>... {};
-
-template <concepts::domain_event... DomainEvents>
-struct deserializer
-    : virtual deser_details_::deserializer_interface<DomainEvents>... {};
 
 inline auto const set_item_value = [](auto &item, std::string_view key,
                                       auto &&value) {

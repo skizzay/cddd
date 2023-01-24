@@ -3,6 +3,7 @@
 #include "skizzay/cddd/aggregate_root.h"
 #include "skizzay/cddd/concurrent_repository.h"
 #include "skizzay/cddd/domain_event.h"
+#include "skizzay/cddd/domain_event_visitor.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_stream.h"
 #include "skizzay/cddd/identifier.h"
@@ -24,27 +25,27 @@
 namespace skizzay::cddd {
 namespace in_memory_event_store_details_ {
 
-template <concepts::clock Clock, concepts::domain_event... DomainEvents>
-requires(0 < sizeof...(DomainEvents)) struct store_impl;
+template <concepts::clock Clock, concepts::domain_event_sequence DomainEvents>
+requires(!DomainEvents::empty) struct store_impl;
 
-template <concepts::clock Clock, concepts::domain_event... DomainEvents>
+template <concepts::clock Clock, concepts::domain_event_sequence DomainEvents>
 struct event_stream final
-    : event_stream_base<event_stream<Clock, DomainEvents...>, Clock,
-                        std::unique_ptr<event_interface<DomainEvents...>>,
-                        DomainEvents...> {
+    : event_stream_base<event_stream<Clock, DomainEvents>, Clock,
+                        std::unique_ptr<event_interface<DomainEvents>>,
+                        DomainEvents> {
   using base_type =
-      event_stream_base<event_stream<Clock, DomainEvents...>, Clock,
-                        std::unique_ptr<event_interface<DomainEvents...>>,
-                        DomainEvents...>;
+      event_stream_base<event_stream<Clock, DomainEvents>, Clock,
+                        std::unique_ptr<event_interface<DomainEvents>>,
+                        DomainEvents>;
   using typename base_type::buffer_type;
   using typename base_type::element_type;
   using typename base_type::id_type;
   using typename base_type::timestamp_type;
   using typename base_type::version_type;
-  using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
+  using event_ptr = std::unique_ptr<event_interface<DomainEvents>>;
 
   explicit event_stream(auto &&id, Clock clock,
-                        store_impl<Clock, DomainEvents...> &store)
+                        store_impl<Clock, DomainEvents> &store)
       : base_type{std::move(clock)}, id_{std::forward<decltype(id)>(id)},
         store_{store} {}
 
@@ -65,11 +66,10 @@ struct event_stream final
                                                    expected_version);
   }
 
-  element_type
-  make_buffer_element(concepts::domain_event auto &&domain_event) const {
+  element_type make_buffer_element(
+      concepts::mutable_domain_event auto &&domain_event) const {
     set_id(domain_event, id());
-    return std::make_unique<event_holder_impl<
-        std::remove_cvref_t<decltype(domain_event)>, DomainEvents...>>(
+    return event_interface<DomainEvents>::from_domain_event(
         std::move(domain_event));
   }
 
@@ -81,7 +81,7 @@ struct event_stream final
 
 private:
   std::remove_cvref_t<id_type> id_;
-  store_impl<Clock, DomainEvents...> &store_;
+  store_impl<Clock, DomainEvents> &store_;
 };
 
 template <typename Derived, concepts::domain_event DomainEvent>
@@ -113,11 +113,11 @@ private:
   Aggregate &aggregate_;
 };
 
-template <concepts::domain_event... DomainEvents> struct buffer final {
-  using id_type = id_t<DomainEvents...>;
-  using version_type = version_t<DomainEvents...>;
-  using timestamp_type = timestamp_t<DomainEvents...>;
-  using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
+template <concepts::domain_event_sequence DomainEvents> struct buffer final {
+  using id_type = id_t<DomainEvents>;
+  using version_type = version_t<DomainEvents>;
+  using timestamp_type = timestamp_t<DomainEvents>;
+  using event_ptr = std::unique_ptr<event_interface<DomainEvents>>;
   using storage_type = std::vector<event_ptr>;
 
   typename storage_type::size_type version() const noexcept {
@@ -157,15 +157,16 @@ private:
   storage_type storage_;
 };
 
-template <concepts::domain_event... DomainEvents> struct event_source final {
-  using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
-  using version_type = version_t<DomainEvents...>;
+template <concepts::domain_event_sequence DomainEvents>
+struct event_source final {
+  using event_ptr = std::unique_ptr<event_interface<DomainEvents>>;
+  using version_type = version_t<DomainEvents>;
 
   explicit event_source(
-      std::shared_ptr<buffer<DomainEvents...>> buffer_ptr) noexcept
+      std::shared_ptr<buffer<DomainEvents>> buffer_ptr) noexcept
       : buffer_{std::move(buffer_ptr)} {}
 
-  template <concepts::aggregate_root<DomainEvents...> Aggregate>
+  template <concepts::aggregate_root<DomainEvents> Aggregate>
   void load_from_history(Aggregate &aggregate,
                          version_t<decltype(aggregate)> const target_version) {
     std::unsigned_integral auto const aggregate_version = version(aggregate);
@@ -175,40 +176,39 @@ template <concepts::domain_event... DomainEvents> struct event_source final {
     if (nullptr != buffer_) {
       std::ranges::for_each(
           buffer_->get_events(aggregate_version + 1, target_version),
-          [aggregate = aggregate_visitor<Aggregate, DomainEvents...>{
-               aggregate}](event_ptr const &event) mutable {
+          [aggregate = aggregate_visitor<Aggregate, DomainEvents>{aggregate}](
+              event_ptr const &event) mutable {
             event->accept_event_visitor(aggregate);
           });
     }
   }
 
 private:
-  std::shared_ptr<buffer<DomainEvents...>> buffer_;
+  std::shared_ptr<buffer<DomainEvents>> buffer_;
 };
 
 template <concepts::domain_event... DomainEvents>
 event_source(std::shared_ptr<buffer<DomainEvents...>>)
     -> event_source<DomainEvents...>;
 
-template <concepts::clock Clock, concepts::domain_event... DomainEvents>
-requires(0 < sizeof...(DomainEvents)) struct store_impl {
-  friend event_stream<Clock, DomainEvents...>;
+template <concepts::clock Clock, concepts::domain_event_sequence DomainEvents>
+requires(!DomainEvents::empty) struct store_impl {
+  friend event_stream<Clock, DomainEvents>;
 
-  using id_type = id_t<DomainEvents...>;
-  using version_type = version_t<DomainEvents...>;
-  using timestamp_type = timestamp_t<DomainEvents...>;
-  using buffer_type = buffer<DomainEvents...>;
-  using event_ptr = std::unique_ptr<event_interface<DomainEvents...>>;
+  using id_type = id_t<DomainEvents>;
+  using version_type = version_t<DomainEvents>;
+  using timestamp_type = timestamp_t<DomainEvents>;
+  using buffer_type = buffer<DomainEvents>;
+  using event_ptr = std::unique_ptr<event_interface<DomainEvents>>;
 
-  event_stream<Clock, DomainEvents...>
-  get_event_stream(auto const &id) noexcept {
+  event_stream<Clock, DomainEvents> get_event_stream(auto const &id) noexcept {
     using skizzay::cddd::version;
 
     std::shared_ptr<buffer_type> const buffer_ptr = find_buffer(id);
     return event_stream{std::forward<decltype(id)>(id), clock_, *this};
   }
 
-  event_source<DomainEvents...> get_event_source(auto const &id) noexcept {
+  event_source<DomainEvents> get_event_source(auto const &id) noexcept {
     return event_source{find_buffer(id)};
   }
 
@@ -240,7 +240,7 @@ private:
 };
 } // namespace in_memory_event_store_details_
 
-template <concepts::clock Clock, concepts::domain_event... DomainEvents>
+template <concepts::clock Clock, concepts::domain_event_sequence DomainEvents>
 using in_memory_event_store =
-    in_memory_event_store_details_::store_impl<Clock, DomainEvents...>;
+    in_memory_event_store_details_::store_impl<Clock, DomainEvents>;
 } // namespace skizzay::cddd

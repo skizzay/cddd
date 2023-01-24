@@ -8,6 +8,7 @@ target_include_directories(cddd INTERFACE
 target_sources(cddd INTERFACE
   skizzay/cddd/boolean.h
   skizzay/cddd/domain_event.h
+  skizzay/cddd/domain_event_sequence.h
   skizzay/cddd/event_sourced.h
   skizzay/cddd/event_store.h
   skizzay/cddd/event_stream.h
