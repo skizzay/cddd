@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skizzay/cddd/domain_event.h"
+#include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/views.h"
 
@@ -101,6 +102,12 @@ struct rollback_fn final {
     t.rollback();
   }
 };
+
+template <typename T> struct supports_add_event {
+  template <concepts::domain_event DomainEvent>
+  using test = std::is_invocable<add_event_fn const &,
+                                 std::add_lvalue_reference_t<T>, DomainEvent>;
+};
 } // namespace event_stream_details_
 
 inline namespace event_stream_fn_ {
@@ -114,18 +121,12 @@ template <typename T>
 concept event_stream = std::invocable<decltype(skizzay::cddd::rollback),
                                       std::add_lvalue_reference_t<T>>;
 
-template <typename T, typename... DomainEvents>
+template <typename T, typename DomainEvents>
 concept event_stream_of = event_stream<T> &&
     std::invocable<decltype(skizzay::cddd::commit_events),
-                   std::add_lvalue_reference_t<T>,
-                   version_t<DomainEvents...>> &&
-    (... &&domain_event<DomainEvents>)&&(
-        ... &&std::invocable<
-            decltype(skizzay::cddd::add_event), std::add_lvalue_reference_t<T>,
-            std::add_rvalue_reference_t<DomainEvents>>)&&versioned<T>
-        &&std::convertible_to<
-            decltype(skizzay::cddd::version(std::declval<T const>())),
-            version_t<DomainEvents...>>;
+                   std::add_lvalue_reference_t<T>, version_t<DomainEvents>> &&
+    DomainEvents::template all<
+        event_stream_details_::supports_add_event<T>::template test>;
 } // namespace concepts
 
 namespace event_stream_details_ {
@@ -143,57 +144,53 @@ struct add_event_impl : virtual add_event_interace<DomainEvent> {
 };
 } // namespace event_stream_details_
 
+template <typename> struct event_stream_interface;
+
 template <concepts::domain_event... DomainEvents>
-struct event_stream_interface
-    : virtual event_stream_details_::add_event_interace<
-          std::remove_cvref_t<DomainEvents>>... {
-  virtual version_t<DomainEvents...> version() const = 0;
+struct event_stream_interface<domain_event_sequence<DomainEvents...>>
+    : virtual event_stream_details_::add_event_interace<DomainEvents>... {
   virtual void commit_events(version_t<DomainEvents...>) = 0;
   virtual void rollback() = 0;
+
+  static inline std::unique_ptr<
+      event_stream_interface<domain_event_sequence<DomainEvents...>>>
+  type_erase(
+      concepts::event_stream_of<domain_event_sequence<DomainEvents...>> auto
+          event_stream) {
+    struct impl final
+        : event_stream_interface,
+          event_stream_details_::add_event_impl<impl, DomainEvents>... {
+
+      void commit_events(version_t<DomainEvents...> expected_version) noexcept(
+          noexcept(skizzay::cddd::commit_events(this->impl_,
+                                                expected_version))) override {
+        return skizzay::cddd::commit_events(impl_, expected_version);
+      }
+
+      void rollback() noexcept(
+          noexcept(skizzay::cddd::rollback(this->impl_))) override {
+        return skizzay::cddd::rollback(impl_);
+      }
+
+      std::remove_cvref_t<decltype(event_stream)> impl_;
+    };
+
+    return std::make_unique<impl>(std::move(event_stream));
+  }
 };
 
-template <concepts::domain_event... DomainEvents>
-std::unique_ptr<event_stream_interface<DomainEvents...>>
-type_erase(concepts::event_stream_of<DomainEvents...> auto event_stream) {
-  struct impl final : event_stream_interface<DomainEvents...>,
-                      event_stream_details_::add_event_impl<
-                          impl, std::remove_cvref_t<DomainEvents>>... {
-
-    version_t<DomainEvents...> version() const
-        noexcept(noexcept(skizzay::cddd::version(this->impl_))) override {
-      return skizzay::cddd::version(impl_);
-    }
-
-    void commit_events(version_t<DomainEvents...> expected_version) noexcept(
-        noexcept(skizzay::cddd::commit_events(this->impl_,
-                                              expected_version))) override {
-      return skizzay::cddd::commit_events(impl_, expected_version);
-    }
-
-    void rollback() noexcept(
-        noexcept(skizzay::cddd::rollback(this->impl_))) override {
-      return skizzay::cddd::rollback(impl_);
-    }
-
-    std::remove_cvref_t<decltype(event_stream)> impl_;
-  };
-
-  return std::make_unique<impl>(std::move(event_stream));
-}
-
 template <typename Derived, concepts::clock Clock, typename Element,
-          concepts::domain_event... DomainEvents>
+          concepts::domain_event_sequence DomainEvents>
 struct event_stream_base {
-  using id_type = id_t<DomainEvents...>;
+  using id_type = id_t<DomainEvents>;
   using element_type = Element;
   using buffer_type = std::vector<element_type>;
-  using version_type = version_t<DomainEvents...>;
-  using timestamp_type = timestamp_t<DomainEvents...>;
+  using version_type = version_t<DomainEvents>;
+  using timestamp_type = timestamp_t<DomainEvents>;
 
   template <concepts::mutable_domain_event DomainEvent>
-  requires(std::same_as<std::remove_cvref_t<DomainEvent>,
-                        std::remove_cvref_t<DomainEvents>> ||
-           ...) void add_event(DomainEvent &&domain_event) {
+  requires(DomainEvents::template contains<DomainEvent>) void add_event(
+      DomainEvent &&domain_event) {
     buffer_.emplace_back(
         derived().make_buffer_element(std::move(domain_event)));
   }
@@ -202,7 +199,7 @@ struct event_stream_base {
   commit_events(std::convertible_to<version_type> auto const expected_version) {
     buffer_type buffer = std::exchange(buffer_, buffer_type{});
     if (not std::empty(buffer)) {
-      timestamp_t<DomainEvents...> const timestamp = now(clock_);
+      timestamp_t<DomainEvents> const timestamp = now(clock_);
       for (auto &&[i, element] : views::enumerate(buffer)) {
         version_type const event_version =
             narrow_cast<version_type>(i) + expected_version + 1;

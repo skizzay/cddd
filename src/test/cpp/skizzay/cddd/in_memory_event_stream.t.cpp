@@ -1,12 +1,15 @@
 #include <skizzay/cddd/in_memory_event_store.h>
 
 #include "skizzay/cddd/domain_event.h"
+#include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/event_store.h"
 #include "skizzay/cddd/event_stream.h"
 #include "skizzay/cddd/timestamp.h"
 #include "skizzay/cddd/version.h"
 
 #include <catch.hpp>
+
+#include <memory>
 
 using namespace skizzay::cddd;
 
@@ -46,10 +49,10 @@ using version_type = version_t<test_event<0>, test_event<1>, test_event<2>>;
 SCENARIO("In-memory event store provides an event stream",
          "[unit][in_memory][event_store][event_stream]") {
   GIVEN("An in-memory event store") {
-    in_memory_event_store<fake_clock, test_event<1>, test_event<2>> target;
+    using events_list = domain_event_sequence<test_event<1>, test_event<2>>;
+    in_memory_event_store<fake_clock, events_list> target;
 
-    using event_ptr =
-        std::unique_ptr<event_interface<test_event<1>, test_event<2>>>;
+    using event_ptr = std::unique_ptr<event_wrapper<events_list>>;
     using event_interface = std::iter_value_t<event_ptr>;
     REQUIRE(std::is_class_v<event_ptr>);
     REQUIRE(std::indirectly_readable<event_ptr>);
@@ -90,9 +93,7 @@ SCENARIO("In-memory event store provides an event stream",
         AND_WHEN("the event stream is committed") {
           commit_events(event_stream, 0);
 
-          THEN("the stream has events") {
-            REQUIRE(0 < version(event_stream));
-          }
+          THEN("the stream has events") { REQUIRE(0 < version(event_stream)); }
 
           AND_THEN("the event store has events for the committed id") {
             REQUIRE(target.has_events_for(id));
@@ -152,7 +153,8 @@ SCENARIO("In-memory event store provides an event stream",
 SCENARIO("In-memory event store provides an event source",
          "[unit][in_memory][event_store][event_source]") {
   GIVEN("An in-memory event store") {
-    in_memory_event_store<fake_clock, test_event<1>, test_event<2>> target;
+    using events_list = domain_event_sequence<test_event<1>, test_event<2>>;
+    in_memory_event_store<fake_clock, events_list> target;
 
     AND_GIVEN("an event source for id=\"abc\"") {
       std::string id = "abc";

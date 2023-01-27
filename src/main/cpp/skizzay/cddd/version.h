@@ -78,6 +78,7 @@ struct set_version_fn final {
     return t;
   }
 };
+
 } // namespace version_details
 
 inline namespace version_fn_ {
@@ -85,15 +86,31 @@ inline constexpr version_details::version_fn_ version = {};
 inline constexpr version_details::set_version_fn set_version = {};
 } // namespace version_fn_
 
-template <typename... Ts>
-using version_t = std::common_type_t<std::invoke_result_t<
-    decltype(version), std::remove_reference_t<Ts> const &>...>;
-
 namespace concepts {
 template <typename T>
-concept versioned = requires {
-  typename version_t<T>;
-};
+concept versioned = std::invocable < decltype(skizzay::cddd::version),
+        std::remove_reference_t<T>
+const & >
+    &&std::unsigned_integral<std::invoke_result_t<
+        decltype(skizzay::cddd::version), std::remove_reference_t<T> const &>>;
 } // namespace concepts
+
+namespace version_t_details_ {
+template <typename> struct impl;
+
+template <concepts::versioned T>
+struct impl<T> : std::invoke_result<decltype(skizzay::cddd::version),
+                                    std::remove_reference_t<T> const &> {};
+
+template <typename T>
+requires(!concepts::versioned<T>) && requires { typename T::version_type; }
+&&std::unsigned_integral<typename T::version_type> struct impl<T> {
+  using type = typename T::version_type;
+};
+} // namespace version_t_details_
+
+template <typename... Ts>
+using version_t =
+    std::common_type_t<typename version_t_details_::impl<Ts>::type...>;
 
 } // namespace skizzay::cddd
