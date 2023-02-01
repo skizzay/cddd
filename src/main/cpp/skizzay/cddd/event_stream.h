@@ -61,29 +61,33 @@ struct add_event_fn final {
 template <typename... Ts> void commit_events(Ts const &...) = delete;
 
 struct commit_events_fn final {
-  template <typename T, std::unsigned_integral V>
-  requires requires(T &t, V const v) { {commit_events(t, v)}; }
-  constexpr void operator()(T &t, V const v) const
-      noexcept(noexcept(commit_events(t, v))) {
-    commit_events(t, v);
+  template <typename T, concepts::identifier Id, std::unsigned_integral V>
+  requires requires(T &t, Id const &id, V const v) {
+    {commit_events(t, id, v)};
+  }
+  constexpr void operator()(T &t, Id const &id, V const v) const
+      noexcept(noexcept(commit_events(t, id, v))) {
+    commit_events(t, id, v);
   }
 
-  template <typename T, std::unsigned_integral V>
-  requires requires(T &t, V const v) { {t.commit_events(v)}; }
-  constexpr void operator()(T &t, V const v) const
-      noexcept(noexcept(t.commit_events(v))) {
-    t.commit_events(v);
+  template <typename T, concepts::identifier Id, std::unsigned_integral V>
+  requires requires(T &t, Id const &id, V const v) { {t.commit_events(id, v)}; }
+  constexpr void operator()(T &t, Id const &id, V const v) const
+      noexcept(noexcept(t.commit_events(id, v))) {
+    t.commit_events(id, v);
   }
 
-  template <typename T, std::signed_integral I>
+  template <typename T, concepts::identifier Id, std::signed_integral I>
   requires std::invocable<commit_events_fn const,
                           std::add_lvalue_reference_t<T>,
+                          std::add_lvalue_reference_t<std::add_const_t<Id>>,
                           std::make_unsigned_t<I>>
-  constexpr void operator()(T &t, I const i) const
-      noexcept(std::is_nothrow_invocable_v<commit_events_fn const,
-                                           std::add_lvalue_reference_t<T>,
-                                           std::make_unsigned_t<I>>) {
-    (*this)(t, narrow_cast<std::make_unsigned_t<I>>(i));
+  constexpr void operator()(T &t, Id const &id, I const i) const
+      noexcept(std::is_nothrow_invocable_v<
+               commit_events_fn const, std::add_lvalue_reference_t<T>,
+               std::add_lvalue_reference_t<std::add_const_t<Id>>,
+               std::make_unsigned_t<I>>) {
+    (*this)(t, id, narrow_cast<std::make_unsigned_t<I>>(i));
   }
 };
 
@@ -122,11 +126,13 @@ concept event_stream = std::invocable<decltype(skizzay::cddd::rollback),
                                       std::add_lvalue_reference_t<T>>;
 
 template <typename T, typename DomainEvents>
-concept event_stream_of = event_stream<T> &&
-    std::invocable<decltype(skizzay::cddd::commit_events),
-                   std::add_lvalue_reference_t<T>, version_t<DomainEvents>> &&
-    DomainEvents::template all<
-        event_stream_details_::supports_add_event<T>::template test>;
+concept event_stream_of =
+    event_stream<T> && std::invocable < decltype(skizzay::cddd::commit_events),
+        std::add_lvalue_reference_t<T>,
+        std::remove_reference_t<id_t<DomainEvents>>
+const &, version_t<DomainEvents> >
+             &&DomainEvents::template all<
+                 event_stream_details_::supports_add_event<T>::template test>;
 } // namespace concepts
 
 namespace event_stream_details_ {
@@ -191,22 +197,24 @@ struct event_stream_base {
   template <concepts::mutable_domain_event DomainEvent>
   requires(DomainEvents::template contains<DomainEvent>) void add_event(
       DomainEvent &&domain_event) {
+    using skizzay::cddd::id;
     buffer_.emplace_back(
         derived().make_buffer_element(std::move(domain_event)));
   }
 
   constexpr void
-  commit_events(std::convertible_to<version_type> auto const expected_version) {
+  commit_events(std::remove_reference_t<id_type> const &id,
+                std::convertible_to<version_type> auto const expected_version) {
     buffer_type buffer = std::exchange(buffer_, buffer_type{});
     if (not std::empty(buffer)) {
       timestamp_t<DomainEvents> const timestamp = now(clock_);
       for (auto &&[i, element] : views::enumerate(buffer)) {
         version_type const event_version =
             narrow_cast<version_type>(i) + expected_version + 1;
-        derived().populate_commit_info(timestamp, event_version, element);
+        derived().populate_commit_info(id, timestamp, event_version, element);
       }
       derived().commit_buffered_events(
-          std::move(buffer), timestamp,
+          std::move(buffer), id, timestamp,
           narrow_cast<version_type>(expected_version));
     }
   }

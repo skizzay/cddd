@@ -74,12 +74,14 @@ SCENARIO("In-memory event store provides an event stream",
 
     WHEN("an event stream is requested from the store using an unused id") {
       std::string id = "abc";
-      auto event_stream = get_event_stream(target, std::as_const(id));
+      auto event_stream = get_event_stream(target);
 
-      THEN("the event stream is empty") { REQUIRE(0 == version(event_stream)); }
+      THEN("the event stream is empty") {
+        REQUIRE(0 == target.version_head(std::as_const(id)));
+      }
 
       AND_WHEN("the event stream is committed") {
-        commit_events(event_stream, version_type{0});
+        commit_events(event_stream, std::as_const(id), version_type{0});
 
         THEN("the event store has no events for the id") {
           REQUIRE_FALSE(target.has_events_for(id));
@@ -91,9 +93,11 @@ SCENARIO("In-memory event store provides an event stream",
         add_event(event_stream, test_event<2>{});
 
         AND_WHEN("the event stream is committed") {
-          commit_events(event_stream, 0);
+          commit_events(event_stream, std::as_const(id), 0);
 
-          THEN("the stream has events") { REQUIRE(0 < version(event_stream)); }
+          THEN("the stream has events") {
+            REQUIRE(0 < target.version_head(std::as_const(id)));
+          }
 
           AND_THEN("the event store has events for the committed id") {
             REQUIRE(target.has_events_for(id));
@@ -101,17 +105,17 @@ SCENARIO("In-memory event store provides an event stream",
 
           AND_WHEN("an event stream is requested from the store using the id") {
             auto other_event_stream =
-                get_event_stream(target, std::as_const(id));
+                get_event_stream(target);
 
             THEN("the event stream is not empty") {
-              REQUIRE(0 < version(other_event_stream));
+              REQUIRE(0 < target.version_head(std::as_const(id)));
             }
 
             AND_WHEN("events are added to the other stream") {
               add_event(other_event_stream, test_event<1>{});
 
               AND_WHEN("the other stream is committed") {
-                commit_events(other_event_stream, 2);
+                commit_events(other_event_stream, std::as_const(id), 2);
 
                 AND_WHEN("events are added to the stream") {
                   add_event(event_stream, test_event<1>{});
@@ -120,7 +124,7 @@ SCENARIO("In-memory event store provides an event stream",
                   AND_WHEN("the event stream is committed") {
                     bool found_exception = false;
                     try {
-                      commit_events(event_stream, 5);
+                      commit_events(event_stream, std::as_const(id), 5);
                     } catch (optimistic_concurrency_collision const &e) {
                       found_exception = true;
                       REQUIRE(e.version_expected() == 5);
@@ -129,15 +133,6 @@ SCENARIO("In-memory event store provides an event stream",
                     THEN(
                         "An optimistic concurrency collision was encountered") {
                       REQUIRE(found_exception);
-                    }
-
-                    AND_WHEN("the event stream is rolled back") {
-                      rollback(event_stream);
-
-                      THEN("Both event streams are synced to same version") {
-                        REQUIRE(version(event_stream) ==
-                                version(other_event_stream));
-                      }
                     }
                   }
                 }
@@ -181,10 +176,10 @@ SCENARIO("In-memory event store provides an event source",
     AND_GIVEN("events have been streamed for id=\"abc\"") {
       std::string id = "abc";
       {
-        auto event_stream = get_event_stream(target, std::as_const(id));
+        auto event_stream = get_event_stream(target);
         add_event(event_stream, test_event<1>{id});
         add_event(event_stream, test_event<2>{id});
-        commit_events(event_stream, 0);
+        commit_events(event_stream, std::as_const(id), 0);
       }
       AND_GIVEN("an event source for id=\"abc\"") {
         auto event_source = get_event_source(target, id);

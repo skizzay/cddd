@@ -8,24 +8,22 @@ namespace event_store_details_ {
 void get_event_stream(auto &, auto const &) = delete;
 
 struct get_event_stream_fn final {
-  template <typename T, typename Id>
-  requires requires(T &t, Id const &id) {
-    { t.get_event_stream(id) } -> concepts::event_stream;
+  template <typename T>
+  requires requires(T &t) {
+    { t.get_event_stream() } -> concepts::event_stream;
   }
-  constexpr auto operator()(T &t, Id const &id) const
-      noexcept(noexcept(t.get_event_stream(id))) {
-    return t.get_event_stream(id);
+  constexpr auto operator()(T &t) const
+      noexcept(noexcept(t.get_event_stream())) {
+    return t.get_event_stream();
   }
 
   template <typename T, typename Id>
-  requires requires(std::remove_reference_t<T> &t,
-                    std::remove_cvref_t<Id> const &id) {
-    { get_event_stream(t, id) } -> concepts::event_stream;
+  requires requires(std::remove_reference_t<T> &t) {
+    { get_event_stream(t) } -> concepts::event_stream;
   }
-  constexpr auto operator()(std::remove_reference_t<T> &t,
-                            std::remove_cvref_t<Id> const &id) const
-      noexcept(noexcept(get_event_stream(t, id))) {
-    return get_event_stream(t, id);
+  constexpr auto operator()(std::remove_reference_t<T> &t) const
+      noexcept(noexcept(get_event_stream(t))) {
+    return get_event_stream(t);
   }
 };
 

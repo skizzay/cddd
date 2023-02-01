@@ -43,43 +43,31 @@ struct event_stream final
   using typename base_type::timestamp_type;
   using typename base_type::version_type;
 
-  explicit event_stream(auto &&id, Clock clock,
-                        store_impl<Clock, DomainEvents> &store)
-      : base_type{std::move(clock)}, id_{std::forward<decltype(id)>(id)},
-        store_{store} {}
+  explicit event_stream(Clock clock, store_impl<Clock, DomainEvents> &store)
+      : base_type{std::move(clock)}, store_{store} {}
 
-  constexpr std::remove_cvref_t<id_type> const &id() const noexcept {
-    return id_;
-  }
-
-  constexpr version_type version() const noexcept {
-    auto event_buffer = store_.event_buffers_.get(id());
-    return nullptr == event_buffer ? 0
-                                   : narrow_cast<version_type>(
-                                         skizzay::cddd::version(*event_buffer));
-  }
-
-  void commit_buffered_events(buffer_type &&buffer, timestamp_type const,
+  void commit_buffered_events(buffer_type &&buffer,
+                              std::remove_reference_t<id_type> const &id,
+                              timestamp_type const,
                               version_type const expected_version) {
-    store_.event_buffers_.get_or_add(id())->append(std::move(buffer),
-                                                   expected_version);
+    store_.event_buffers_.get_or_add(id)->append(std::move(buffer),
+                                                 expected_version);
   }
 
   element_type make_buffer_element(
       concepts::mutable_domain_event auto &&domain_event) const {
-    set_id(domain_event, id());
     return event_wrapper<DomainEvents>::from_domain_event(
         std::move(domain_event));
   }
 
-  void populate_commit_info(timestamp_type const timestamp,
+  void populate_commit_info(std::remove_reference_t<id_type> const &,
+                            timestamp_type const timestamp,
                             version_type const version, auto &event_ptr) {
     set_timestamp(*event_ptr, timestamp);
     set_version(*event_ptr, version);
   }
 
 private:
-  std::remove_cvref_t<id_type> id_;
   store_impl<Clock, DomainEvents> &store_;
 };
 
@@ -203,11 +191,17 @@ requires(!DomainEvents::empty) struct store_impl {
   using buffer_type = buffer<DomainEvents>;
   using event_ptr = std::unique_ptr<event_wrapper<DomainEvents>>;
 
-  event_stream<Clock, DomainEvents> get_event_stream(auto const &id) noexcept {
-    using skizzay::cddd::version;
+  constexpr version_type
+  version_head(std::remove_reference_t<id_type> const &id) const noexcept {
+    auto const event_buffer = event_buffers_.get(id);
+    return nullptr == event_buffer ? 0
+                                   : narrow_cast<version_type>(
+                                         skizzay::cddd::version(*event_buffer));
+  }
 
-    std::shared_ptr<buffer_type> const buffer_ptr = find_buffer(id);
-    return event_stream{std::forward<decltype(id)>(id), clock_, *this};
+  event_stream<Clock, DomainEvents>
+  get_event_stream() noexcept {
+    return event_stream{clock_, *this};
   }
 
   event_source<DomainEvents> get_event_source(auto const &id) noexcept {
