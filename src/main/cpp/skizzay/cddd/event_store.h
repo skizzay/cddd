@@ -30,20 +30,20 @@ struct get_event_stream_fn final {
 void get_event_source(auto &, auto const &) = delete;
 
 struct get_event_source_fn final {
-  template <typename T, typename Id>
-  requires requires(T &t, Id const &id) {
-    { t.get_event_source(id) } -> std::destructible;
+  template <typename T>
+  requires requires(T &t) {
+    { t.get_event_source() } -> std::destructible;
   }
-  constexpr auto operator()(T &t, Id const &id) const {
-    return t.get_event_source(id);
+  constexpr auto operator()(T &t) const {
+    return t.get_event_source();
   }
 
-  template <typename T, typename Id>
-  requires requires(T &t, Id const &id) {
-    { get_event_source(t, id) } -> std::destructible;
+  template <typename T>
+  requires requires(T &t) {
+    { get_event_source(t) } -> std::destructible;
   }
-  constexpr auto operator()(T &t, Id const &id) const {
-    return get_event_source(t, id);
+  constexpr auto operator()(T &t) const {
+    return get_event_source(t);
   }
 };
 } // namespace event_store_details_

@@ -147,14 +147,13 @@ private:
   storage_type storage_;
 };
 
-template <concepts::domain_event_sequence DomainEvents>
+template <concepts::clock Clock, concepts::domain_event_sequence DomainEvents>
 struct event_source final {
   using event_ptr = std::unique_ptr<event_wrapper<DomainEvents>>;
   using version_type = version_t<DomainEvents>;
 
-  explicit event_source(
-      std::shared_ptr<buffer<DomainEvents>> buffer_ptr) noexcept
-      : buffer_{std::move(buffer_ptr)} {}
+  explicit event_source(store_impl<Clock, DomainEvents> &store) noexcept
+      : store_{store} {}
 
   template <concepts::aggregate_root<DomainEvents> Aggregate>
   void load_from_history(Aggregate &aggregate,
@@ -163,9 +162,10 @@ struct event_source final {
     assert((aggregate_version < target_version) &&
            "Aggregate version cannot exceed target version");
 
-    if (nullptr != buffer_) {
+    if (auto const buffer = store_.event_buffers_.get(id(aggregate));
+        nullptr != buffer) {
       std::ranges::for_each(
-          buffer_->get_events(aggregate_version + 1, target_version),
+          buffer->get_events(aggregate_version + 1, target_version),
           [aggregate = aggregate_visitor<DomainEvents, Aggregate>{aggregate}](
               event_ptr const &event) mutable {
             event->accept_event_visitor(aggregate);
@@ -174,16 +174,13 @@ struct event_source final {
   }
 
 private:
-  std::shared_ptr<buffer<DomainEvents>> buffer_;
+  store_impl<Clock, DomainEvents> &store_;
 };
-
-template <concepts::domain_event... DomainEvents>
-event_source(std::shared_ptr<buffer<DomainEvents...>>)
-    -> event_source<DomainEvents...>;
 
 template <concepts::clock Clock, concepts::domain_event_sequence DomainEvents>
 requires(!DomainEvents::empty) struct store_impl {
   friend event_stream<Clock, DomainEvents>;
+  friend event_source<Clock, DomainEvents>;
 
   using id_type = id_t<DomainEvents>;
   using version_type = version_t<DomainEvents>;
@@ -199,16 +196,16 @@ requires(!DomainEvents::empty) struct store_impl {
                                          skizzay::cddd::version(*event_buffer));
   }
 
-  event_stream<Clock, DomainEvents>
-  get_event_stream() noexcept {
+  event_stream<Clock, DomainEvents> get_event_stream() noexcept {
     return event_stream{clock_, *this};
   }
 
-  event_source<DomainEvents> get_event_source(auto const &id) noexcept {
-    return event_source{find_buffer(id)};
+  event_source<Clock, DomainEvents> get_event_source() noexcept {
+    return event_source{*this};
   }
 
-  bool has_events_for(auto const &id) const noexcept {
+  bool
+  has_events_for(std::remove_reference_t<id_type> const &id) const noexcept {
     return nullptr != find_buffer(id);
   }
 

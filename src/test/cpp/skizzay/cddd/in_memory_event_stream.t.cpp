@@ -104,8 +104,7 @@ SCENARIO("In-memory event store provides an event stream",
           }
 
           AND_WHEN("an event stream is requested from the store using the id") {
-            auto other_event_stream =
-                get_event_stream(target);
+            auto other_event_stream = get_event_stream(target);
 
             THEN("the event stream is not empty") {
               REQUIRE(0 < target.version_head(std::as_const(id)));
@@ -153,7 +152,7 @@ SCENARIO("In-memory event store provides an event source",
 
     AND_GIVEN("an event source for id=\"abc\"") {
       std::string id = "abc";
-      auto event_source = get_event_source(target, id);
+      auto event_source = get_event_source(target);
 
       AND_GIVEN("an aggregate that can consume events from the event source") {
         fake_aggregate aggregate{id};
@@ -182,7 +181,7 @@ SCENARIO("In-memory event store provides an event source",
         commit_events(event_stream, std::as_const(id), 0);
       }
       AND_GIVEN("an event source for id=\"abc\"") {
-        auto event_source = get_event_source(target, id);
+        auto event_source = get_event_source(target);
 
         AND_GIVEN(
             "an aggregate that can consume events from the event source") {
