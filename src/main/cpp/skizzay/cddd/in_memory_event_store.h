@@ -162,7 +162,7 @@ struct event_source final {
     assert((aggregate_version < target_version) &&
            "Aggregate version cannot exceed target version");
 
-    if (auto const buffer = store_.event_buffers_.get(id(aggregate));
+    if (auto const buffer = store_.find_buffer(id(aggregate));
         nullptr != buffer) {
       std::ranges::for_each(
           buffer->get_events(aggregate_version + 1, target_version),
@@ -190,7 +190,7 @@ requires(!DomainEvents::empty) struct store_impl {
 
   constexpr version_type
   version_head(std::remove_reference_t<id_type> const &id) const noexcept {
-    auto const event_buffer = event_buffers_.get(id);
+    auto const event_buffer = find_buffer(id);
     return nullptr == event_buffer ? 0
                                    : narrow_cast<version_type>(
                                          skizzay::cddd::version(*event_buffer));
@@ -218,8 +218,10 @@ private:
     }
   }
 
-  std::shared_ptr<buffer_type> find_buffer(id_type id) const noexcept {
-    return event_buffers_.get(id);
+  std::shared_ptr<buffer_type>
+  find_buffer(std::remove_reference_t<id_type> const &id) const noexcept {
+    return event_buffers_.get(
+        id, provide_null_value<std::shared_ptr<buffer_type>>{});
   }
 
   timestamp_type current_timestamp() {

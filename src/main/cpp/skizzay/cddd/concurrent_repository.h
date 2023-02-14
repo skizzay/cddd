@@ -11,18 +11,44 @@
 
 namespace skizzay::cddd {
 
+template <concepts::identifier Key>
+struct key_not_found : std::invalid_argument {
+  key_not_found(Key key_value)
+      : std::invalid_argument{"Key not found"}, key_{std::move(key_value)} {}
+
+  constexpr Key const &key() const noexcept { return key_; }
+
+  Key key_;
+};
+
+template <typename T> struct throw_key_not_found {
+  constexpr T operator()(concepts::identifier auto key_value) noexcept(false) {
+    throw key_not_found{std::move(key_value)};
+  }
+};
+
+template <typename T> struct provide_null_value {
+  constexpr nullable_t<T>
+  operator()(concepts::identifier auto const &) noexcept {
+    return null_value<T>;
+  }
+};
+
 namespace concurrent_table_details_ {
 
 template <typename T, concepts::identifier Id> struct impl {
   using key_type = std::remove_cvref_t<Id>;
 
-  constexpr nullable_t<T> get(key_type const &key) const
-      noexcept(std::is_nothrow_copy_constructible_v<T>) {
+  template <typename OnKeyNotFound = throw_key_not_found<T>>
+  constexpr std::common_type_t<T, std::invoke_result_t<OnKeyNotFound, key_type>>
+  get(key_type const &key, OnKeyNotFound on_key_not_found = {}) const
+      noexcept(std::is_nothrow_copy_constructible_v<T>
+                   &&std::is_nothrow_invocable_v<OnKeyNotFound, key_type>) {
     std::shared_lock l_{m_};
     if (auto const entry = unguarded_find(key); std::end(entries_) != entry) {
       return entry->second;
     } else {
-      return null_value<T>;
+      return on_key_not_found(key);
     }
   }
 
@@ -32,7 +58,8 @@ template <typename T, concepts::identifier Id> struct impl {
   constexpr T
   get_or_put(key_type const &key,
              Factory create = {}) requires std::default_initializable<T> {
-    if (auto const result = get(key); null_value<T> != result) {
+    if (auto const result = get(key, provide_null_value<T>{});
+        null_value<T> != result) {
       return result;
     } else if constexpr (concepts::factory<Factory, T, key_type const &>) {
       return add(key, create(key));

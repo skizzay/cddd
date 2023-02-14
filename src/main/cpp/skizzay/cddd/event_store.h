@@ -34,18 +34,20 @@ struct get_event_source_fn final {
   requires requires(T &t) {
     { t.get_event_source() } -> std::destructible;
   }
-  constexpr auto operator()(T &t) const {
-    return t.get_event_source();
-  }
+  constexpr auto operator()(T &t) const { return t.get_event_source(); }
 
   template <typename T>
   requires requires(T &t) {
     { get_event_source(t) } -> std::destructible;
   }
-  constexpr auto operator()(T &t) const {
-    return get_event_source(t);
-  }
+  constexpr auto operator()(T &t) const { return get_event_source(t); }
 };
+
+template <typename T, typename DomainEvents>
+concept provides_event_stream_of =
+    std::invocable<get_event_stream_fn const &, T &> &&
+    concepts::domain_event_sequence<DomainEvents> && concepts::event_stream_of<
+        std::invoke_result_t<get_event_stream_fn const &, T &>, DomainEvents>;
 } // namespace event_store_details_
 
 inline namespace event_store_fn_ {
@@ -64,6 +66,11 @@ concept event_store = requires {
                  std::add_lvalue_reference_t<T>, id_t<T>>
     &&std::invocable<decltype(skizzay::cddd::get_event_source),
                      std::add_lvalue_reference_t<T>, id_t<T>>;
+
+template <typename T, typename DomainEvents>
+concept event_store_of =
+    event_store<T> && domain_event_sequence<DomainEvents> &&
+    event_store_details_::provides_event_stream_of<T, DomainEvents>;
 } // namespace concepts
 
 } // namespace skizzay::cddd

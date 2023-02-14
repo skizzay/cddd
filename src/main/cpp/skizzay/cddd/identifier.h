@@ -119,4 +119,11 @@ requires(!concepts::identifiable<T>) && requires { typename T::id_type; }
 template <typename... Ts>
 using id_t = std::common_reference_t<typename id_details_::impl<Ts>::type...>;
 
+namespace concepts {
+template <typename T, typename Id>
+concept identifiable_by = identifiable<T> && identifier<Id> && requires {
+  typename std::common_reference_t<id_t<T>, Id>;
+};
+} // namespace concepts
+
 } // namespace skizzay::cddd

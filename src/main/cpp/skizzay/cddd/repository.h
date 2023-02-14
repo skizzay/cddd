@@ -40,24 +40,25 @@ struct put_fn final {
 struct get_fn final {
   template <typename T, concepts::identifier Id>
   requires requires(T &t, Id &&id) {
-    { t.get(std::forward<Id>(id)) } -> concepts::nullable;
+    { t.get(std::forward<Id>(id)) } -> concepts::identifiable_by<Id>;
   }
-  constexpr concepts::nullable operator()(T &t, Id &&id) const
+  constexpr concepts::identifiable_by<Id> operator()(T &t, Id &&id) const
       noexcept(noexcept(t.get(std::forward<Id>(id)))) {
     return t.get(std::forward<Id>(id));
   }
 
   template <typename T, concepts::identifier Id>
   requires requires(T &t, Id &&id) {
-    { get(t, std::forward<Id>(id)) } -> concepts::nullable;
+    { get(t, std::forward<Id>(id)) } -> concepts::identifiable_by<Id>;
   }
-  constexpr concepts::nullable operator()(T &t, Id &&id) const
+  constexpr concepts::identifiable_by<Id> operator()(T &t, Id &&id) const
       noexcept(noexcept(get(t, std::forward<Id>(id)))) {
     return get(t, std::forward<Id>(id));
   }
 
   template <std::indirectly_readable T, concepts::identifier Id>
-  constexpr concepts::nullable operator()(T &t, Id &&id) const noexcept(
+  constexpr concepts::identifiable_by<Id>
+  operator()(T &t, Id &&id) const noexcept(
       std::is_nothrow_invocable_v<
           get_fn const &,
           typename std::indirectly_readable_traits<T>::value_type &, Id &&>) {
@@ -73,10 +74,11 @@ inline constexpr repository_details_::get_fn get = {};
 
 namespace concepts {
 template <typename T, typename Entity>
-concept repository = identifiable<Entity> &&
+concept repository =
+    identifiable<Entity> &&
     std::invocable<decltype(skizzay::cddd::put) const &, T &, Entity> &&
-    std::invocable<decltype(skizzay::cddd::get) const &, T const &,
-                   std::remove_reference_t<id_t<Entity>>
+    std::invocable < decltype(skizzay::cddd::get) const &,
+        T const &, std::remove_reference_t<id_t<Entity>>
 const & > ;
 } // namespace concepts
 } // namespace skizzay::cddd

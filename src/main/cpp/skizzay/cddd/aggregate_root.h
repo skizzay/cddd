@@ -27,6 +27,12 @@ concept aggregate_root =
         &&std::same_as<version_t<T>, version_t<DomainEvents>>
             &&DomainEvents::template all<
                 aggregate_root_details_::can_apply_event<T>::template test>;
+
+template <typename T, typename DomainEvents, typename AggregateRoot>
+concept event_source_for = aggregate_root<AggregateRoot, DomainEvents> &&
+    std::invocable<decltype(skizzay::cddd::load_from_history),
+                   std::add_lvalue_reference_t<T>,
+                   std::add_lvalue_reference_t<AggregateRoot>>;
 } // namespace concepts
 
 template <typename Derived, concepts::domain_event DomainEvent>
