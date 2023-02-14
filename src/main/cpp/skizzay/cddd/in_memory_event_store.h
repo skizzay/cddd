@@ -50,7 +50,7 @@ struct event_stream final
                               std::remove_reference_t<id_type> const &id,
                               timestamp_type const,
                               version_type const expected_version) {
-    store_.event_buffers_.get_or_add(id)->append(std::move(buffer),
+    store_.event_buffers_.get_or_put(id)->append(std::move(buffer),
                                                  expected_version);
   }
 

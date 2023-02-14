@@ -1,5 +1,6 @@
 #pragma once
 
+#include "skizzay/cddd/factory.h"
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/nullable.h"
 
@@ -11,37 +12,6 @@
 namespace skizzay::cddd {
 
 namespace concurrent_table_details_ {
-
-template <typename T> struct fn;
-
-template <std::default_initializable T> struct fn<T> final {
-  constexpr T operator()() const
-      noexcept(std::is_nothrow_default_constructible_v<T>) {
-    return T{};
-  }
-};
-
-template <std::default_initializable T> struct fn<std::optional<T>> final {
-  constexpr std::optional<T> operator()() const
-      noexcept(std::is_nothrow_default_constructible_v<T>) {
-    return std::in_place;
-  }
-};
-
-template <std::default_initializable T> struct fn<std::shared_ptr<T>> final {
-  constexpr std::shared_ptr<T> operator()() const {
-    return std::make_shared<T>();
-  }
-};
-
-template <std::default_initializable T, typename D>
-struct fn<std::unique_ptr<T, D>> final {
-  constexpr std::unique_ptr<T, D> operator()(D d = {}) const {
-    return std::unique_ptr<T, D>{new T{}, std::move(d)};
-  }
-};
-
-template <typename T> inline constexpr fn<T> default_value = {};
 
 template <typename T, concepts::identifier Id> struct impl {
   using key_type = std::remove_cvref_t<Id>;
@@ -56,12 +26,18 @@ template <typename T, concepts::identifier Id> struct impl {
     }
   }
 
+  template <typename Factory = nonnull_default_factory<T>>
+  requires concepts::factory<Factory, T, key_type const &> ||
+      concepts::factory<Factory, T>
   constexpr T
-  get_or_add(key_type const &key) requires std::default_initializable<T> {
+  get_or_put(key_type const &key,
+             Factory create = {}) requires std::default_initializable<T> {
     if (auto const result = get(key); null_value<T> != result) {
       return result;
+    } else if constexpr (concepts::factory<Factory, T, key_type const &>) {
+      return add(key, create(key));
     } else {
-      return add(key, default_value<T>());
+      return add(key, create());
     }
   }
 
@@ -106,7 +82,7 @@ template <concepts::identifiable T>
 struct concurrent_repository
     : private concurrent_table<T, std::remove_cvref_t<id_t<T>>> {
   using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get;
-  using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get_or_add;
+  using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get_or_put;
   using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::contains;
 
   constexpr T add(T &&t) {
