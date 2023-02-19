@@ -37,14 +37,6 @@ struct nullable_traits<T> {
   static inline constexpr bool is_constexpr = false;
 };
 
-// template <typename T> struct nullable_traits<std::shared_ptr<T>> {
-//   using nullable_type = T;
-//   using unwrapped_type =
-//       typename std::indirectly_readable_traits<T>::value_type;
-//   static inline constinit std::add_const_t<nullable_type> null_value = {};
-//   static inline constexpr bool is_constexpr = false;
-// };
-
 template <typename... Ts>
 requires(std::same_as<Ts, std::monostate> ||
          ...) struct nullable_traits<std::variant<Ts...>> {

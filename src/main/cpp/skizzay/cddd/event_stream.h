@@ -2,6 +2,7 @@
 
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/domain_event_sequence.h"
+#include "skizzay/cddd/event_stream_buffer.h"
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/views.h"
 
@@ -12,51 +13,6 @@
 
 namespace skizzay::cddd {
 namespace event_stream_details_ {
-
-template <typename... Ts> void add_event(Ts const &...) = delete;
-
-struct add_event_fn final {
-  template <typename T, concepts::domain_event DomainEvent>
-  requires requires(T &t, DomainEvent &&domain_event) {
-    {t.emplace_back(static_cast<DomainEvent &&>(domain_event))};
-  }
-  constexpr void operator()(T &t, DomainEvent &&domain_event) const noexcept(
-      noexcept(t.emplace_back(std::forward<DomainEvent>(domain_event)))) {
-    t.emplace_back(std::forward<DomainEvent>(domain_event));
-  }
-
-  template <typename T, concepts::domain_event DomainEvent>
-  requires requires(T &t, DomainEvent const &domain_event) {
-    {t.push_back(domain_event)};
-  } &&(!requires(T & t, DomainEvent &&domain_event) {
-    {t.emplace_back(static_cast<DomainEvent &&>(domain_event))};
-  }) constexpr void
-  operator()(T &t, DomainEvent &&domain_event) const
-      noexcept(noexcept(t.push_back(domain_event))) {
-    t.push_back(domain_event);
-  }
-
-  template <typename T, concepts::domain_event DomainEvent>
-  requires requires(T &t, DomainEvent domain_event) {
-    {add_event(t, std::move(domain_event))};
-  }
-  constexpr void operator()(T &t, DomainEvent &&domain_event) const
-      noexcept(noexcept(add_event(t,
-                                  std::forward<DomainEvent>(domain_event)))) {
-    add_event(t, std::forward<DomainEvent>(domain_event));
-  }
-
-  template <typename T, concepts::domain_event DomainEvent>
-  requires requires(T &t, DomainEvent domain_event) {
-    {t.add_event(std::move(domain_event))};
-  }
-  constexpr void operator()(T &t, DomainEvent &&domain_event) const
-      noexcept(noexcept(t.add_event(std::forward<DomainEvent>(domain_event)))) {
-    t.add_event(std::forward<DomainEvent>(domain_event));
-  }
-
-  constexpr void operator()(auto &, auto &&) const noexcept {}
-};
 
 template <typename... Ts> void commit_events(Ts const &...) = delete;
 
@@ -107,16 +63,44 @@ struct rollback_fn final {
   }
 };
 
-template <typename T> struct supports_add_event {
-  template <concepts::domain_event DomainEvent>
-  using test = std::is_invocable<add_event_fn const &,
-                                 std::add_lvalue_reference_t<T>, DomainEvent>;
+template <typename T> void get_event_stream_buffer(T &&t) = delete;
+
+struct get_event_stream_buffer_fn final {
+  template <typename T>
+  requires requires(T &&t) {
+    { t.get_event_stream_buffer() } -> ranges::v3::sized_range;
+  }
+  constexpr ranges::v3::sized_range auto operator()(T &&t) const
+      noexcept(noexcept(t.get_event_stream_buffer())) {
+    return t.get_event_stream_buffer();
+  }
+
+  template <typename T>
+  requires requires(T &&t) {
+    { get_event_stream_buffer(t) } -> ranges::v3::sized_range;
+  }
+  constexpr ranges::v3::sized_range auto operator()(T &&t) const
+      noexcept(noexcept(get_event_stream_buffer(t))) {
+    return get_event_stream_buffer(t);
+  }
+
+  template <std::indirectly_readable Pointer>
+  requires std::invocable<
+      get_event_stream_buffer_fn const,
+      typename std::indirectly_readable_traits<Pointer>::value_type>
+  constexpr ranges::v3::sized_range auto operator()(Pointer &&ptr) const
+      noexcept(std::is_nothrow_invocable_v<
+               get_event_stream_buffer_fn const,
+               typename std::indirectly_readable_traits<Pointer>::value_type>) {
+    return (*this)(*ptr);
+  }
 };
 } // namespace event_stream_details_
 
 inline namespace event_stream_fn_ {
-inline constexpr event_stream_details_::add_event_fn add_event = {};
 inline constexpr event_stream_details_::commit_events_fn commit_events = {};
+inline constexpr event_stream_details_::get_event_stream_buffer_fn
+    get_event_stream_buffer = {};
 inline constexpr event_stream_details_::rollback_fn rollback = {};
 } // namespace event_stream_fn_
 
@@ -127,12 +111,15 @@ concept event_stream = std::invocable<decltype(skizzay::cddd::rollback),
 
 template <typename T, typename DomainEvents>
 concept event_stream_of =
-    event_stream<T> && std::invocable < decltype(skizzay::cddd::commit_events),
+    event_stream<T> && domain_event_sequence<DomainEvents> &&
+    std::invocable < decltype(skizzay::cddd::commit_events),
         std::add_lvalue_reference_t<T>,
         std::remove_reference_t<id_t<DomainEvents>>
 const &, version_t<DomainEvents> >
-             &&DomainEvents::template all<
-                 event_stream_details_::supports_add_event<T>::template test>;
+             &&event_stream_buffer<
+                 std::invoke_result_t<
+                     decltype(skizzay::cddd::get_event_stream_buffer), T>,
+                 DomainEvents>;
 } // namespace concepts
 
 namespace event_stream_details_ {
