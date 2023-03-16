@@ -1,5 +1,7 @@
 #pragma once
 
+#include "skizzay/cddd/dereference.h"
+#include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/domain_event_sequence.h"
 
 #include <concepts>
@@ -16,52 +18,43 @@ template <typename... Ts> void add_event(Ts const &...) = delete;
 struct add_event_fn final {
   template <typename T, concepts::domain_event DomainEvent>
   requires requires(T &t, DomainEvent &&domain_event) {
-    {t.emplace_back(static_cast<DomainEvent &&>(domain_event))};
+    {dereference(t).emplace_back(static_cast<DomainEvent &&>(domain_event))};
   }
-  constexpr void operator()(T &t, DomainEvent &&domain_event) const noexcept(
-      noexcept(t.emplace_back(std::forward<DomainEvent>(domain_event)))) {
-    t.emplace_back(std::forward<DomainEvent>(domain_event));
+  constexpr void operator()(T &t, DomainEvent &&domain_event) const
+      noexcept(noexcept(dereference(t).emplace_back(
+          std::forward<DomainEvent>(domain_event)))) {
+    dereference(t).emplace_back(std::forward<DomainEvent>(domain_event));
   }
 
   template <typename T, concepts::domain_event DomainEvent>
   requires requires(T &t, DomainEvent const &domain_event) {
-    {t.push_back(domain_event)};
+    {dereference(t).push_back(domain_event)};
   } &&(!requires(T & t, DomainEvent &&domain_event) {
-    {t.emplace_back(static_cast<DomainEvent &&>(domain_event))};
+    {dereference(t).emplace_back(static_cast<DomainEvent &&>(domain_event))};
   }) constexpr void
   operator()(T &t, DomainEvent &&domain_event) const
-      noexcept(noexcept(t.push_back(domain_event))) {
-    t.push_back(domain_event);
+      noexcept(noexcept(dereference(t).push_back(domain_event))) {
+    dereference(t).push_back(domain_event);
   }
 
   template <typename T, concepts::domain_event DomainEvent>
   requires requires(T &t, DomainEvent domain_event) {
-    {add_event(t, std::move(domain_event))};
+    {add_event(dereference(t), std::move(domain_event))};
   }
   constexpr void operator()(T &t, DomainEvent &&domain_event) const
-      noexcept(noexcept(add_event(t,
+      noexcept(noexcept(add_event(dereference(t),
                                   std::forward<DomainEvent>(domain_event)))) {
-    add_event(t, std::forward<DomainEvent>(domain_event));
+    add_event(dereference(t), std::forward<DomainEvent>(domain_event));
   }
 
   template <typename T, concepts::domain_event DomainEvent>
   requires requires(T &t, DomainEvent domain_event) {
-    {t.add_event(std::move(domain_event))};
+    {dereference(t).add_event(std::move(domain_event))};
   }
   constexpr void operator()(T &t, DomainEvent &&domain_event) const
-      noexcept(noexcept(t.add_event(std::forward<DomainEvent>(domain_event)))) {
-    t.add_event(std::forward<DomainEvent>(domain_event));
-  }
-
-  template <std::indirectly_readable Pointer,
-            concepts::domain_event DomainEvent>
-  requires std::invocable<add_event_fn const,
-                          std::add_lvalue_reference_t<Pointer>, DomainEvent>
-  constexpr void operator()(Pointer &ptr, DomainEvent &&domain_event) const
-      noexcept(std::is_nothrow_invocable_v<add_event_fn const,
-                                           std::add_lvalue_reference_t<Pointer>,
-                                           DomainEvent>) {
-    (*this)(*ptr, std::forward<DomainEvent>(domain_event));
+      noexcept(noexcept(
+          dereference(t).add_event(std::forward<DomainEvent>(domain_event)))) {
+    dereference(t).add_event(std::forward<DomainEvent>(domain_event));
   }
 };
 
@@ -72,35 +65,64 @@ template <typename T> struct supports_add_event {
 };
 
 template <typename Transform> struct map_helper {
-  template <typename T> using type = std::invoke_result_t<Transform, T>;
+  template <typename T> using type = std::invoke_result<Transform, T>;
 };
 
 template <concepts::domain_event_sequence DomainEvents, typename Transform>
 using buffered_value_t = typename DomainEvents::template mapped_type<map_helper<
-    Transform>::template type>::template reduced_type<std::common_type>;
+    Transform>::template type>::template reduced_type<std::common_type>::type;
 
 template <concepts::domain_event_sequence DomainEvents, typename Transform>
 using default_alloc_t =
     std::allocator<buffered_value_t<DomainEvents, Transform>>;
+
+template <typename T> void get_event_stream_buffer(T &&t) = delete;
+
+struct get_event_stream_buffer_fn final {
+  template <typename T>
+  requires requires(T &t) {
+    { dereference(t).get_event_stream_buffer() } -> std::ranges::sized_range;
+  }
+  constexpr std::ranges::sized_range auto operator()(T &t) const
+      noexcept(noexcept(t.get_event_stream_buffer())) {
+    return dereference(t).get_event_stream_buffer();
+  }
+
+  template <typename T>
+  requires requires(T &&t) {
+    { get_event_stream_buffer(dereference(t)) } -> std::ranges::sized_range;
+  }
+  constexpr std::ranges::sized_range auto operator()(T &t) const
+      noexcept(noexcept(get_event_stream_buffer(t))) {
+    return get_event_stream_buffer(dereference(t));
+  }
+};
 } // namespace event_stream_buffer_details_
 
 inline namespace event_stream_buffer_fn_ {
 inline constexpr event_stream_buffer_details_::add_event_fn add_event = {};
-}
+inline constexpr event_stream_buffer_details_::get_event_stream_buffer_fn
+    get_event_stream_buffer = {};
+} // namespace event_stream_buffer_fn_
 
 namespace concepts {
-template <typename T, typename DomainEvents>
-concept event_stream_buffer =
-    std::ranges::sized_range<T> && DomainEvents::template all<
-        event_stream_buffer_details_::supports_add_event<T>::template test>;
-}
+template <typename T>
+concept event_stream_buffer = std::ranges::sized_range<T>;
 
-template <concepts::domain_event_sequence DomainEvents, typename Transform,
-          typename Alloc = event_stream_buffer_details_::default_alloc_t<
-              DomainEvents, Transform>>
+template <typename T, typename DomainEvents>
+concept event_stream_buffer_of =
+    event_stream_buffer<T> && DomainEvents::template all<
+        event_stream_buffer_details_::supports_add_event<T>::template test>;
+} // namespace concepts
+
+template <typename Value, std::copy_constructible Transform,
+          typename Alloc = std::allocator<Value>>
 struct mapped_event_stream_buffer
     : std::ranges::view_interface<
-          mapped_event_stream_buffer<DomainEvents, Transform, Alloc>> {
+          mapped_event_stream_buffer<Value, Transform, Alloc>> {
+  explicit mapped_event_stream_buffer(Transform transform = {})
+      : transform_{std::move(transform)} {}
+
   constexpr void clear() { buffer_.clear(); }
   constexpr void reserve(std::size_t const size) { buffer_.reserve(size); }
 
@@ -109,21 +131,24 @@ struct mapped_event_stream_buffer
   constexpr auto begin() const { return std::ranges::begin(buffer_); }
   constexpr auto end() const { return std::ranges::end(buffer_); }
 
-  constexpr void
-  emplace_back(concepts::domain_event_of<DomainEvents> auto &&domain_event) {
+  template <concepts::domain_event DomainEvent>
+  requires std::invocable<Transform, DomainEvent &&> &&
+      std::constructible_from<Value,
+                              std::invoke_result_t<Transform, DomainEvent &&>>
+  constexpr void emplace_back(DomainEvent &&domain_event) {
     buffer_.emplace_back(std::invoke(transform_, std::move(domain_event)));
   }
 
-  constexpr void
-  push_back(concepts::domain_event_of<DomainEvents> auto const &domain_event) {
+  template <concepts::domain_event DomainEvent>
+  requires std::invocable<Transform, DomainEvent const &> &&
+      std::constructible_from<
+          Value, std::invoke_result_t<Transform, DomainEvent const &>>
+  constexpr void push_back(DomainEvent const &domain_event) {
     buffer_.emplace_back(std::invoke(transform_, domain_event));
   }
 
 private:
-  std::vector<
-      event_stream_buffer_details_::buffered_value_t<DomainEvents, Transform>,
-      Alloc>
-      buffer_;
+  std::vector<Value, Alloc> buffer_;
   [[no_unique_address]] Transform transform_;
 };
 

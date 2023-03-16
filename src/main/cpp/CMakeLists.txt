@@ -12,7 +12,7 @@ target_sources(cddd INTERFACE
   skizzay/cddd/event_store.h
   skizzay/cddd/event_stream.h
   skizzay/cddd/identifier.h
-  skizzay/cddd/in_memory_event_store.h
+  # skizzay/cddd/in_memory_event_store.h
   skizzay/cddd/optimistic_concurrency_collision.h
   skizzay/cddd/timestamp.h
   skizzay/cddd/version.h

@@ -17,97 +17,86 @@ namespace event_stream_details_ {
 template <typename... Ts> void commit_events(Ts const &...) = delete;
 
 struct commit_events_fn final {
-  template <typename T, concepts::identifier Id, std::unsigned_integral V>
-  requires requires(T &t, Id const &id, V const v) {
-    {commit_events(t, id, v)};
+  template <typename T, concepts::identifier Id, concepts::version Version,
+            concepts::event_stream_buffer EventStreamBuffer>
+  requires requires(T &t, Id id_value, Version const expected_version,
+                    EventStreamBuffer buffer) {
+    {commit_events(t, std::move(id_value), expected_version,
+                   std::move(buffer))};
   }
-  constexpr void operator()(T &t, Id const &id, V const v) const
-      noexcept(noexcept(commit_events(t, id, v))) {
-    commit_events(t, id, v);
-  }
-
-  template <typename T, concepts::identifier Id, std::unsigned_integral V>
-  requires requires(T &t, Id const &id, V const v) { {t.commit_events(id, v)}; }
-  constexpr void operator()(T &t, Id const &id, V const v) const
-      noexcept(noexcept(t.commit_events(id, v))) {
-    t.commit_events(id, v);
+  constexpr void operator()(T &t, Id id_value, Version const expected_version,
+                            EventStreamBuffer buffer) const
+      noexcept(noexcept(commit_events(t, std::move(id_value), expected_version,
+                                      std::move(buffer)))) {
+    commit_events(t, std::move(id_value), expected_version, std::move(buffer));
   }
 
-  template <typename T, concepts::identifier Id, std::signed_integral I>
-  requires std::invocable<commit_events_fn const,
-                          std::add_lvalue_reference_t<T>,
-                          std::add_lvalue_reference_t<std::add_const_t<Id>>,
-                          std::make_unsigned_t<I>>
-  constexpr void operator()(T &t, Id const &id, I const i) const
-      noexcept(std::is_nothrow_invocable_v<
-               commit_events_fn const, std::add_lvalue_reference_t<T>,
-               std::add_lvalue_reference_t<std::add_const_t<Id>>,
-               std::make_unsigned_t<I>>) {
-    (*this)(t, id, narrow_cast<std::make_unsigned_t<I>>(i));
+  template <typename T, concepts::identifier Id, concepts::version Version,
+            concepts::event_stream_buffer EventStreamBuffer>
+  requires requires(T t, Id id_value, Version const expected_version,
+                    EventStreamBuffer buffer) {
+    {t.commit_events(std::move(id_value), expected_version, std::move(buffer))};
+  }
+  constexpr void operator()(T t, Id const &id_value,
+                            Version const expected_version,
+                            EventStreamBuffer buffer) const
+      noexcept(noexcept(t.commit_events(std::move(id_value), expected_version,
+                                        std::move(buffer)))) {
+    t.commit_events(std::move(id_value), expected_version, std::move(buffer));
+  }
+
+  template <typename T, concepts::identifier Id, std::signed_integral Version,
+            concepts::event_stream_buffer EventStreamBuffer>
+  requires std::invocable<commit_events_fn const, T &, Id,
+                          std::make_unsigned_t<Version>, EventStreamBuffer>
+  constexpr void operator()(T t, Id id_value, Version const expected_version,
+                            EventStreamBuffer buffer) const {
+    // noexcept(std::is_nothrow_invocable_v<
+    //          commit_events_fn const, std::add_lvalue_reference_t<T>,
+    //          std::remove_cvref_t<Id>, std::make_unsigned_t<Version>,
+    //          EventStreamBuffer>) {
+    (*this)(std::move_if_noexcept(t), std::move(id_value),
+            narrow_cast<std::make_unsigned_t<Version>>(expected_version),
+            std::move(buffer));
   }
 };
 
-template <typename... Ts> void rollback(Ts const &...) = delete;
-
-struct rollback_fn final {
-  template <typename T>
-  requires requires(T &t) { {rollback(t)}; }
-  constexpr void operator()(T &t) const noexcept(noexcept(rollback(t))) {
-    rollback(t);
+struct rollback_to_fn final {
+  template <typename T, concepts::identifier Id, concepts::version Version>
+  requires requires(T t, Id const &id_value, Version const target_version) {
+    {t.rollback_to(dereference(id_value), target_version)};
+  }
+  constexpr void operator()(T t, Id const &id_value,
+                            Version const target_version) const
+      noexcept(noexcept(t.rollback_to(dereference(id_value), target_version))) {
+    t.rollback_to(dereference(id_value), target_version);
   }
 
-  template <typename T>
-  requires requires(T &t) { {t.rollback()}; }
-  constexpr void operator()(T &t) const noexcept(noexcept(t.rollback())) {
-    t.rollback();
+  template <typename T, concepts::identifier Id, concepts::version Version>
+  requires requires(T &&t, Id const &id_value, Version const target_version) {
+    {rollback_to(t, dereference(id_value), target_version)};
   }
-};
-
-template <typename T> void get_event_stream_buffer(T &&t) = delete;
-
-struct get_event_stream_buffer_fn final {
-  template <typename T>
-  requires requires(T &&t) {
-    { t.get_event_stream_buffer() } -> ranges::v3::sized_range;
-  }
-  constexpr ranges::v3::sized_range auto operator()(T &&t) const
-      noexcept(noexcept(t.get_event_stream_buffer())) {
-    return t.get_event_stream_buffer();
-  }
-
-  template <typename T>
-  requires requires(T &&t) {
-    { get_event_stream_buffer(t) } -> ranges::v3::sized_range;
-  }
-  constexpr ranges::v3::sized_range auto operator()(T &&t) const
-      noexcept(noexcept(get_event_stream_buffer(t))) {
-    return get_event_stream_buffer(t);
-  }
-
-  template <std::indirectly_readable Pointer>
-  requires std::invocable<
-      get_event_stream_buffer_fn const,
-      typename std::indirectly_readable_traits<Pointer>::value_type>
-  constexpr ranges::v3::sized_range auto operator()(Pointer &&ptr) const
-      noexcept(std::is_nothrow_invocable_v<
-               get_event_stream_buffer_fn const,
-               typename std::indirectly_readable_traits<Pointer>::value_type>) {
-    return (*this)(*ptr);
+  constexpr void operator()(T &&t, Id const &id_value,
+                            Version const target_version) const
+      noexcept(noexcept(rollback_to(t, dereference(id_value),
+                                    target_version))) {
+    rollback_to(t, dereference(id_value), target_version);
   }
 };
 } // namespace event_stream_details_
 
 inline namespace event_stream_fn_ {
 inline constexpr event_stream_details_::commit_events_fn commit_events = {};
-inline constexpr event_stream_details_::get_event_stream_buffer_fn
-    get_event_stream_buffer = {};
-inline constexpr event_stream_details_::rollback_fn rollback = {};
+inline constexpr event_stream_details_::rollback_to_fn rollback_to = {};
 } // namespace event_stream_fn_
+
+template <typename T>
+using event_stream_buffer_t =
+    std::invoke_result_t<decltype(skizzay::cddd::get_event_stream_buffer), T>;
 
 namespace concepts {
 template <typename T>
-concept event_stream = std::invocable<decltype(skizzay::cddd::rollback),
-                                      std::add_lvalue_reference_t<T>>;
+concept event_stream = std::destructible<T>;
 
 template <typename T, typename DomainEvents>
 concept event_stream_of =
@@ -115,11 +104,12 @@ concept event_stream_of =
     std::invocable < decltype(skizzay::cddd::commit_events),
         std::add_lvalue_reference_t<T>,
         std::remove_reference_t<id_t<DomainEvents>>
-const &, version_t<DomainEvents> >
-             &&event_stream_buffer<
-                 std::invoke_result_t<
-                     decltype(skizzay::cddd::get_event_stream_buffer), T>,
-                 DomainEvents>;
+const &,
+    version_t<DomainEvents> >
+        &&event_stream_buffer_of<event_stream_buffer_t<T>, DomainEvents> &&
+            std::invocable<decltype(skizzay::cddd::rollback_to),
+                           std::add_lvalue_reference_t<T>, id_t<DomainEvents>,
+                           std::ranges::range_size_t<event_stream_buffer_t<T>>>;
 } // namespace concepts
 
 namespace event_stream_details_ {
@@ -137,96 +127,93 @@ struct add_event_impl : virtual add_event_interace<DomainEvent> {
 };
 } // namespace event_stream_details_
 
-template <typename> struct event_stream_interface;
+// template <typename> struct event_stream_interface;
 
-template <concepts::domain_event... DomainEvents>
-struct event_stream_interface<domain_event_sequence<DomainEvents...>>
-    : virtual event_stream_details_::add_event_interace<DomainEvents>... {
-  virtual void commit_events(version_t<DomainEvents...>) = 0;
-  virtual void rollback() = 0;
+// template <concepts::domain_event... DomainEvents>
+// struct event_stream_interface<domain_event_sequence<DomainEvents...>>
+//     : virtual event_stream_details_::add_event_interace<DomainEvents>... {
+//   using id_type = id_t<DomainEvents...>;
+//   using version_type = version_t<DomainEvents...>;
 
-  static inline std::unique_ptr<
-      event_stream_interface<domain_event_sequence<DomainEvents...>>>
-  type_erase(
-      concepts::event_stream_of<domain_event_sequence<DomainEvents...>> auto
-          event_stream) {
-    struct impl final
-        : event_stream_interface,
-          event_stream_details_::add_event_impl<impl, DomainEvents>... {
+//   virtual void commit_events(id_type id_value,
+//                              version_type const expected_version,
+//                              EventStreamBuffer buffer) = 0;
+//   virtual void rollback() = 0;
 
-      void commit_events(version_t<DomainEvents...> expected_version) noexcept(
-          noexcept(skizzay::cddd::commit_events(this->impl_,
-                                                expected_version))) override {
-        return skizzay::cddd::commit_events(impl_, expected_version);
-      }
+//   static inline std::unique_ptr<
+//       event_stream_interface<domain_event_sequence<DomainEvents...>>>
+//   type_erase(
+//       concepts::event_stream_of<domain_event_sequence<DomainEvents...>> auto
+//           event_stream) {
+//     struct impl final
+//         : event_stream_interface,
+//           event_stream_details_::add_event_impl<impl, DomainEvents>... {
 
-      void rollback() noexcept(
-          noexcept(skizzay::cddd::rollback(this->impl_))) override {
-        return skizzay::cddd::rollback(impl_);
-      }
+//       void commit_events(version_t<DomainEvents...> expected_version)
+//       noexcept(
+//           noexcept(skizzay::cddd::commit_events(this->impl_,
+//                                                 expected_version))) override
+//                                                 {
+//         return skizzay::cddd::commit_events(impl_, expected_version);
+//       }
 
-      std::remove_cvref_t<decltype(event_stream)> impl_;
-    };
+//       void rollback() noexcept(
+//           noexcept(skizzay::cddd::rollback(this->impl_))) override {
+//         return skizzay::cddd::rollback(impl_);
+//       }
 
-    return std::make_unique<impl>(std::move(event_stream));
-  }
-};
+//       std::remove_cvref_t<decltype(event_stream)> impl_;
+//     };
 
-template <typename Derived, concepts::clock Clock, typename Element,
-          concepts::domain_event_sequence DomainEvents>
-struct event_stream_base {
-  using id_type = id_t<DomainEvents>;
-  using element_type = Element;
-  using buffer_type = std::vector<element_type>;
-  using version_type = version_t<DomainEvents>;
-  using timestamp_type = timestamp_t<DomainEvents>;
+//     return std::make_unique<impl>(std::move(event_stream));
+//   }
+// };
 
-  template <concepts::mutable_domain_event DomainEvent>
-  requires(DomainEvents::template contains<DomainEvent>) void add_event(
-      DomainEvent &&domain_event) {
-    using skizzay::cddd::id;
-    buffer_.emplace_back(
-        derived().make_buffer_element(std::move(domain_event)));
-  }
+// template <typename Derived, concepts::clock Clock, std::copyable Transform,
+//           concepts::domain_event_sequence DomainEvents,
+//           typename Alloc = event_stream_buffer_details_::default_alloc_t<
+//               DomainEvents, Transform>>
+// requires std::same_as<Derived, std::remove_cvref_t<Derived>>
+// struct event_stream_base {
+//   using id_type = id_t<DomainEvents>;
+//   using buffer_type =
+//       mapped_event_stream_buffer<DomainEvents, Transform, Alloc>;
+//   using element_type = std::ranges::range_value_t<buffer_type>;
+//   using version_type = version_t<DomainEvents>;
+//   using timestamp_type = timestamp_t<DomainEvents>;
 
-  constexpr void
-  commit_events(std::remove_reference_t<id_type> const &id,
-                std::convertible_to<version_type> auto const expected_version) {
-    buffer_type buffer = std::exchange(buffer_, buffer_type{});
-    if (not std::empty(buffer)) {
-      timestamp_t<DomainEvents> const timestamp = now(clock_);
-      for (auto &&[i, element] : views::enumerate(buffer)) {
-        version_type const event_version =
-            narrow_cast<version_type>(i) + expected_version + 1;
-        derived().populate_commit_info(id, timestamp, event_version, element);
-      }
-      derived().commit_buffered_events(
-          std::move(buffer), id, timestamp,
-          narrow_cast<version_type>(expected_version));
-    }
-  }
+//   constexpr void
+//   commit_events(std::remove_reference_t<id_type> const &id, buffer_type buffer,
+//                 std::convertible_to<version_type> auto const expected_version) {
+//     if (not std::empty(buffer)) {
+//       timestamp_t<DomainEvents> const timestamp = now(clock_);
+//       for (auto &&[i, element] : views::enumerate(buffer)) {
+//         version_type const event_version =
+//             narrow_cast<version_type>(i) + expected_version + 1;
+//         derived().populate_commit_info(id, timestamp, event_version, element);
+//       }
+//       derived().commit_buffered_events(
+//           std::move(buffer), id, timestamp,
+//           narrow_cast<version_type>(expected_version));
+//     }
+//   }
 
-  constexpr void rollback() noexcept { buffer_.clear(); }
+//   constexpr buffer_type get_event_stream_buffer() const {
+//     return buffer_type{transform_};
+//   }
 
-  constexpr bool empty() const {
-    return 0 == skizzay::cddd::version(std::as_const(derived()));
-  }
+// protected:
+//   explicit event_stream_base(Clock clock, Transform transform)
+//       : clock_{std::move_if_noexcept(clock)}, transform_{std::move_if_noexcept(
+//                                                   transform)} {}
 
-protected:
-  explicit event_stream_base(
-      Clock clock,
-      typename std::vector<element_type>::size_type reserve_capacity = 25)
-      : clock_{std::move_if_noexcept(clock)} {
-    buffer_.reserve(reserve_capacity);
-  }
+// private:
+//   constexpr Derived &derived() noexcept {
+//     return *static_cast<Derived *>(this);
+//   }
 
-private:
-  constexpr Derived &derived() noexcept {
-    return *static_cast<Derived *>(this);
-  }
-
-  [[no_unique_address]] Clock clock_;
-  std::vector<element_type> buffer_;
-};
+//   [[no_unique_address]] Clock clock_;
+//   [[no_unique_address]] Transform transform_;
+// };
 
 } // namespace skizzay::cddd

@@ -8,17 +8,17 @@
 
 namespace skizzay::cddd {
 namespace domain_event_sequence_details_ {
-template <template <typename, typename> typename, typename...>
+template <template <typename...> typename, typename...>
 struct reduce_impl;
 
-template <template <typename, typename> typename Reduce, typename T, typename U,
+template <template <typename...> typename Reduce, typename T, typename U,
           typename... Us>
 struct reduce_impl<Reduce, T, U, Us...> {
   using type =
       typename reduce_impl<Reduce, typename Reduce<T, U>::type, Us...>::type;
 };
 
-template <template <typename, typename> typename Reduce, typename T>
+template <template <typename...> typename Reduce, typename T>
 struct reduce_impl<Reduce, T> {
   using type = T;
 };
@@ -43,7 +43,7 @@ template <concepts::domain_event... DomainEvents> struct domain_event_sequence {
   template <template <typename> typename Map>
   using mapped_type =
       domain_event_sequence<typename Map<DomainEvents>::type...>;
-  template <template <typename, typename> typename Reduce>
+  template <template <typename...> typename Reduce>
   using reduced_type =
       domain_event_sequence_details_::reduce_impl<Reduce, DomainEvents...>;
 };

@@ -17,13 +17,24 @@ struct get_event_stream_fn final {
     return t.get_event_stream();
   }
 
-  template <typename T, typename Id>
+  template <typename T>
   requires requires(std::remove_reference_t<T> &t) {
     { get_event_stream(t) } -> concepts::event_stream;
   }
   constexpr auto operator()(std::remove_reference_t<T> &t) const
       noexcept(noexcept(get_event_stream(t))) {
     return get_event_stream(t);
+  }
+
+  template <std::indirectly_readable Pointer>
+  requires std::invocable<
+      get_event_stream_fn const,
+      typename std::indirectly_readable_traits<Pointer>::reference>
+  constexpr concepts::event_stream auto operator()(Pointer &ptr) const
+      noexcept(std::is_nothrow_invocable_v<
+               get_event_stream_fn const,
+               typename std::indirectly_readable_traits<Pointer>::reference>) {
+    return (*this)(*ptr);
   }
 };
 
@@ -59,13 +70,12 @@ inline constexpr event_store_details_::get_event_source_fn get_event_source =
 
 namespace concepts {
 template <typename T>
-concept event_store = requires {
-  typename id_t<T>;
-}
-&&std::invocable<decltype(skizzay::cddd::get_event_stream),
-                 std::add_lvalue_reference_t<T>, id_t<T>>
-    &&std::invocable<decltype(skizzay::cddd::get_event_source),
-                     std::add_lvalue_reference_t<T>, id_t<T>>;
+concept event_store = std::invocable<decltype(skizzay::cddd::get_event_stream),
+                                     std::add_lvalue_reference_t<T>> &&
+    std::invocable<decltype(skizzay::cddd::get_event_source),
+                   std::add_lvalue_reference_t<T>> &&
+    std::invocable<decltype(skizzay::cddd::get_event_stream_buffer),
+                   std::add_lvalue_reference_t<T>>;
 
 template <typename T, typename DomainEvents>
 concept event_store_of =

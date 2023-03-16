@@ -1,5 +1,7 @@
 #pragma once
 
+#include "skizzay/cddd/dereference.h"
+
 #include <concepts>
 #include <functional>
 #include <type_traits>
@@ -9,11 +11,12 @@ namespace skizzay::cddd {
 
 namespace concepts {
 template <typename T>
-concept identifier = std::regular<std::remove_cvref_t<T>> &&
-    std::is_nothrow_invocable_r_v<std::size_t,
-                                  std::hash<std::remove_cvref_t<T>>,
-                                  std::add_lvalue_reference_t<T const>> &&
-    std::default_initializable<std::hash<std::remove_cvref_t<T>>>;
+concept identifier = std::regular<std::remove_cvref_t<dereference_t<T>>> &&
+    std::is_nothrow_invocable_r_v<
+        std::size_t, std::hash<std::remove_cvref_t<dereference_t<T>>>,
+        std::add_const_t<dereference_t<T>>> &&
+    std::default_initializable<
+        std::hash<std::remove_cvref_t<dereference_t<T>>>>;
 } // namespace concepts
 
 namespace id_details_ {
@@ -22,65 +25,67 @@ template <typename T> void id(T const &...) = delete;
 struct id_fn final {
   template <typename T>
   requires requires(T const &t) {
-    { (t.id()) }
+    { (dereference(t).id()) }
     noexcept->concepts::identifier;
   }
   constexpr decltype(auto) operator()(T const &t) const noexcept {
-    return t.id();
+    return dereference(t).id();
   }
 
   template <typename T>
-  requires concepts::identifier<decltype(T::id)>
+  requires concepts::identifier<
+      decltype(std::remove_cvref_t<dereference_t<T>>::id)>
   constexpr decltype(auto) operator()(T const &t) const noexcept {
-    return (t.id);
+    return (dereference(t).id);
   }
 
   template <typename T>
   requires requires(T const &t) {
-    { id(t) }
+    { id(dereference(t)) }
     noexcept->concepts::identifier;
   }
   constexpr decltype(auto) operator()(T const &t) const noexcept {
-    return id(t);
+    return id(dereference(t));
   }
 
   template <typename... Ts>
-  constexpr decltype(auto)
+  requires(std::invocable<id_fn const, std::add_const_t<Ts>>
+               &&...) constexpr decltype(auto)
   operator()(std::variant<Ts...> const &v) const noexcept {
     return std::visit(*this, v);
-  }
-
-  template <std::indirectly_readable Pointer>
-  constexpr decltype(auto) operator()(Pointer const &pointer) const noexcept {
-    return std::invoke(*this, *pointer);
   }
 };
 
 void set_id(auto &...) = delete;
 
 struct set_id_fn final {
-  template <typename T, typename Id>
-  requires concepts::identifier<decltype(T::id)> &&
-      std::assignable_from < std::remove_reference_t<decltype(T::id)>
-  &, Id > constexpr T &operator()(T &t, Id &&id) const
-         noexcept(noexcept(t.id = std::forward<Id>(id))) {
-    t.id = std::forward<Id>(id);
+  template <typename T, concepts::identifier Id>
+  requires requires(T &t, Id &&id_value) {
+    {dereference(t).id = std::forward<Id>(id_value)};
+  }
+  constexpr T &operator()(T &t, Id &&id_value) const
+      noexcept(noexcept(dereference(t).id = std::forward<Id>(id_value))) {
+    dereference(t).id = std::forward<Id>(id_value);
     return t;
   }
 
-  template <typename T, typename Id>
-  requires requires(T &t, Id &&id) { {t.set_id(std::forward<Id>(id))}; }
+  template <typename T, concepts::identifier Id>
+  requires requires(T &t, Id &&id) {
+    {dereference(t).set_id(std::forward<Id>(id))};
+  }
   constexpr T &operator()(T &t, Id &&id) const
-      noexcept(noexcept(t.set_id(std::forward<Id>(id)))) {
-    t.set_id(std::forward<Id>(id));
+      noexcept(noexcept(dereference(t).set_id(std::forward<Id>(id)))) {
+    dereference(t).set_id(std::forward<Id>(id));
     return t;
   }
 
-  template <typename T, typename Id>
-  requires requires(T &t, Id &&id) { {set_id(t, std::forward<Id>(id))}; }
+  template <typename T, concepts::identifier Id>
+  requires requires(T &t, Id &&id) {
+    {set_id(dereference(t), std::forward<Id>(id))};
+  }
   constexpr T &operator()(T &t, Id &&id) const
-      noexcept(noexcept(set_id(t, std::forward<Id>(id)))) {
-    set_id(t, std::forward<Id>(id));
+      noexcept(noexcept(set_id(dereference(t), std::forward<Id>(id)))) {
+    set_id(dereference(t), std::forward<Id>(id));
     return t;
   }
 };
@@ -121,9 +126,8 @@ using id_t = std::common_reference_t<typename id_details_::impl<Ts>::type...>;
 
 namespace concepts {
 template <typename T, typename Id>
-concept identifiable_by = identifiable<T> && identifier<Id> && requires {
-  typename std::common_reference_t<id_t<T>, Id>;
-};
+concept identifiable_by = identifiable<T> && identifier<Id> &&
+    std::equality_comparable_with<id_t<T>, Id>;
 } // namespace concepts
 
 } // namespace skizzay::cddd

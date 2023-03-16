@@ -10,26 +10,19 @@
 namespace skizzay::cddd {
 namespace concepts {
 
-namespace aggregate_root_details_ {
-template <typename T> struct can_apply_event {
-  template <domain_event DomainEvent>
-  using test = std::is_invocable<decltype(skizzay::cddd::apply),
-                                 std::add_lvalue_reference_t<T>,
-                                 std::remove_reference_t<DomainEvent> const &>;
-};
-} // namespace aggregate_root_details_
+template <typename T>
+concept aggregate_root = versioned<T> && identifiable<T>;
 
 template <typename T, typename DomainEvents>
-concept aggregate_root =
-    versioned<T> && identifiable<T> && domain_event_sequence<DomainEvents> &&
+concept aggregate_root_of =
+    aggregate_root<T> && domain_event_sequence<DomainEvents> &&
     (!DomainEvents::empty) &&
     std::same_as<std::remove_cvref_t<id_t<T>>, id_t<DomainEvents>>
         &&std::same_as<version_t<T>, version_t<DomainEvents>>
-            &&DomainEvents::template all<
-                aggregate_root_details_::can_apply_event<T>::template test>;
+            &&handler_for<T, DomainEvents>;
 
 template <typename T, typename DomainEvents, typename AggregateRoot>
-concept event_source_for = aggregate_root<AggregateRoot, DomainEvents> &&
+concept event_source_for = aggregate_root_of<AggregateRoot, DomainEvents> &&
     std::invocable<decltype(skizzay::cddd::load_from_history),
                    std::add_lvalue_reference_t<T>,
                    std::add_lvalue_reference_t<AggregateRoot>>;
@@ -45,9 +38,9 @@ struct aggregate_visitor_impl : virtual event_visitor_interface<DomainEvent> {
 
 template <typename, typename> struct aggregate_visitor;
 
-template <
-    concepts::domain_event... DomainEvents,
-    concepts::aggregate_root<domain_event_sequence<DomainEvents...>> Aggregate>
+template <concepts::domain_event... DomainEvents,
+          concepts::aggregate_root_of<domain_event_sequence<DomainEvents...>>
+              Aggregate>
 struct aggregate_visitor<domain_event_sequence<DomainEvents...>, Aggregate>
     final
     : virtual event_visitor<domain_event_sequence<DomainEvents...>>,
@@ -63,7 +56,7 @@ private:
 };
 
 template <concepts::domain_event_sequence DomainEvents,
-          concepts::aggregate_root<DomainEvents> AggregateRoot>
+          concepts::aggregate_root_of<DomainEvents> AggregateRoot>
 aggregate_visitor<DomainEvents, AggregateRoot>
 as_event_visitor(AggregateRoot &aggregate) {
   return {aggregate};

@@ -88,4 +88,23 @@ private:
   virtual void do_accept_event_visitor(event_visitor<DomainEvents> &) const = 0;
 };
 
+namespace domain_event_wrapper_details_ {
+template <concepts::domain_event_sequence DomainEvents>
+struct wrap_domain_events_fn final {
+  template <concepts::domain_event_of<DomainEvents> DomainEvent>
+  inline std::unique_ptr<event_wrapper<DomainEvents>>
+  operator()(DomainEvent &&domain_event) const {
+    return event_wrapper<DomainEvents>::from_domain_event(
+        std::move(domain_event));
+  }
+};
+} // namespace domain_event_wrapper_details_
+
+inline namespace domain_event_wrapper_fn_ {
+template <concepts::domain_event_sequence DomainEvents>
+inline constexpr domain_event_wrapper_details_::wrap_domain_events_fn<
+    DomainEvents>
+    wrap_domain_events = {};
+}
+
 } // namespace skizzay::cddd

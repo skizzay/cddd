@@ -11,9 +11,14 @@ target_sources(cddd_unit_tests PRIVATE
   # skizzay/cddd/dynamodb_event_stream.t.cpp
   # skizzay/cddd/dynamodb_event_source.t.cpp
   skizzay/cddd/in_memory_event_stream.t.cpp
+  # skizzay/cddd/event_sourced_aggregate_repository.t.cpp
+  skizzay/cddd/fakes.t.cpp
+  skizzay/cddd/in_memory_event_store.t.cpp
+  skizzay/cddd/concurrent_repository.t.cpp
 )
 target_compile_definitions(cddd_unit_tests PUBLIC AWS_CUSTOM_MEMORY_MANAGEMENT)
-target_link_libraries(cddd_unit_tests PRIVATE Catch2::Catch2 Catch2::Catch2WithMain cddd_dynamodb aws-cpp-sdk-core)
+# target_link_libraries(cddd_unit_tests PRIVATE Catch2::Catch2 Catch2::Catch2WithMain cddd_dynamodb aws-cpp-sdk-core)
+target_link_libraries(cddd_unit_tests PRIVATE Catch2::Catch2 Catch2::Catch2WithMain cddd)
 set_property(TARGET cddd_unit_tests PROPERTY CXX_STANDARD 20)
 
 # add_executable(fsm_integration_tests)

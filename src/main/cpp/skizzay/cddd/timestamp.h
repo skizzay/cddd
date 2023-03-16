@@ -1,5 +1,6 @@
 #pragma once
 
+#include "skizzay/cddd/dereference.h"
 #include <chrono>
 #include <type_traits>
 
@@ -24,37 +25,33 @@ template <typename... Ts> void timestamp(Ts const &...) = delete;
 struct timestamp_fn final {
   template <typename T>
   requires requires(T const &tc) {
-    { timestamp(tc) } -> concepts::timestamp;
+    { timestamp(dereference(tc)) } -> concepts::timestamp;
   }
   constexpr concepts::timestamp auto operator()(T const &tc) const
-      noexcept(noexcept(timestamp(tc))) {
-    return timestamp(tc);
+      noexcept(noexcept(timestamp(dereference(tc)))) {
+    return timestamp(dereference(tc));
   }
 
   template <typename T>
   requires requires(T const &tc) {
-    { tc.timestamp() } -> concepts::timestamp;
+    { dereference(tc).timestamp() } -> concepts::timestamp;
   }
   constexpr concepts::timestamp auto operator()(T const &tc) const
-      noexcept(noexcept(tc.timestamp())) {
-    return tc.timestamp();
+      noexcept(noexcept(dereference(tc).timestamp())) {
+    return dereference(tc).timestamp();
   }
 
   template <typename T>
-  requires concepts::timestamp<decltype(T::timestamp)>
-  constexpr concepts::timestamp auto operator()(T const &tc) const noexcept {
-    return tc.timestamp;
-  }
-
-  template <std::indirectly_readable Pointer>
-  constexpr concepts::timestamp auto operator()(Pointer const &pointer) const
-      noexcept(
-          std::is_nothrow_invocable_v<timestamp_fn const, decltype(*pointer)>) {
-    return std::invoke(*this, *pointer);
+  requires concepts::timestamp<
+      decltype(std::remove_cvref_t<dereference_t<T>>::timestamp)>
+  constexpr concepts::timestamp auto operator()(T const &t) const noexcept {
+    return (dereference(t).timestamp);
   }
 
   template <typename... Ts>
-  constexpr concepts::timestamp auto
+  requires(
+      std::invocable<timestamp_fn const, std::remove_reference_t<Ts> const &>
+          &&...) constexpr concepts::timestamp auto
   operator()(std::variant<Ts...> const &v) const
       noexcept((std::is_nothrow_invocable_v<timestamp_fn const, Ts const &> &&
                 ...)) {
@@ -66,31 +63,41 @@ void set_timestamp(auto &...) = delete;
 
 struct set_timestamp_fn final {
   template <typename T, concepts::timestamp Timestamp>
-  requires concepts::timestamp<decltype(T::timestamp)>
-  constexpr T &operator()(T &t, Timestamp const timestamp) const noexcept {
-    t.timestamp =
-        std::chrono::time_point_cast<typename decltype(T::timestamp)::duration>(
-            timestamp);
+  requires requires(T &t, Timestamp const timestamp_value) {
+    {dereference(t).timestamp = std::chrono::time_point_cast<
+         typename decltype(std::remove_cvref_t<
+                           dereference_t<T>>::timestamp)::duration>(
+         timestamp_value)};
+  }
+  constexpr T &operator()(T &t, Timestamp const timestamp_value) const noexcept(
+      noexcept(dereference(t).timestamp = std::chrono::time_point_cast<
+                   typename decltype(std::remove_cvref_t<
+                                     dereference_t<T>>::timestamp)::duration>(
+                   timestamp_value))) {
+    dereference(t).timestamp = std::chrono::time_point_cast<
+        typename decltype(std::remove_cvref_t<
+                          dereference_t<T>>::timestamp)::duration>(
+        timestamp_value);
     return t;
   }
 
   template <typename T, concepts::timestamp Timestamp>
   requires requires(T &t, Timestamp const timestamp) {
-    {t.set_timestamp(timestamp)};
+    {dereference(t).set_timestamp(timestamp)};
   }
   constexpr T &operator()(T &t, Timestamp const timestamp) const
-      noexcept(noexcept(t.set_timestamp(timestamp))) {
-    t.set_timestamp(timestamp);
+      noexcept(noexcept(dereference(t).set_timestamp(timestamp))) {
+    dereference(t).set_timestamp(timestamp);
     return t;
   }
 
   template <typename T, concepts::timestamp Timestamp>
   requires requires(T &t, Timestamp const timestamp) {
-    {set_timestamp(t, timestamp)};
+    {set_timestamp(dereference(t), timestamp)};
   }
   constexpr T &operator()(T &t, Timestamp const timestamp) const
-      noexcept(noexcept(set_timestamp(t, timestamp))) {
-    set_timestamp(t, timestamp);
+      noexcept(noexcept(set_timestamp(dereference(t), timestamp))) {
+    set_timestamp(dereference(t), timestamp);
     return t;
   }
 };
@@ -99,16 +106,12 @@ void now(auto &...) = delete;
 
 struct now_fn final {
   template <typename T>
-  requires std::invocable<decltype(T::now)> &&
-      concepts::timestamp<std::invoke_result_t<decltype(T::now)>>
-  constexpr auto operator()(T &) const { return T::now(); }
-
-  template <typename T>
-  requires std::invocable<decltype(&T::now), T &> &&
-      concepts::timestamp<std::invoke_result_t<decltype(&T::now), T &>>
+  requires requires(T t) {
+    { dereference(t).now() } -> concepts::timestamp;
+  }
   constexpr concepts::timestamp auto operator()(T &t) const
-      noexcept(std::is_nothrow_invocable_v<decltype(&T::now), T &>) {
-    return t.now();
+      noexcept(noexcept(dereference(t).now())) {
+    return dereference(t).now();
   }
 };
 } // namespace timestamp_details_

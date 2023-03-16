@@ -1,202 +1,135 @@
-#include <skizzay/cddd/in_memory_event_store.h>
+#include <skizzay/cddd/in_memory/in_memory_event_stream.h>
 
+#include "skizzay/cddd/concurrent_repository.h"
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/domain_event_sequence.h"
+#include "skizzay/cddd/domain_event_wrapper.h"
 #include "skizzay/cddd/event_store.h"
 #include "skizzay/cddd/event_stream.h"
 #include "skizzay/cddd/timestamp.h"
 #include "skizzay/cddd/version.h"
 
+#include "fakes.h"
 #include <catch.hpp>
 
 #include <memory>
+#include <tuple>
+#include <vector>
 
 using namespace skizzay::cddd;
 
 namespace {
-struct fake_clock {
-  std::chrono::system_clock::time_point now() noexcept {
-    return std::exchange(result, skizzay::cddd::now(system_clock));
+using buffer_type =
+    std::vector<std::unique_ptr<event_wrapper<test::fake_event_sequence<2>>>>;
+
+struct fake_buffer {
+  void append(buffer_type &&events, std::size_t const expected_version) {
+    appended.emplace_back(std::move(events), expected_version);
   }
 
-  [[no_unique_address]] std::chrono::system_clock system_clock;
-  std::chrono::system_clock::time_point result =
-      skizzay::cddd::now(system_clock);
-};
-
-template <std::size_t N>
-struct test_event : basic_domain_event<test_event<N>, std::string, std::size_t,
-                                       timestamp_t<fake_clock>> {};
-
-struct fake_aggregate {
-  using event_type = std::variant<test_event<1>, test_event<2>>;
-  using event_storage_type = std::vector<event_type>;
-
-  template <std::size_t N>
-  requires(1 == N) || (2 == N) void apply(test_event<N> const &event) {
-    version = skizzay::cddd::version(event);
-    events.push_back(event);
+  void rollback_to(std::size_t const expected_version) {
+    rollbacks.emplace_back(expected_version);
   }
 
-  std::string id;
-  std::size_t version = {};
-  event_storage_type events = {};
+  std::vector<std::tuple<buffer_type, std::size_t>> appended;
+  std::vector<std::size_t> rollbacks;
 };
 
-using version_type = version_t<test_event<0>, test_event<1>, test_event<2>>;
+struct fake_store {
+  using buffer_type = ::buffer_type;
+
+  test::fake_clock &clock() noexcept { return clock_; }
+
+  in_memory::event_stream<fake_store> get_event_stream() noexcept {
+    return {*this};
+  }
+
+  concurrent_table<std::shared_ptr<fake_buffer>, std::string> &
+  event_buffers() noexcept {
+    return event_buffers_;
+  }
+
+  concurrent_table<std::shared_ptr<fake_buffer>, std::string> event_buffers_;
+  test::fake_clock clock_;
+};
 } // namespace
 
 SCENARIO("In-memory event store provides an event stream",
          "[unit][in_memory][event_store][event_stream]") {
-  GIVEN("An in-memory event store") {
-    using events_list = domain_event_sequence<test_event<1>, test_event<2>>;
-    in_memory_event_store<fake_clock, events_list> target;
+  fake_store store;
 
-    using event_ptr = std::unique_ptr<event_wrapper<events_list>>;
-    using event_interface = std::iter_value_t<event_ptr>;
-    REQUIRE(std::is_class_v<event_ptr>);
-    REQUIRE(std::indirectly_readable<event_ptr>);
-    REQUIRE(
-        std::invocable<decltype(skizzay::cddd::id), event_interface const &>);
-    REQUIRE(std::invocable<decltype(skizzay::cddd::id), event_ptr const &>);
-    // REQUIRE(concepts::identifiable<event_ptr>);
-    // REQUIRE(concepts::versioned<event_ptr>);
-    // REQUIRE(concepts::domain_event<event_ptr>);
+  GIVEN("an event stream provided by its store") {
+    [[maybe_unused]] skizzay::cddd::concepts::event_stream auto target =
+        get_event_stream(store);
 
-    THEN("it is an event store") {
-      // REQUIRE(concepts::event_store<decltype(target)>);
-    }
+    AND_GIVEN("an empty buffer") {
+      buffer_type empty_buffer;
+      WHEN("the buffer is committed to the stream") {
+        std::string const id_value = "some_id";
+        std::size_t const expected_version = 0;
 
-    THEN("the event store has no events for any id") {
-      std::string id = "abc";
-      REQUIRE_FALSE(target.has_events_for(id));
-    }
+        commit_events(target, id_value, expected_version,
+                      std::move(empty_buffer));
 
-    WHEN("an event stream is requested from the store using an unused id") {
-      std::string id = "abc";
-      auto event_stream = get_event_stream(target);
-
-      THEN("the event stream is empty") {
-        REQUIRE(0 == target.version_head(std::as_const(id)));
-      }
-
-      AND_WHEN("the event stream is committed") {
-        commit_events(event_stream, std::as_const(id), version_type{0});
-
-        THEN("the event store has no events for the id") {
-          REQUIRE_FALSE(target.has_events_for(id));
-        }
-      }
-
-      AND_WHEN("events are added to the stream") {
-        add_event(event_stream, test_event<1>{});
-        add_event(event_stream, test_event<2>{});
-
-        AND_WHEN("the event stream is committed") {
-          commit_events(event_stream, std::as_const(id), 0);
-
-          THEN("the stream has events") {
-            REQUIRE(0 < target.version_head(std::as_const(id)));
-          }
-
-          AND_THEN("the event store has events for the committed id") {
-            REQUIRE(target.has_events_for(id));
-          }
-
-          AND_WHEN("an event stream is requested from the store using the id") {
-            auto other_event_stream = get_event_stream(target);
-
-            THEN("the event stream is not empty") {
-              REQUIRE(0 < target.version_head(std::as_const(id)));
-            }
-
-            AND_WHEN("events are added to the other stream") {
-              add_event(other_event_stream, test_event<1>{});
-
-              AND_WHEN("the other stream is committed") {
-                commit_events(other_event_stream, std::as_const(id), 2);
-
-                AND_WHEN("events are added to the stream") {
-                  add_event(event_stream, test_event<1>{});
-                  add_event(event_stream, test_event<2>{});
-
-                  AND_WHEN("the event stream is committed") {
-                    bool found_exception = false;
-                    try {
-                      commit_events(event_stream, std::as_const(id), 5);
-                    } catch (optimistic_concurrency_collision const &e) {
-                      found_exception = true;
-                      REQUIRE(e.version_expected() == 5);
-                    }
-
-                    THEN(
-                        "An optimistic concurrency collision was encountered") {
-                      REQUIRE(found_exception);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-SCENARIO("In-memory event store provides an event source",
-         "[unit][in_memory][event_store][event_source]") {
-  GIVEN("An in-memory event store") {
-    using events_list = domain_event_sequence<test_event<1>, test_event<2>>;
-    in_memory_event_store<fake_clock, events_list> target;
-
-    AND_GIVEN("an event source for id=\"abc\"") {
-      std::string id = "abc";
-      auto event_source = get_event_source(target);
-
-      AND_GIVEN("an aggregate that can consume events from the event source") {
-        fake_aggregate aggregate{id};
-
-        WHEN("replaying the aggregate from source") {
-          REQUIRE(std::invocable<decltype(skizzay::cddd::apply),
-                                 fake_aggregate &, test_event<1> const &>);
-          REQUIRE(std::invocable<decltype(skizzay::cddd::apply),
-                                 fake_aggregate &, test_event<2> const &>);
-          load_from_history(event_source, aggregate);
-
-          THEN("no events were loaded") {
-            REQUIRE(std::empty(aggregate.events));
-            REQUIRE(0 == version(aggregate));
-          }
+        THEN("the buffer was not committed") {
+          REQUIRE_FALSE(store.event_buffers().contains(id_value));
         }
       }
     }
 
-    AND_GIVEN("events have been streamed for id=\"abc\"") {
-      std::string id = "abc";
-      {
-        auto event_stream = get_event_stream(target);
-        add_event(event_stream, test_event<1>{id});
-        add_event(event_stream, test_event<2>{id});
-        commit_events(event_stream, std::as_const(id), 0);
-      }
-      AND_GIVEN("an event source for id=\"abc\"") {
-        auto event_source = get_event_source(target);
+    AND_GIVEN("a populated buffer") {
+      buffer_type full_buffer;
+      add_event(full_buffer, wrap_domain_events<test::fake_event_sequence<2>>(
+                                 test::fake_event<1>{}));
+      add_event(full_buffer, wrap_domain_events<test::fake_event_sequence<2>>(
+                                 test::fake_event<2>{}));
 
-        AND_GIVEN(
-            "an aggregate that can consume events from the event source") {
-          fake_aggregate aggregate{id};
+      WHEN("the buffer is committed to the stream") {
+        std::string const id_value = "some_id";
+        std::size_t const expected_version = 0;
 
-          WHEN("replaying the aggregate from source") {
-            load_from_history(event_source, aggregate);
+        commit_events(target, id_value, expected_version,
+                      std::move(full_buffer));
 
-            THEN("the aggregate loaded the events") {
-              REQUIRE_FALSE(std::empty(aggregate.events));
-              AND_THEN(
-                  "the aggregate's version reflects last event's version") {
-                REQUIRE(version(aggregate.events.back()) == version(aggregate));
-              }
+        THEN("the buffer was committed") {
+          REQUIRE(store.event_buffers().contains(id_value));
+
+          AND_THEN("each event in the buffer is versioned") {
+            auto const &[appended_buffer, appended_expected_version] =
+                store.event_buffers().get(id_value)->appended.front();
+            REQUIRE(expected_version == appended_expected_version);
+            std::size_t expected_event_version = 1;
+            for (auto const &buffered_event : appended_buffer) {
+              REQUIRE(version(buffered_event) ==
+                      (expected_event_version + expected_version));
+              ++expected_event_version;
             }
+          }
+
+          AND_THEN("each event in the buffer is timestamped") {
+            auto const &[appended_buffer, _] =
+                store.event_buffers().get(id_value)->appended.front();
+            for (auto const &buffered_event : appended_buffer) {
+              REQUIRE(timestamp(buffered_event) == store.clock().result);
+            }
+          }
+
+          AND_THEN("each event in the buffer has the same id") {
+            auto const &[appended_buffer, _] =
+                store.event_buffers().get(id_value)->appended.front();
+            for (auto const &buffered_event : appended_buffer) {
+              REQUIRE(id(buffered_event) == id_value);
+            }
+          }
+        }
+
+        // TODO: Implement rollback_to
+        AND_WHEN("the buffer is rolled back to the original version") {
+          rollback_to(target, id_value, expected_version);
+
+          THEN("the stream was set back to the targeted version") {
+            REQUIRE(expected_version ==
+                    store.event_buffers().get(id_value)->rollbacks.front());
           }
         }
       }
