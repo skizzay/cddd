@@ -15,12 +15,12 @@ struct dereference_fn final {
   constexpr inline std::add_lvalue_reference_t<
       typename std::indirectly_readable_traits<T>::value_type>
   operator()(T &t) const noexcept {
-    return *t;
+    return (*this)(*t);
   }
 
   template <typename T>
   constexpr inline T &operator()(std::reference_wrapper<T> t) const noexcept {
-    return t.get();
+    return (*this)(t.get());
   }
 };
 } // namespace dereference_details_

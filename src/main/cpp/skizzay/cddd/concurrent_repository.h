@@ -2,6 +2,7 @@
 
 #include "skizzay/cddd/factory.h"
 #include "skizzay/cddd/identifier.h"
+#include "skizzay/cddd/key_not_found.h"
 #include "skizzay/cddd/nullable.h"
 
 #include <concepts>
@@ -12,25 +13,7 @@
 
 namespace skizzay::cddd {
 
-template <concepts::identifier Key>
-struct key_not_found : std::invalid_argument {
-  key_not_found(Key key_value)
-      : std::invalid_argument{"Key not found"}, key_{std::move(key_value)} {}
-
-  constexpr Key const &key() const noexcept { return key_; }
-
-  Key key_;
-};
-
 namespace concurrent_table_details_ {
-
-struct throw_key_not_found_fn final {
-  template <template <typename> typename Template, typename T>
-  constexpr T operator()(Template<T> const,
-                         concepts::identifier auto key_value) noexcept(false) {
-    throw key_not_found{std::move(key_value)};
-  }
-};
 
 struct provide_null_value_fn final {
   template <template <typename> typename Template, typename T>
@@ -59,8 +42,6 @@ struct provide_nonnull_value_fn final {
 } // namespace concurrent_table_details_
 
 inline namespace concurrent_table_fn_ {
-inline constexpr concurrent_table_details_::throw_key_not_found_fn
-    throw_key_not_found = {};
 inline constexpr concurrent_table_details_::provide_null_value_fn
     provide_null_value = {};
 inline constexpr auto provide_default_value = []<typename T>(T &default_value) {
@@ -117,40 +98,29 @@ requires(!std::is_reference_v<T>) struct impl {
   using key_type = std::remove_cvref_t<Id>;
   using value_type = T;
 
-  template <typename OnKeyNotFound =
-                concurrent_table_details_::throw_key_not_found_fn>
-  [[nodiscard]] constexpr get_result_t<T, Id, OnKeyNotFound>
-  get(key_type const &key, OnKeyNotFound on_key_not_found = {}) const
-      noexcept(std::is_nothrow_copy_constructible_v<T>
-                   &&std::is_nothrow_invocable_v<OnKeyNotFound, key_type>) {
+  [[nodiscard]] constexpr nullable_t<T const> get(key_type const &key) const
+      noexcept(false) {
     std::shared_lock l_{m_};
-    if (auto const entry = entries_.find(key); std::end(entries_) != entry) {
-      return entry->second;
-    } else {
-      l_.unlock();
-      return on_key_not_found(identity<T>{}, key);
+    auto const entry = entries_.find(key);
+    if (std::end(entries_) == entry) {
+      return null_value<T const>;
     }
+    return entry->second;
   }
 
-  template <typename OnKeyNotFound =
-                concurrent_table_details_::throw_key_not_found_fn>
-  [[nodiscard]] constexpr get_result_t<T, Id, OnKeyNotFound>
-  get(key_type const &key, OnKeyNotFound on_key_not_found = {}) noexcept(
-      std::is_nothrow_copy_constructible_v<T>
-          &&std::is_nothrow_invocable_v<OnKeyNotFound, key_type>) {
+  [[nodiscard]] constexpr nullable_t<T>
+  get(key_type const &key) noexcept(false) {
     std::shared_lock l_{m_};
-    if (auto const entry = entries_.find(key); std::end(entries_) != entry) {
-      return entry->second;
-    } else {
-      l_.unlock();
-      return on_key_not_found(identity<T>{}, key);
+    auto const entry = entries_.find(key);
+    if (std::end(entries_) == entry) {
+      return null_value<T>;
     }
+    return entry->second;
   }
 
   template <
       typename Factory = concurrent_table_details_::provide_nonnull_value_fn>
-  [[nodiscard]] constexpr get_or_put_result_t<T, Id, Factory>
-  get_or_put(key_type const &key, Factory create = {}) {
+  constexpr T &get_or_add(key_type const &key, Factory create = {}) {
     std::lock_guard l_{m_};
     if (auto const entry = entries_.find(key); std::end(entries_) != entry) {
       return entry->second;
@@ -169,9 +139,21 @@ requires(!std::is_reference_v<T>) struct impl {
     return unguarded_put(std::move(key), std::forward<T>(t));
   }
 
-  constexpr T &add(key_type key, T &&t) {
+  constexpr std::pair<T &, bool> add(key_type key, T &&t) {
     std::lock_guard l_{m_};
-    return entries_.emplace(std::move(key), std::forward<T>(t)).first->second;
+    auto result = entries_.emplace(std::move(key), std::forward<T>(t));
+    return {result.first->second, result.second};
+  }
+
+  constexpr nullable_t<T> remove(key_type const &key) {
+    std::lock_guard l_{m_};
+    if (auto entry = entries_.find(key); std::end(entries_) != entry) {
+      T result{std::move(entry->second)};
+      entries_.erase(entry);
+      return result;
+    } else {
+      return null_value<T>;
+    }
   }
 
 private:
@@ -181,6 +163,7 @@ private:
     if (not created) {
       entry->second = std::forward<U>(u);
     }
+
     return entry->second;
   }
 
@@ -196,10 +179,10 @@ template <concepts::identifiable T>
 struct concurrent_repository
     : private concurrent_table<T, std::remove_cvref_t<id_t<T>>> {
   using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get;
-  using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get_or_put;
+  using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get_or_add;
   using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::contains;
 
-  constexpr T &add(T &&t) {
+  constexpr auto add(T &&t) {
     auto key = id(std::as_const(t));
     return this->concurrent_table<T, std::remove_cvref_t<id_t<T>>>::add(
         std::move(key), std::forward<T>(t));

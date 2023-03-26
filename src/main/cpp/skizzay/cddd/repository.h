@@ -1,5 +1,6 @@
 #pragma once
 
+#include "skizzay/cddd/boolean.h"
 #include "skizzay/cddd/dereference.h"
 #include "skizzay/cddd/factory.h"
 #include "skizzay/cddd/identifier.h"
@@ -8,35 +9,105 @@
 namespace skizzay::cddd {
 
 namespace repository_details_ {
+bool contains(auto const &...) = delete;
+
+struct contains_fn final {
+  template <typename T, concepts::identifier Id>
+  requires requires(T const &t, Id const &id_value) {
+    { dereference(t).contains(dereference(id_value)) } -> concepts::boolean;
+  }
+  constexpr concepts::boolean auto operator()(T const &t,
+                                              Id const &id_value) const
+      noexcept(noexcept(dereference(t).contains(dereference(id_value)))) {
+    return dereference(t).contains(dereference(id_value));
+  }
+
+  template <typename T, concepts::identifier Id>
+  requires requires(T const &t, Id const &id_value) {
+    { contains(dereference(t), dereference(id_value)) } -> concepts::boolean;
+  }
+  constexpr concepts::boolean auto operator()(T const &t,
+                                              Id const &id_value) const
+      noexcept(noexcept(contains(dereference(t), dereference(id_value)))) {
+    return contains(dereference(t), dereference(id_value));
+  }
+};
+
+void put(auto...) = delete;
 
 struct put_fn final {
   template <typename T, concepts::identifiable Entity>
   requires requires(T &t, Entity &&entity) {
-    {t.put(std::forward<Entity>(entity))};
+    {dereference(t).put(std::forward<Entity>(entity))};
   }
-  constexpr void operator()(T &t, Entity &&entity) const
-      noexcept(noexcept(t.put(std::forward<Entity>(entity)))) {
-    t.put(std::forward<Entity>(entity));
+  constexpr decltype(auto) operator()(T &t, Entity &&entity) const
+      noexcept(noexcept(dereference(t).put(std::forward<Entity>(entity)))) {
+    dereference(t).put(std::forward<Entity>(entity));
   }
 
   template <typename T, concepts::identifiable Entity>
   requires requires(T &t, Entity &&entity) {
-    {put(t, std::forward<Entity>(entity))};
+    {put(dereference(t), std::forward<Entity>(entity))};
   }
   constexpr void operator()(T &t, Entity &&entity) const
-      noexcept(noexcept(put(t, std::forward<Entity>(entity)))) {
-    put(t, std::forward<Entity>(entity));
-  }
-
-  template <std::indirectly_readable T, concepts::identifiable Entity>
-  constexpr void operator()(T &pointer, Entity &&entity) const
-      noexcept(std::is_nothrow_invocable_v<
-               put_fn const &,
-               typename std::indirectly_readable_traits<T>::value_type &,
-               Entity &&>) {
-    std::invoke(*this, *pointer, std::forward<Entity>(entity));
+      noexcept(noexcept(put(dereference(t), std::forward<Entity>(entity)))) {
+    put(dereference(t), std::forward<Entity>(entity));
   }
 };
+
+void add(auto...) = delete;
+
+struct add_fn final {
+  template <typename T, concepts::identifiable Entity>
+  requires requires(T &t, Entity &&entity) {
+    {dereference(t).add(std::forward<Entity>(entity))};
+  }
+  constexpr decltype(auto) operator()(T &t, Entity &&entity) const
+      noexcept(noexcept(dereference(t).add(std::forward<Entity>(entity)))) {
+    return dereference(t).add(std::forward<Entity>(entity));
+  }
+
+  template <typename T, concepts::identifiable Entity>
+  requires requires(T &t, Entity &&entity) {
+    {add(dereference(t), std::forward<Entity>(entity))};
+  }
+  constexpr decltype(auto) operator()(T &t, Entity &&entity) const
+      noexcept(noexcept(add(dereference(t), std::forward<Entity>(entity)))) {
+    return add(dereference(t), std::forward<Entity>(entity));
+  }
+};
+
+void update(auto...) = delete;
+
+struct update_fn final {
+  template <typename T, concepts::identifiable Entity,
+            typename OnEntityNotFound>
+  requires requires(T &t, Entity entity, OnEntityNotFound on_entity_not_found) {
+    {dereference(t).update(std::move(entity), std::move(on_entity_not_found))};
+  }
+  constexpr decltype(auto)
+  operator()(T &t, Entity entity,
+             OnEntityNotFound on_entity_not_found = {}) const {
+    return dereference(t).update(std::move(entity),
+                                 std::move(on_entity_not_found));
+  }
+
+  template <typename T, concepts::identifiable Entity,
+            std::invocable<id_t<Entity>> OnEntityNotFound>
+  requires requires(T &t, Entity entity,
+                    OnEntityNotFound on_entity_not_found = {}) {
+    {on_entity_not_found(dereference(t), std::move(entity),
+                         std::move(on_entity_not_found))};
+  }
+  constexpr decltype(auto)
+  operator()(T &t, Entity entity,
+             OnEntityNotFound on_entity_not_found = {}) const {
+    return on_entity_not_found(dereference(t), std::move(entity),
+                               std::move(on_entity_not_found));
+  }
+};
+
+void get(auto...) = delete;
 
 struct get_fn final {
   template <typename T, concepts::identifier Id>
@@ -44,7 +115,7 @@ struct get_fn final {
     { dereference(t).get(id) } -> concepts::identifiable_by<Id>;
   }
   constexpr concepts::identifiable_by<Id> auto operator()(T &t, Id &&id) const
-      noexcept(noexcept(t.get(std::forward<Id>(id)))) {
+      noexcept(noexcept(dereference(t).get(std::forward<Id>(id)))) {
     return dereference(t).get(std::forward<Id>(id));
   }
 
@@ -55,15 +126,39 @@ struct get_fn final {
       } -> concepts::identifiable_by<Id>;
   }
   constexpr concepts::identifiable_by<Id> auto operator()(T &t, Id &&id) const
-      noexcept(noexcept(get(t, std::forward<Id>(id)))) {
+      noexcept(noexcept(get(dereference(t), std::forward<Id>(id)))) {
     return get(dereference(t), std::forward<Id>(id));
+  }
+};
+
+void remove(auto...) = delete;
+
+struct remove_fn final {
+  template <typename T, concepts::identifier Id>
+  requires requires(T &t, Id id) { {dereference(t).remove(id)}; }
+  constexpr decltype(auto) operator()(T &t, Id &&id) const
+      noexcept(noexcept(dereference(t).remove(std::forward<Id>(id)))) {
+    return dereference(t).remove(std::forward<Id>(id));
+  }
+
+  template <typename T, concepts::identifier Id>
+  requires requires(T &t, Id &&id) {
+    {remove(dereference(t), std::forward<Id>(id))};
+  }
+  constexpr decltype(auto) operator()(T &t, Id &&id) const
+      noexcept(noexcept(remove(dereference(t), std::forward<Id>(id)))) {
+    return remove(dereference(t), std::forward<Id>(id));
   }
 };
 } // namespace repository_details_
 
 inline namespace repository_fn_ {
 inline constexpr repository_details_::put_fn put = {};
+inline constexpr repository_details_::add_fn add = {};
+inline constexpr repository_details_::update_fn update = {};
 inline constexpr repository_details_::get_fn get = {};
+inline constexpr repository_details_::contains_fn contains = {};
+inline constexpr repository_details_::remove_fn remove = {};
 } // namespace repository_fn_
 
 namespace concepts {
@@ -89,6 +184,14 @@ struct get_or_put_fn final {
   }
 };
 } // namespace repository_details_
+
+template <typename T, concepts::identifier Id>
+using repository_value_t = std::remove_cvref_t<std::invoke_result_t<
+    decltype(skizzay::cddd::get), std::add_lvalue_reference_t<T>, Id>>;
+
+template <typename T, concepts::identifier Id>
+using repository_null_value_t =
+    std::invoke_result_t<decltype(skizzay::cddd::remove), Id>;
 
 inline namespace repository_fn_ {
 inline constexpr repository_details_::get_or_put_fn get_or_put{};

@@ -123,13 +123,11 @@ SCENARIO("In-memory event store provides an event stream",
           }
         }
 
-        // TODO: Implement rollback_to
-        AND_WHEN("the buffer is rolled back to the original version") {
+        AND_WHEN("the buffer is rolled back to 0") {
           rollback_to(target, id_value, expected_version);
 
-          THEN("the stream was set back to the targeted version") {
-            REQUIRE(expected_version ==
-                    store.event_buffers().get(id_value)->rollbacks.front());
+          THEN("the stream is not found") {
+            REQUIRE_FALSE(contains(store.event_buffers(), id_value));
           }
         }
       }

@@ -36,23 +36,25 @@ template <typename Store> struct impl {
 
   constexpr void rollback_to(concepts::identifier auto const &id_value,
                              concepts::version auto const target_version) {
-    if (auto buffer_ptr =
-            store_.event_buffers().get(id_value, provide_null_value);
-        buffer_ptr) {
-      buffer_ptr->rollback_to(target_version);
+    if (0 == target_version) {
+      store_.event_buffers().remove(id_value);
+    } else {
+      if (auto buffer_ptr = store_.event_buffers().get(id_value);
+          !skizzay::cddd::is_null(buffer_ptr)) {
+        buffer_ptr->rollback_to(target_version);
+      }
     }
   }
 
 private:
   constexpr impl(Store &store) noexcept : store_{store} {}
-
   Store &store_;
 
   constexpr void commit_buffered_events(auto &&id_value,
                                         typename Store::buffer_type &&buffer,
                                         auto const expected_version) {
     store_.event_buffers()
-        .get_or_put(std::move(id_value))
+        .get_or_add(std::move(id_value))
         ->append(std::move(buffer), expected_version);
   }
 };
