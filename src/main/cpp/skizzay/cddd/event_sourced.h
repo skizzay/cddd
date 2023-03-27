@@ -10,39 +10,26 @@
 namespace skizzay::cddd {
 namespace cpo_details_ {
 
-template <typename... Ts> void apply(Ts const &...) = delete;
+template <typename... Ts> void apply_event(Ts const &...) = delete;
 
-struct apply_fn final {
+struct apply_event_fn final {
   template <typename T, concepts::domain_event DomainEvent>
   requires requires(T &t, DomainEvent const &domain_event) {
-    {t.apply(dereference(domain_event))};
+    {dereference(t).apply_event(dereference(domain_event))};
   }
   constexpr void operator()(T &t, DomainEvent const &domain_event) const
-      noexcept(noexcept(t.apply(dereference(domain_event)))) {
-    t.apply(dereference(domain_event));
+      noexcept(
+          noexcept(dereference(t).apply_event(dereference(domain_event)))) {
+    dereference(t).apply_event(dereference(domain_event));
   }
 
   template <typename T, concepts::domain_event DomainEvent>
   requires requires(T &t, DomainEvent const &domain_event) {
-    {apply(t, dereference(domain_event))};
+    {apply_event(dereference(t), dereference(domain_event))};
   }
   constexpr void operator()(T &t, DomainEvent const &domain_event) const
-      noexcept(noexcept(apply(t, domain_event))) {
-    apply(t, dereference(domain_event));
-  }
-
-  template <std::indirectly_readable Pointer,
-            concepts::domain_event DomainEvent>
-  requires std::invocable<
-      apply_fn const,
-      typename std::indirectly_readable_traits<Pointer>::reference,
-      std::add_lvalue_reference_t<std::add_const_t<DomainEvent>>>
-  constexpr void operator()(Pointer &ptr, DomainEvent const &domain_event) const
-      noexcept(std::is_nothrow_invocable_v<
-               apply_fn const,
-               typename std::indirectly_readable_traits<Pointer>::reference,
-               std::add_lvalue_reference_t<std::add_const_t<DomainEvent>>>) {
-    (*this)(dereference(ptr), domain_event);
+      noexcept(noexcept(apply_event(dereference(t), domain_event))) {
+    apply_event(dereference(t), dereference(domain_event));
   }
 
   // template <typename T, concepts::domain_event DomainEvent>
@@ -100,7 +87,7 @@ struct apply_fn final {
   template <typename T, concepts::domain_event... DomainEvents>
   constexpr void
   operator()(T &t, std::variant<DomainEvents...> const &domain_event) const
-      noexcept((std::is_nothrow_invocable_v<apply_fn const, T &,
+      noexcept((std::is_nothrow_invocable_v<apply_event_fn const, T &,
                                             DomainEvents const &> &&
                 ...)) {
     std::visit(
@@ -117,41 +104,31 @@ struct load_from_history_fn final {
   template <typename EventSource, concepts::versioned Aggregate>
   requires requires(EventSource &event_source, Aggregate &aggregate,
                     version_t<Aggregate> const target_version) {
-    event_source.load_from_history(dereference(aggregate), target_version);
+    dereference(event_source)
+        .load_from_history(dereference(aggregate), target_version);
   }
   constexpr void operator()(EventSource &event_source, Aggregate &aggregate,
                             version_t<Aggregate> const target_version) const
-      noexcept(noexcept(event_source.load_from_history(dereference(aggregate),
-                                                       target_version))) {
-    event_source.load_from_history(dereference(aggregate), target_version);
+      noexcept(noexcept(dereference(event_source)
+                            .load_from_history(dereference(aggregate),
+                                               target_version))) {
+    dereference(event_source)
+        .load_from_history(dereference(aggregate), target_version);
   }
 
   template <typename EventSource, concepts::versioned Aggregate>
   requires requires(EventSource &event_source, Aggregate &aggregate,
                     version_t<Aggregate> const target_version) {
-    load_from_history(event_source, dereference(aggregate), target_version);
+    load_from_history(dereference(event_source), dereference(aggregate),
+                      target_version);
   }
   constexpr void operator()(EventSource &event_source, Aggregate &aggregate,
                             version_t<Aggregate> const target_version) const
-      noexcept(noexcept(load_from_history(event_source, dereference(aggregate),
+      noexcept(noexcept(load_from_history(dereference(event_source),
+                                          dereference(aggregate),
                                           target_version))) {
-    load_from_history(event_source, dereference(aggregate), target_version);
-  }
-
-  template <std::indirectly_readable Pointer,
-            concepts::identifiable AggregateRoot>
-  requires concepts::versioned<AggregateRoot> && std::invocable<
-      load_from_history_fn const,
-      typename std::indirectly_readable_traits<Pointer>::reference,
-      std::add_lvalue_reference_t<AggregateRoot>, version_t<AggregateRoot>>
-  constexpr void operator()(Pointer &ptr, AggregateRoot &aggregate_root,
-                            version_t<AggregateRoot> const target_version) const
-      noexcept(std::is_nothrow_invocable_v<
-               load_from_history_fn const,
-               typename std::indirectly_readable_traits<Pointer>::reference,
-               std::add_lvalue_reference_t<AggregateRoot>,
-               version_t<AggregateRoot>>) {
-    (*this)(deference(ptr), aggregate_root, target_version);
+    load_from_history(dereference(event_source), dereference(aggregate),
+                      target_version);
   }
 
   template <typename EventSource, concepts::identifiable AggregateRoot>
@@ -212,14 +189,14 @@ struct load_from_snapshot_fn final {
 } // namespace cpo_details_
 
 inline namespace cpo_fn_ {
-inline constexpr cpo_details_::apply_fn apply = {};
+inline constexpr cpo_details_::apply_event_fn apply_event = {};
 inline constexpr cpo_details_::load_from_history_fn load_from_history = {};
 inline constexpr cpo_details_::load_from_snapshot_fn load_from_snapshot = {};
 } // namespace cpo_fn_
 
 template <typename T, concepts::domain_event DomainEvent>
 struct can_apply_event
-    : std::is_invocable<decltype(skizzay::cddd::apply),
+    : std::is_invocable<decltype(skizzay::cddd::apply_event),
                         std::add_lvalue_reference_t<T>, DomainEvent> {};
 
 namespace handler_for_details_ {

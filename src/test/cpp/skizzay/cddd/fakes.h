@@ -4,10 +4,14 @@
 #include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/timestamp.h"
 
+#include <catch.hpp>
 #include <cstddef>
 #include <string>
 
 namespace skizzay::cddd::test {
+
+inline auto random_number_generator =
+    Catch::Generators::random(std::size_t{1}, std::size_t{50});
 
 struct fake_clock {
   std::chrono::system_clock::time_point now() noexcept {
@@ -51,7 +55,7 @@ using fake_event_sequence =
 
 template <std::ranges::sized_range EventBuffer> struct fake_aggregate {
   template <std::size_t N>
-  requires(1 == N) || (2 == N) void apply(fake_event<N> const &event) {
+  requires(1 == N) || (2 == N) void apply_event(fake_event<N> const &event) {
     if (skizzay::cddd::id(event) != id) {
       throw std::invalid_argument{"Unexpected id encountered"};
     }

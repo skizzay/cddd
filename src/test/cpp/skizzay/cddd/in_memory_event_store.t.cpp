@@ -15,14 +15,14 @@ TEST_CASE("in-memory event store") {
   REQUIRE(skizzay::cddd::concepts::event_store<decltype(target)>);
 
   SECTION("event stream buffer") {
-    auto event_stream_buffer = get_event_stream_buffer(target);
+    auto event_stream_buffer = skizzay::cddd::get_event_stream_buffer(target);
     REQUIRE(skizzay::cddd::concepts::event_stream_buffer<
             decltype(event_stream_buffer)>);
     REQUIRE(std::empty(event_stream_buffer));
 
     SECTION("add events to the buffer") {
-      add_event(event_stream_buffer, test::fake_event<2>{});
-      add_event(event_stream_buffer, test::fake_event<1>{});
+      skizzay::cddd::add_event(event_stream_buffer, test::fake_event<2>{});
+      skizzay::cddd::add_event(event_stream_buffer, test::fake_event<1>{});
 
       REQUIRE(2 == std::size(event_stream_buffer));
 
@@ -38,10 +38,10 @@ TEST_CASE("in-memory event store") {
     REQUIRE(skizzay::cddd::concepts::event_source<decltype(event_source)>);
 
     SECTION("doesn't modify an aggregate if there aren't any events for it") {
-      test::fake_aggregate aggregate{"test_id",
-                                     get_event_stream_buffer(target)};
+      test::fake_aggregate aggregate{
+          "test_id", skizzay::cddd::get_event_stream_buffer(target)};
       REQUIRE(skizzay::cddd::concepts::aggregate_root<decltype(aggregate)>);
-      load_from_history(event_source, aggregate);
+      skizzay::cddd::load_from_history(event_source, aggregate);
       REQUIRE(0 == version(aggregate));
     }
   }
@@ -53,9 +53,9 @@ TEST_CASE("in-memory event store") {
     SECTION("committing event buffers") {
       auto event_stream_buffer = get_event_stream_buffer(target);
       std::string id_value = "test_id";
-      add_event(event_stream_buffer, test::fake_event<1>{});
-      commit_events(event_stream, std::move(id_value), 0,
-                    std::move(event_stream_buffer));
+      skizzay::cddd::add_event(event_stream_buffer, test::fake_event<1>{});
+      skizzay::cddd::commit_events(event_stream, std::move(id_value), 0,
+                                   std::move(event_stream_buffer));
     }
   }
 }

@@ -109,23 +109,24 @@ struct update_fn final {
 
 void get(auto...) = delete;
 
+template <typename T>
+concept nonvoid = (not std::is_void_v<T>);
+
 struct get_fn final {
   template <typename T, concepts::identifier Id>
   requires requires(T &t, Id id) {
-    { dereference(t).get(id) } -> concepts::identifiable_by<Id>;
+    { dereference(t).get(id) } -> nonvoid;
   }
-  constexpr concepts::identifiable_by<Id> auto operator()(T &t, Id &&id) const
+  [[nodiscard]] constexpr nonvoid auto operator()(T &t, Id &&id) const
       noexcept(noexcept(dereference(t).get(std::forward<Id>(id)))) {
     return dereference(t).get(std::forward<Id>(id));
   }
 
   template <typename T, concepts::identifier Id>
   requires requires(T &t, Id &&id) {
-    {
-      get(dereference(t), std::forward<Id>(id))
-      } -> concepts::identifiable_by<Id>;
+    { get(dereference(t), std::forward<Id>(id)) } -> nonvoid;
   }
-  constexpr concepts::identifiable_by<Id> auto operator()(T &t, Id &&id) const
+  [[nodiscard]] constexpr nonvoid auto operator()(T &t, Id &&id) const
       noexcept(noexcept(get(dereference(t), std::forward<Id>(id)))) {
     return get(dereference(t), std::forward<Id>(id));
   }
@@ -163,12 +164,11 @@ inline constexpr repository_details_::remove_fn remove = {};
 
 namespace concepts {
 template <typename T, typename Entity>
-concept repository =
-    identifiable<Entity> &&
-    std::invocable<decltype(skizzay::cddd::put) const &, T &, Entity> &&
-    std::invocable < decltype(skizzay::cddd::get) const &,
+concept repository_for_entity = identifiable<Entity> && std::invocable <
+                                decltype(skizzay::cddd::get) const &,
         T const &, std::remove_reference_t<id_t<Entity>>
-const & > ;
+const & > && std::invocable<decltype(skizzay::cddd::put) const &, T &, Entity> &&
+std::invocable<decltype(skizzay::cddd::contains), T &, id_t<Entity>>;
 } // namespace concepts
 
 namespace repository_details_ {

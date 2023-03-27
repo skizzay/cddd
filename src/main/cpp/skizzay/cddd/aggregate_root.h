@@ -31,8 +31,8 @@ concept event_source_for = aggregate_root_of<AggregateRoot, DomainEvents> &&
 template <typename Derived, concepts::domain_event DomainEvent>
 struct aggregate_visitor_impl : virtual event_visitor_interface<DomainEvent> {
   void visit(DomainEvent const &domain_event) override {
-    using skizzay::cddd::apply;
-    apply(static_cast<Derived *>(this)->get_aggregate(), domain_event);
+    skizzay::cddd::apply_event(static_cast<Derived *>(this)->get_aggregate(),
+                               domain_event);
   }
 };
 
@@ -57,7 +57,7 @@ private:
 
 template <concepts::domain_event_sequence DomainEvents,
           concepts::aggregate_root_of<DomainEvents> AggregateRoot>
-aggregate_visitor<DomainEvents, AggregateRoot>
+constexpr aggregate_visitor<DomainEvents, AggregateRoot>
 as_event_visitor(AggregateRoot &aggregate) {
   return {aggregate};
 }

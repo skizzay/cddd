@@ -248,7 +248,7 @@ requires(!DomainEvents::empty) struct impl {
 
   constexpr event_stream_t get_event_stream() { return event_stream_t{*this}; }
 
-  constexpr event_source_t get_event_source() { return {}; }
+  constexpr event_source_t get_event_source() { return event_source_t{*this}; }
 
   constexpr buffer_type get_event_stream_buffer() const {
     return buffer_type{wrap_domain_events<DomainEvents>};

@@ -39,9 +39,10 @@ template <typename Store> struct impl {
     if (0 == target_version) {
       store_.event_buffers().remove(id_value);
     } else {
-      if (auto buffer_ptr = store_.event_buffers().get(id_value);
-          !skizzay::cddd::is_null(buffer_ptr)) {
-        buffer_ptr->rollback_to(target_version);
+      if (auto event_buffer =
+              skizzay::cddd::get(store_.event_buffers(), id_value);
+          !skizzay::cddd::is_null(event_buffer)) {
+        dereference(event_buffer).rollback_to(target_version);
       }
     }
   }
@@ -53,9 +54,8 @@ private:
   constexpr void commit_buffered_events(auto &&id_value,
                                         typename Store::buffer_type &&buffer,
                                         auto const expected_version) {
-    store_.event_buffers()
-        .get_or_add(std::move(id_value))
-        ->append(std::move(buffer), expected_version);
+    dereference(store_.event_buffers().get_or_add(std::move(id_value)))
+        .append(std::move(buffer), expected_version);
   }
 };
 } // namespace event_stream_details_
