@@ -4,10 +4,84 @@
 #include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/domain_event_wrapper.h"
 #include "skizzay/cddd/event_sourced.h"
+#include "skizzay/cddd/event_stream_buffer.h"
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/version.h"
 
 namespace skizzay::cddd {
+
+namespace aggregate_root_details_ {
+concepts::event_stream_buffer auto uncommitted_events(auto &&) = delete;
+
+struct uncommitted_events_fn final {
+  template <typename T>
+  requires requires(T &&t) {
+    {
+      std::move(dereference(t)).uncommitted_events()
+      } -> concepts::event_stream_buffer;
+  }
+  constexpr concepts::event_stream_buffer auto operator()(T &&t) const
+      noexcept(noexcept(std::move(dereference(t)).uncommitted_events())) {
+    return std::move(dereference(t)).uncommitted_events();
+  }
+
+  template <typename T>
+  requires requires(T &&t) {
+    {
+      uncommitted_events(std::move(dereference(t)))
+      } -> concepts::event_stream_buffer;
+  }
+  constexpr concepts::event_stream_buffer auto operator()(T &&t) const
+      noexcept(noexcept(uncommitted_events(std::move(dereference(t))))) {
+    return uncommitted_events(std::move(dereference(t)));
+  }
+
+  template <typename T>
+  requires requires(T &&t) {
+    { dereference(t).uncommitted_events } -> concepts::event_stream_buffer;
+  }
+  constexpr concepts::event_stream_buffer auto
+  operator()(T &&t) const noexcept {
+    return std::move(dereference(t).uncommitted_events);
+  }
+};
+
+struct uncommitted_events_size_fn final {
+  template <typename T>
+  requires requires(T const &t) {
+    { dereference(t).uncommitted_events_size() }
+    noexcept->concepts::version;
+  }
+  constexpr concepts::version auto operator()(T const &t) const noexcept {
+    return dereference(t).uncommitted_events_size();
+  }
+
+  template <typename T>
+  requires requires(T const &t) {
+    { uncommitted_events_size(dereference(t)) }
+    noexcept->concepts::version;
+  }
+  constexpr concepts::version auto operator()(T const &t) const noexcept {
+    return uncommitted_events_size(dereference(t));
+  }
+
+  template <typename T>
+  requires requires(T const &t) {
+    { dereference(t).uncommitted_events } -> concepts::event_stream_buffer;
+  }
+  constexpr concepts::version auto operator()(T const &t) const noexcept {
+    return std::ranges::size(dereference(t).uncommitted_events);
+  }
+};
+} // namespace aggregate_root_details_
+
+inline namespace aggregage_root_fn_ {
+inline constexpr aggregate_root_details_::uncommitted_events_fn
+    uncommitted_events = {};
+inline constexpr aggregate_root_details_::uncommitted_events_size_fn
+    uncommitted_events_size = {};
+} // namespace aggregage_root_fn_
+
 namespace concepts {
 
 template <typename T>

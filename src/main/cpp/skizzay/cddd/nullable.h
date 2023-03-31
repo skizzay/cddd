@@ -92,6 +92,8 @@ struct is_null_fn final {
   constexpr bool operator()(T const &t) const noexcept {
     return !static_cast<bool>(t);
   }
+
+  constexpr bool operator()(auto const &) const noexcept { return false; }
 };
 } // namespace is_null_details_
 

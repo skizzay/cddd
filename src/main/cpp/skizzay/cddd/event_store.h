@@ -10,31 +10,20 @@ void get_event_stream(auto &, auto const &) = delete;
 struct get_event_stream_fn final {
   template <typename T>
   requires requires(T &t) {
-    { t.get_event_stream() } -> concepts::event_stream;
+    { dereference(t).get_event_stream() } -> concepts::event_stream;
   }
   constexpr auto operator()(T &t) const
-      noexcept(noexcept(t.get_event_stream())) {
-    return t.get_event_stream();
+      noexcept(noexcept(dereference(t).get_event_stream())) {
+    return dereference(t).get_event_stream();
   }
 
   template <typename T>
   requires requires(std::remove_reference_t<T> &t) {
-    { get_event_stream(t) } -> concepts::event_stream;
+    { get_event_stream(dereference(t)) } -> concepts::event_stream;
   }
   constexpr auto operator()(std::remove_reference_t<T> &t) const
-      noexcept(noexcept(get_event_stream(t))) {
-    return get_event_stream(t);
-  }
-
-  template <std::indirectly_readable Pointer>
-  requires std::invocable<
-      get_event_stream_fn const,
-      typename std::indirectly_readable_traits<Pointer>::reference>
-  constexpr concepts::event_stream auto operator()(Pointer &ptr) const
-      noexcept(std::is_nothrow_invocable_v<
-               get_event_stream_fn const,
-               typename std::indirectly_readable_traits<Pointer>::reference>) {
-    return (*this)(*ptr);
+      noexcept(noexcept(get_event_stream(dereference(t)))) {
+    return get_event_stream(dereference(t));
   }
 };
 
@@ -43,15 +32,19 @@ void get_event_source(auto &, auto const &) = delete;
 struct get_event_source_fn final {
   template <typename T>
   requires requires(T &t) {
-    { t.get_event_source() } -> std::destructible;
+    { dereference(t).get_event_source() } -> std::destructible;
   }
-  constexpr auto operator()(T &t) const { return t.get_event_source(); }
+  constexpr auto operator()(T &t) const {
+    return dereference(t).get_event_source();
+  }
 
   template <typename T>
   requires requires(T &t) {
-    { get_event_source(t) } -> std::destructible;
+    { get_event_source(dereference(t)) } -> std::destructible;
   }
-  constexpr auto operator()(T &t) const { return get_event_source(t); }
+  constexpr auto operator()(T &t) const {
+    return get_event_source(dereference(t));
+  }
 };
 
 template <typename T, typename DomainEvents>
@@ -82,5 +75,13 @@ concept event_store_of =
     event_store<T> && domain_event_sequence<DomainEvents> &&
     event_store_details_::provides_event_stream_of<T, DomainEvents>;
 } // namespace concepts
+
+template <typename T>
+using event_stream_t = std::remove_cvref_t<dereference_t<
+    std::invoke_result_t<decltype(skizzay::cddd::get_event_stream), T &>>>;
+
+template <typename T>
+using event_source_t = std::remove_cvref_t<dereference_t<
+    std::invoke_result_t<decltype(skizzay::cddd::get_event_source), T &>>>;
 
 } // namespace skizzay::cddd

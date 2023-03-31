@@ -11,28 +11,62 @@
 
 using namespace skizzay::cddd;
 
+namespace {
+inline constexpr auto create_fake_aggregate = [](auto id_value, auto buffer) {
+  return test::fake_aggregate{std::move(id_value), std::move(buffer)};
+};
+} // namespace
+
 SCENARIO("Event-sourced aggregate repository", "[unit][repository]") {
-  using domain_events_t = test::fake_event_sequence<2>;
-  using event_ptr = std::unique_ptr<event_wrapper<domain_events_t>>;
-  using event_stream_buffer_t = mapped_event_stream_buffer<
-      event_ptr,
-      std::remove_const_t<decltype(wrap_domain_events<domain_events_t>)>>;
-  using aggregate_root_t = test::fake_aggregate<event_stream_buffer_t>;
+  GIVEN("An event-sourced aggregate repository") {
+    auto target = event_sourced_aggregate_repository{
+        in_memory::event_store{test::fake_event_sequence<4>{},
+                               test::fake_clock{}},
+        create_fake_aggregate};
 
-  GIVEN("an event-sourced aggregate repository") {
-    [[maybe_unused]] auto target = event_sourced_aggregate_repository{
-        in_memory::event_store{domain_events_t{}, test::fake_clock{}},
-        default_factory<aggregate_root_t>{}};
+    WHEN("an aggregate is retrieved") {
+      std::string id_value = "some_id";
+      auto aggregate = skizzay::cddd::get(target, id_value);
 
-    AND_GIVEN("an entity id") {
-      std::string entity_id = "entity id";
+      THEN("the aggregate didn't exist previously") {
+        REQUIRE(0 == skizzay::cddd::version(aggregate));
+      }
 
-      WHEN("an aggregate is retrieved from the repository") {
-        [[maybe_unused]] aggregate_root_t aggregate_root =
-            get(target, entity_id);
+      THEN("the uncommitted event buffer is empty") {
+        REQUIRE(std::ranges::empty(aggregate.uncommitted_events));
+      }
 
-        THEN("the provided aggregate has the entity id") {
-          REQUIRE(id(aggregate_root) == entity_id);
+      AND_WHEN("events are applied to the aggregate") {
+        auto const apply_and_buffer = [&](auto &&event) {
+          skizzay::cddd::apply_event(
+              aggregate,
+              static_cast<std::remove_reference_t<decltype(event)> const &>(
+                  event));
+          skizzay::cddd::add_event(aggregate.uncommitted_events,
+                                   std::move(event));
+        };
+        apply_and_buffer(test::fake_event<1>{id_value, 1});
+        apply_and_buffer(test::fake_event<2>{id_value, 2});
+        apply_and_buffer(test::fake_event<3>{id_value, 3});
+
+        AND_WHEN("the aggregate is put into the repository") {
+          skizzay::cddd::put(target, std::move(aggregate));
+
+          THEN("the repository contains the aggregate") {
+            REQUIRE(skizzay::cddd::contains(target, id_value));
+          }
+
+          AND_WHEN("the aggregate is retrieved") {
+            aggregate = skizzay::cddd::get(target, id_value);
+
+            THEN("the aggregate was saved in the repository") {
+              REQUIRE(3 == skizzay::cddd::version(aggregate));
+            }
+
+            THEN("the uncommitted event buffer is empty") {
+              REQUIRE(std::ranges::empty(aggregate.uncommitted_events));
+            }
+          }
         }
       }
     }

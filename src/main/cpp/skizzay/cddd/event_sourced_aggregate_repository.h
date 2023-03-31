@@ -4,44 +4,94 @@
 #include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_store.h"
-#include "skizzay/cddd/factory.h"
-#include "skizzay/cddd/nullable.h"
+#include "skizzay/cddd/key_not_found.h"
 #include "skizzay/cddd/optimistic_concurrency_collision.h"
+#include "skizzay/cddd/repository.h"
+
+#include <type_traits>
 
 namespace skizzay::cddd {
 
 namespace event_sourced_aggregate_repository_details_ {
-template <typename F, typename T>
-concept aggregate_provider =
-    concepts::factory<F, T> || concepts::factory<F, T, id_t<T>>;
-}
+template <typename F, typename Id, typename EventStore>
+concept aggregate_provider = concepts::event_store<EventStore> &&
+    requires(F &aggregate_provider, Id const &id_value,
+             event_stream_buffer_t<EventStore> buffer) {
+  { aggregate_provider(id_value, buffer) } -> concepts::aggregate_root;
+};
+} // namespace event_sourced_aggregate_repository_details_
 
 template <concepts::event_store EventStore, typename AggregateProvider>
 struct event_sourced_aggregate_repository {
-  event_sourced_aggregate_repository(EventStore event_store,
-                                     AggregateProvider create_aggregate)
+  event_sourced_aggregate_repository(EventStore &&event_store,
+                                     AggregateProvider &&create_aggregate)
       : event_store_{std::move(event_store)}, create_aggregate_{std::move(
                                                   create_aggregate)} {}
 
   template <concepts::identifier Id>
+  requires event_sourced_aggregate_repository_details_::aggregate_provider<
+      AggregateProvider, Id, EventStore>
   constexpr concepts::aggregate_root auto get(Id const &id_value) {
     concepts::aggregate_root auto aggregate =
-        create_aggregate(id_value, get_event_stream_buffer(event_store_));
+        create_aggregate_(id_value, get_event_stream_buffer(event_store_));
     concepts::event_source auto event_source = get_event_source(event_store_);
     load_from_history(event_source, aggregate);
-    return aggregate;
+    // In case we hit something only move constructible, such as std::unique_ptr
+    // We want to target copy ellision
+    if constexpr (std::is_copy_constructible_v<decltype(aggregate)>) {
+      return aggregate;
+    } else {
+      return std::move(aggregate);
+    }
   }
 
   constexpr void put(concepts::aggregate_root auto &&aggregate_root) {
-    concepts::event_stream auto event_stream = get_event_stream(event_store_);
-    concepts::identifier auto const &id_value = id(aggregate_root);
-    concepts::event_stream_buffer auto event_stream_buffer =
-        uncommitted_events(aggregate_root);
+    upsert(std::move(aggregate_root), [](auto const &aggregate_root) noexcept {
+      return skizzay::cddd::version(aggregate_root) -
+             skizzay::cddd::uncommitted_events_size(aggregate_root);
+    });
+  }
+
+  // throws optimistic_concurrency_collision if aggregate_root already exists
+  constexpr void add(concepts::aggregate_root auto &&aggregate_root) {
+    upsert(std::move(aggregate_root), [](auto const &) noexcept { return 0; });
+  }
+
+  // throws key_not_found if aggregate_root does not exist
+  constexpr void update(concepts::aggregate_root auto &&aggregate_root) {
+    upsert(std::move(aggregate_root),
+           [](auto const &aggregate_root) noexcept(false) {
+             auto const aggregate_root_version =
+                 skizzay::cddd::version(aggregate_root);
+             auto const buffer_size =
+                 skizzay::cddd::uncommitted_events_size(aggregate_root);
+             if (aggregate_root_version == buffer_size) {
+               throw key_not_found{skizzay::cddd::id(aggregate_root)};
+             } else {
+               return aggregate_root_version - buffer_size;
+             }
+           });
+  }
+
+  constexpr bool contains(concepts::identifier auto const &id_value) {
+    concepts::event_source auto event_source = get_event_source(event_store_);
+    return skizzay::cddd::contains(event_source, id_value);
+  }
+
+  constexpr void remove(concepts::identifier auto const &) noexcept {
+    // TODO: Implement me
+  }
+
+private:
+  constexpr void upsert(concepts::aggregate_root auto &&aggregate_root,
+                        auto calculate_expected_version) {
     concepts::version auto const expected_version =
-        version(aggregate_root) - std::size(event_stream_buffer);
+        calculate_expected_version(aggregate_root);
+    concepts::identifier auto const &id_value = id(aggregate_root);
+    concepts::event_stream auto event_stream = get_event_stream(event_store_);
     try {
       commit_events(event_stream, id_value, expected_version,
-                    std::move(event_stream_buffer));
+                    uncommitted_events(std::move(aggregate_root)));
     } catch (optimistic_concurrency_collision const &e) {
       throw e;
     } catch (...) {
@@ -50,23 +100,11 @@ struct event_sourced_aggregate_repository {
     }
   }
 
-private:
-  template <concepts::identifier Id, concepts::event_stream_buffer Buffer>
-  requires std::invocable<AggregateProvider, Id const &, Buffer>
-  constexpr std::invoke_result_t<AggregateProvider, Id const &, Buffer>
-  create_aggregate(Id const &id_value, Buffer buffer) {
-    return create_aggregate_(id_value, std::move(buffer));
-  }
-
-  template <concepts::identifier Id>
-  requires std::invocable<AggregateProvider> &&
-      (!std::invocable<AggregateProvider, Id const &>)constexpr std::
-          invoke_result_t<AggregateProvider, Id const &> create_aggregate(
-              Id const &) {
-    return create_aggregate_();
-  }
-
   EventStore event_store_;
   AggregateProvider create_aggregate_;
-};
+}; // namespace skizzay::cddd
+
+template <concepts::event_store EventStore, typename AggregateProvider>
+event_sourced_aggregate_repository(EventStore &&, AggregateProvider &&)
+    -> event_sourced_aggregate_repository<EventStore, AggregateProvider>;
 } // namespace skizzay::cddd

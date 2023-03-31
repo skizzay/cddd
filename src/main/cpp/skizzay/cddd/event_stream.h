@@ -91,8 +91,9 @@ inline constexpr event_stream_details_::rollback_to_fn rollback_to = {};
 } // namespace event_stream_fn_
 
 template <typename T>
-using event_stream_buffer_t =
-    std::invoke_result_t<decltype(skizzay::cddd::get_event_stream_buffer), T>;
+using event_stream_buffer_t = std::remove_cvref_t<dereference_t<
+    std::invoke_result_t<decltype(skizzay::cddd::get_event_stream_buffer),
+                         std::add_lvalue_reference_t<T>>>>;
 
 namespace concepts {
 template <typename T>
@@ -183,14 +184,17 @@ struct add_event_impl : virtual add_event_interace<DomainEvent> {
 //   using timestamp_type = timestamp_t<DomainEvents>;
 
 //   constexpr void
-//   commit_events(std::remove_reference_t<id_type> const &id, buffer_type buffer,
-//                 std::convertible_to<version_type> auto const expected_version) {
+//   commit_events(std::remove_reference_t<id_type> const &id, buffer_type
+//   buffer,
+//                 std::convertible_to<version_type> auto const
+//                 expected_version) {
 //     if (not std::empty(buffer)) {
 //       timestamp_t<DomainEvents> const timestamp = now(clock_);
 //       for (auto &&[i, element] : views::enumerate(buffer)) {
 //         version_type const event_version =
 //             narrow_cast<version_type>(i) + expected_version + 1;
-//         derived().populate_commit_info(id, timestamp, event_version, element);
+//         derived().populate_commit_info(id, timestamp, event_version,
+//         element);
 //       }
 //       derived().commit_buffered_events(
 //           std::move(buffer), id, timestamp,
@@ -204,7 +208,8 @@ struct add_event_impl : virtual add_event_interace<DomainEvent> {
 
 // protected:
 //   explicit event_stream_base(Clock clock, Transform transform)
-//       : clock_{std::move_if_noexcept(clock)}, transform_{std::move_if_noexcept(
+//       : clock_{std::move_if_noexcept(clock)},
+//       transform_{std::move_if_noexcept(
 //                                                   transform)} {}
 
 // private:

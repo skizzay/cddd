@@ -32,58 +32,6 @@ struct apply_event_fn final {
     apply_event(dereference(t), dereference(domain_event));
   }
 
-  // template <typename T, concepts::domain_event DomainEvent>
-  // constexpr void
-  // operator()(T &t, std::shared_ptr<DomainEvent> const &domain_event) const
-  //     noexcept(std::is_nothrow_invocable_v<apply_fn const, T &,
-  //                                          DomainEvent const &>) {
-  //   (*this)()
-  // }
-
-  // template <typename T, concepts::domain_event DomainEvent>
-  // constexpr void
-  // operator()(T &t, std::shared_ptr<DomainEvent const> const &domain_event)
-  // const
-  //     noexcept(std::is_nothrow_invocable_v<apply_fn const, T &,
-  //                                          DomainEvent const &>) {
-  //   std::invoke(*this, t, *domain_event);
-  // }
-
-  // template <typename T, concepts::domain_event DomainEvent, typename Deleter>
-  // constexpr void
-  // operator()(T &t,
-  //            std::unique_ptr<DomainEvent, Deleter> const &domain_event) const
-  //     noexcept(std::is_nothrow_invocable_v<apply_fn const, T &,
-  //                                          DomainEvent const &>) {
-  //   std::invoke(*this, t, *domain_event);
-  // }
-
-  // template <typename T, concepts::domain_event DomainEvent, typename Deleter>
-  // constexpr void operator()(
-  //     T &t,
-  //     std::unique_ptr<DomainEvent const, Deleter> const &domain_event) const
-  //     noexcept(std::is_nothrow_invocable_v<apply_fn const, T &,
-  //                                          DomainEvent const &>) {
-  //   std::invoke(*this, t, *domain_event);
-  // }
-
-  // template <typename T, concepts::domain_event DomainEvent>
-  // constexpr void
-  // operator()(T &t, std::reference_wrapper<DomainEvent> const domain_event)
-  // const
-  //     noexcept(std::is_nothrow_invocable_v<apply_fn const, T &,
-  //                                          DomainEvent const &>) {
-  //   std::invoke(*this, t, domain_event.get());
-  // }
-
-  // template <typename T, concepts::domain_event DomainEvent>
-  // constexpr void
-  // operator()(T &t, std::reference_wrapper<DomainEvent const> const
-  // domain_event)
-  //     const noexcept {
-  //   std::invoke(*this, t, domain_event.get());
-  // }
-
   template <typename T, concepts::domain_event... DomainEvents>
   constexpr void
   operator()(T &t, std::variant<DomainEvents...> const &domain_event) const
@@ -107,8 +55,10 @@ struct load_from_history_fn final {
     dereference(event_source)
         .load_from_history(dereference(aggregate), target_version);
   }
-  constexpr void operator()(EventSource &event_source, Aggregate &aggregate,
-                            version_t<Aggregate> const target_version) const
+  constexpr void
+  operator()(EventSource &event_source, Aggregate &aggregate,
+             version_t<Aggregate> const target_version =
+                 std::numeric_limits<version_t<Aggregate>>::max()) const
       noexcept(noexcept(dereference(event_source)
                             .load_from_history(dereference(aggregate),
                                                target_version))) {
@@ -122,28 +72,15 @@ struct load_from_history_fn final {
     load_from_history(dereference(event_source), dereference(aggregate),
                       target_version);
   }
-  constexpr void operator()(EventSource &event_source, Aggregate &aggregate,
-                            version_t<Aggregate> const target_version) const
+  constexpr void
+  operator()(EventSource &event_source, Aggregate &aggregate,
+             version_t<Aggregate> const target_version =
+                 std::numeric_limits<version_t<Aggregate>>::max()) const
       noexcept(noexcept(load_from_history(dereference(event_source),
                                           dereference(aggregate),
                                           target_version))) {
     load_from_history(dereference(event_source), dereference(aggregate),
                       target_version);
-  }
-
-  template <typename EventSource, concepts::identifiable AggregateRoot>
-  requires concepts::versioned<AggregateRoot> && std::invocable<
-      load_from_history_fn const, std::add_lvalue_reference_t<EventSource>,
-      std::add_lvalue_reference_t<AggregateRoot>, version_t<AggregateRoot>>
-  constexpr void operator()(EventSource &event_source,
-                            AggregateRoot &aggregate_root) const
-      noexcept(std::is_nothrow_invocable_v<
-               load_from_history_fn const,
-               std::add_lvalue_reference_t<EventSource>,
-               std::add_lvalue_reference_t<AggregateRoot>,
-               version_t<AggregateRoot>>) {
-    (*this)(event_source, aggregate_root,
-            std::numeric_limits<version_t<AggregateRoot>>::max());
   }
 };
 

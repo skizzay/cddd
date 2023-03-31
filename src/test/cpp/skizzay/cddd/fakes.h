@@ -63,6 +63,17 @@ template <std::ranges::sized_range EventBuffer> struct fake_aggregate {
     timestamp = skizzay::cddd::timestamp(event);
   }
 
+  template <std::size_t N>
+  requires(3 == N) ||
+      (4 == N) friend void apply_event(fake_aggregate &self,
+                                       fake_event<N> const &event) {
+    if (skizzay::cddd::id(event) != self.id) {
+      throw std::invalid_argument{"Unexpected id encountered"};
+    }
+    self.version = skizzay::cddd::version(event);
+    self.timestamp = skizzay::cddd::timestamp(event);
+  }
+
   std::string id;
   EventBuffer uncommitted_events;
   std::size_t version = {};

@@ -13,23 +13,23 @@ bool contains(auto const &...) = delete;
 
 struct contains_fn final {
   template <typename T, concepts::identifier Id>
-  requires requires(T const &t, Id const &id_value) {
-    { dereference(t).contains(dereference(id_value)) } -> concepts::boolean;
+  requires requires(T &t, Id const &id_value) {
+    { dereference(t).contains(id_value) } -> concepts::boolean;
   }
-  constexpr concepts::boolean auto operator()(T const &t,
+  constexpr concepts::boolean auto operator()(T &t,
                                               Id const &id_value) const
-      noexcept(noexcept(dereference(t).contains(dereference(id_value)))) {
-    return dereference(t).contains(dereference(id_value));
+      noexcept(noexcept(dereference(t).contains(id_value))) {
+    return dereference(t).contains(id_value);
   }
 
   template <typename T, concepts::identifier Id>
-  requires requires(T const &t, Id const &id_value) {
-    { contains(dereference(t), dereference(id_value)) } -> concepts::boolean;
+  requires requires(T &t, Id const &id_value) {
+    { contains(dereference(t), id_value) } -> concepts::boolean;
   }
-  constexpr concepts::boolean auto operator()(T const &t,
+  constexpr concepts::boolean auto operator()(T &t,
                                               Id const &id_value) const
-      noexcept(noexcept(contains(dereference(t), dereference(id_value)))) {
-    return contains(dereference(t), dereference(id_value));
+      noexcept(noexcept(contains(dereference(t), id_value))) {
+    return contains(dereference(t), id_value);
   }
 };
 
@@ -114,8 +114,8 @@ concept nonvoid = (not std::is_void_v<T>);
 
 struct get_fn final {
   template <typename T, concepts::identifier Id>
-  requires requires(T &t, Id id) {
-    { dereference(t).get(id) } -> nonvoid;
+  requires requires(T &t, Id &&id) {
+    { dereference(t).get(std::forward<Id>(id)) } -> nonvoid;
   }
   [[nodiscard]] constexpr nonvoid auto operator()(T &t, Id &&id) const
       noexcept(noexcept(dereference(t).get(std::forward<Id>(id)))) {
@@ -167,8 +167,9 @@ template <typename T, typename Entity>
 concept repository_for_entity = identifiable<Entity> && std::invocable <
                                 decltype(skizzay::cddd::get) const &,
         T const &, std::remove_reference_t<id_t<Entity>>
-const & > && std::invocable<decltype(skizzay::cddd::put) const &, T &, Entity> &&
-std::invocable<decltype(skizzay::cddd::contains), T &, id_t<Entity>>;
+const & >
+    &&std::invocable<decltype(skizzay::cddd::put) const &, T &, Entity>
+        &&std::invocable<decltype(skizzay::cddd::contains), T &, id_t<Entity>>;
 } // namespace concepts
 
 namespace repository_details_ {

@@ -84,7 +84,7 @@ struct get_event_stream_buffer_fn final {
     { dereference(t).get_event_stream_buffer() } -> std::ranges::sized_range;
   }
   constexpr std::ranges::sized_range auto operator()(T &t) const
-      noexcept(noexcept(t.get_event_stream_buffer())) {
+      noexcept(noexcept(dereference(t).get_event_stream_buffer())) {
     return dereference(t).get_event_stream_buffer();
   }
 
@@ -93,7 +93,7 @@ struct get_event_stream_buffer_fn final {
     { get_event_stream_buffer(dereference(t)) } -> std::ranges::sized_range;
   }
   constexpr std::ranges::sized_range auto operator()(T &t) const
-      noexcept(noexcept(get_event_stream_buffer(t))) {
+      noexcept(noexcept(get_event_stream_buffer(dereference(t)))) {
     return get_event_stream_buffer(dereference(t));
   }
 };
@@ -130,6 +130,7 @@ struct mapped_event_stream_buffer
   constexpr auto end() { return std::ranges::end(buffer_); }
   constexpr auto begin() const { return std::ranges::begin(buffer_); }
   constexpr auto end() const { return std::ranges::end(buffer_); }
+  constexpr auto size() const noexcept { return std::ranges::size(buffer_); }
 
   template <concepts::domain_event DomainEvent>
   requires std::invocable<Transform, DomainEvent &&> &&

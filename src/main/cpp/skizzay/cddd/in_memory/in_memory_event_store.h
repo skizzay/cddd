@@ -234,9 +234,7 @@ namespace event_store_details_ {
 template <concepts::domain_event_sequence DomainEvents, concepts::clock Clock>
 requires(!DomainEvents::empty) struct impl {
   using event_stream_t = event_stream<impl<DomainEvents, Clock>>;
-  using event_source_t = event_source<impl<DomainEvents, Clock>>;
-  // friend event_stream_t;
-  // friend event_stream<impl<DomainEvents, Clock>>;
+  using event_source_t = event_source<impl<DomainEvents, Clock> const>;
 
   using domain_event_sequence = DomainEvents;
   using buffer_type = mapped_event_stream_buffer<
@@ -248,7 +246,9 @@ requires(!DomainEvents::empty) struct impl {
 
   constexpr event_stream_t get_event_stream() { return event_stream_t{*this}; }
 
-  constexpr event_source_t get_event_source() { return event_source_t{*this}; }
+  constexpr event_source_t get_event_source() const {
+    return event_source_t{*this};
+  }
 
   constexpr buffer_type get_event_stream_buffer() const {
     return buffer_type{wrap_domain_events<DomainEvents>};
@@ -257,6 +257,12 @@ requires(!DomainEvents::empty) struct impl {
   constexpr concurrent_table<std::shared_ptr<buffer<DomainEvents>>,
                              std::remove_cvref_t<id_t<DomainEvents>>> &
   event_buffers() noexcept {
+    return buffers_;
+  }
+
+  constexpr concurrent_table<std::shared_ptr<buffer<DomainEvents>>,
+                             std::remove_cvref_t<id_t<DomainEvents>>> const &
+  event_buffers() const noexcept {
     return buffers_;
   }
 

@@ -98,6 +98,39 @@ requires(!std::is_reference_v<T>) struct impl {
   using key_type = std::remove_cvref_t<Id>;
   using value_type = T;
 
+  constexpr impl() = default;
+
+  constexpr impl(impl const &other) : m_{}, entries_{} {
+    std::shared_lock l_{other.m_};
+    entries_ = other.entries_;
+  }
+
+  constexpr impl(impl &&other) : m_{}, entries_{} {
+    std::lock_guard l_{other.m_};
+    entries_ = std::move(other.entries_);
+  }
+
+  constexpr ~impl() noexcept {
+    std::lock_guard l_{m_};
+    entries_.clear();
+  }
+
+  constexpr impl &operator=(impl const &other) {
+    if (this != &other) {
+      std::shared_lock l_{other.m_};
+      entries_ = other.entries_;
+    }
+    return *this;
+  }
+
+  constexpr impl &operator=(impl &&other) {
+    if (this != &other) {
+      std::lock_guard l_{other.m_};
+      entries_ = std::move(other.entries_);
+    }
+    return *this;
+  }
+
   [[nodiscard]] constexpr nullable_t<T const> get(key_type const &key) const
       noexcept(false) {
     std::shared_lock l_{m_};
