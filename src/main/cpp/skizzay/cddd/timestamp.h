@@ -100,6 +100,16 @@ struct set_timestamp_fn final {
     set_timestamp(dereference(t), timestamp);
     return t;
   }
+
+  template <typename... Ts, concepts::timestamp Timestamp>
+  requires(std::invocable<set_timestamp_fn const, Ts &, Timestamp>
+               &&...) constexpr decltype(auto)
+  operator()(std::variant<Ts...> &t, Timestamp const timestamp) const noexcept(
+      (std::is_nothrow_invocable_v<set_timestamp_fn const, Ts &, Timestamp> &&
+       ...)) {
+    std::visit([this, timestamp](auto &t) { (*this)(t, timestamp); }, t);
+    return t;
+  }
 };
 
 void now(auto &...) = delete;

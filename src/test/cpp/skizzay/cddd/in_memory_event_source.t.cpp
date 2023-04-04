@@ -56,6 +56,11 @@ struct fake_store {
     return event_buffers_;
   }
 
+  concurrent_table<std::shared_ptr<fake_buffer>, std::string> const &
+  event_buffers() const noexcept {
+    return event_buffers_;
+  }
+
   concurrent_table<std::shared_ptr<fake_buffer>, std::string> event_buffers_;
   test::fake_clock clock_;
 };

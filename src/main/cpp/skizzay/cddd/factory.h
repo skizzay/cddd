@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skizzay/cddd/identifier.h"
+#include "skizzay/cddd/nullable.h"
 #include <concepts>
 #include <memory>
 #include <type_traits>
@@ -18,16 +19,18 @@ concept entity_factory = identifiable<Entity> &&
 
 template <typename T> struct default_factory {
   // NOTE: noexcept clause assumes that copy-ellison is in effect
-  constexpr T operator()() const
+  constexpr T operator()(auto &&...) const
       noexcept(std::is_nothrow_default_constructible_v<T>) {
     return {};
   }
 
   // NOTE: noexcept clause assumes that copy-ellison is in effect
   template <typename... Args>
-  requires(0 != sizeof...(Args)) constexpr T operator()(Args &&...args) const
+  requires(0 != sizeof...(Args)) &&
+      std::constructible_from<T, Args...> constexpr T
+      operator()(Args &&...args) const
       noexcept(std::is_nothrow_constructible_v<T, Args...>) {
-    return {std::forward<Args>(args)...};
+    return T{std::forward<Args>(args)...};
   }
 };
 
@@ -39,6 +42,10 @@ template <typename T> struct nonnull_default_factory<std::shared_ptr<T>> {
   constexpr std::shared_ptr<T> operator()(Args &&...args) const
       noexcept(false) {
     return std::make_shared<T>(std::forward<Args>(args)...);
+  }
+
+  constexpr std::shared_ptr<T> operator()(auto &&...) const {
+    return std::make_shared<T>();
   }
 };
 
@@ -76,6 +83,17 @@ template <std::copy_constructible T> struct clone_factory {
 
 private:
   T prototype_;
+};
+
+template <concepts::nullable T> struct null_factory {
+  constexpr T operator()(auto &&...) const noexcept { return null_value<T>; }
+};
+
+inline constexpr auto clone_of = [](auto clone) {
+  return [clone](auto &&...) noexcept(
+             std::is_nothrow_copy_constructible_v<decltype(clone)>) {
+    return clone;
+  };
 };
 
 } // namespace skizzay::cddd

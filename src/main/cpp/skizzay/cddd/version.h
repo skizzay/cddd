@@ -84,6 +84,16 @@ struct set_version_fn final {
     set_version(dereference(t), version);
     return t;
   }
+
+  template <typename... Ts, concepts::version Version>
+  requires(std::invocable<set_version_fn const, Ts &, Version>
+               &&...) constexpr decltype(auto)
+  operator()(std::variant<Ts...> &t, Version const version) const noexcept(
+      (std::is_nothrow_invocable_v<set_version_fn const, Ts &, Version> &&
+       ...)) {
+    std::visit([this, version](auto &t) { (*this)(t, version); }, t);
+    return t;
+  }
 };
 
 } // namespace version_details

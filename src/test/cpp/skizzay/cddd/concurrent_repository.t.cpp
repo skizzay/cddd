@@ -19,42 +19,31 @@ TEST_CASE("concurrent table can use value objects", "[unit][repository]") {
 
   target_type target;
 
-  SECTION("get member function returns null value when item is not found") {
-    int const key = 15;
-    fake_value_type result;
-
-    auto actual = target.get(key);
-
-    REQUIRE(skizzay::cddd::is_null(actual));
-  }
-
   SECTION("put member function will add a new entry") {
     int const key = 42;
-    auto &actual = target.put(fake_value_type{key});
-    REQUIRE(std::is_same_v<decltype(actual), fake_value_type &>);
+    target.put(fake_value_type{key});
     REQUIRE(target.contains(key));
   }
 
   SECTION("add member function will add a new entry") {
     int const key = 42;
-    auto actual = target.add(fake_value_type{key});
-    REQUIRE(std::is_same_v<decltype(actual.first), fake_value_type &>);
+    target.add(fake_value_type{key});
     REQUIRE(target.contains(key));
   }
 
   SECTION("put member function will overwrite an existing entry") {
     int const key = 42;
-    target.put(fake_value_type{key, 1}).other_value;
-    auto const second = target.put(fake_value_type{key, 2}).other_value;
-    REQUIRE(2 == second);
+    target.put(fake_value_type{key, 1});
+    target.put(fake_value_type{key, 2});
+    auto const actual = target.get(key);
+    REQUIRE(2 == actual.other_value);
   }
 
   SECTION("add member function will not overwrite an existing entry") {
     int const key = 42;
     target.add(fake_value_type{key, 1});
     auto const actual = target.add(fake_value_type{key, 2});
-    REQUIRE_FALSE(actual.second);
-    REQUIRE(1 == actual.first.other_value);
+    REQUIRE_FALSE(actual);
   }
 
   SECTION("get member function returns non-null value when item is found") {
@@ -70,16 +59,13 @@ TEST_CASE("concurrent table can use value objects", "[unit][repository]") {
     int const key = 15;
     bool invoked = false;
 
-    [[maybe_unused]] auto &actual = target.get_or_add(
-        key,
-        [&invoked]<template <typename> typename Template, typename T>(
-            [[maybe_unused]] Template<T> return_type,
-            int key) noexcept -> fake_value_type {
-          invoked = std::is_same_v<T, fake_value_type>;
-          return T{key};
+    [[maybe_unused]] auto actual =
+        target.get_or_add(key, [&invoked](int key) noexcept -> fake_value_type {
+          invoked = true;
+          return fake_value_type{key};
         });
 
-    REQUIRE(std::is_same_v<decltype(actual), fake_value_type &>);
+    REQUIRE(std::is_same_v<decltype(actual), fake_value_type>);
     REQUIRE(invoked);
     REQUIRE(target.contains(key));
   }
@@ -90,13 +76,10 @@ TEST_CASE("concurrent table can use value objects", "[unit][repository]") {
     bool invoked = false;
 
     target.add(fake_value_type{key});
-    [[maybe_unused]] auto &actual = target.get_or_add(
-        key,
-        [&invoked]<template <typename> typename Template, typename T>(
-            [[maybe_unused]] Template<T> return_type,
-            int key) noexcept -> fake_value_type {
-          invoked = std::is_same_v<T, fake_value_type>;
-          return T{key};
+    [[maybe_unused]] auto actual =
+        target.get_or_add(key, [&invoked](int key) noexcept -> fake_value_type {
+          invoked = true;
+          return fake_value_type{key};
         });
 
     REQUIRE_FALSE(invoked);

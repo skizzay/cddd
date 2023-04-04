@@ -7,6 +7,35 @@
 
 namespace skizzay::cddd {
 
+namespace event_wrapper_details_ {
+template <typename Derived, concepts::domain_event DomainEvent>
+struct apply_event_visitor_impl : virtual event_visitor_interface<DomainEvent> {
+  void visit(DomainEvent const &domain_event) override {
+    skizzay::cddd::apply_event(static_cast<Derived *>(this)->get_handler(),
+                               domain_event);
+  }
+};
+
+template <typename DomainEvents, typename Handler> struct apply_event_visitor;
+
+template <concepts::domain_event... DomainEvents,
+          concepts::handler_for<domain_event_sequence<DomainEvents...>> Handler>
+struct apply_event_visitor<domain_event_sequence<DomainEvents...>, Handler>
+    final
+    : virtual event_visitor<domain_event_sequence<DomainEvents...>>,
+      apply_event_visitor_impl<
+          apply_event_visitor<domain_event_sequence<DomainEvents...>, Handler>,
+          DomainEvents>... {
+  explicit constexpr apply_event_visitor(Handler &handler) noexcept
+      : handler_{handler} {}
+
+  auto &get_handler() noexcept { return handler_; }
+
+private:
+  Handler &handler_;
+};
+} // namespace event_wrapper_details_
+
 template <concepts::domain_event_sequence DomainEvents> struct event_wrapper {
   using id_type = typename DomainEvents::id_reference_type;
   using version_type = version_t<DomainEvents>;
@@ -18,10 +47,25 @@ template <concepts::domain_event_sequence DomainEvents> struct event_wrapper {
   virtual void set_id(id_type) = 0;
   virtual void set_version(version_type const) noexcept = 0;
   virtual void set_timestamp(timestamp_type const) noexcept = 0;
+  inline event_visitor<DomainEvents> &&
+  accept_event_visitor(event_visitor<DomainEvents> &&visitor) const {
+    this->do_accept_event_visitor(
+        static_cast<event_visitor<DomainEvents> &>(visitor));
+    return std::move(visitor);
+  }
   inline event_visitor<DomainEvents> &
   accept_event_visitor(event_visitor<DomainEvents> &visitor) const {
     this->do_accept_event_visitor(visitor);
     return visitor;
+  }
+
+  template <typename Handler>
+  friend constexpr Handler &
+  apply_event(Handler &handler, event_wrapper<DomainEvents> const &self) {
+    event_wrapper_details_::apply_event_visitor<DomainEvents, Handler> visitor{
+        handler};
+    self.do_accept_event_visitor(visitor);
+    return handler;
   }
 
   template <concepts::mutable_domain_event DomainEvent>

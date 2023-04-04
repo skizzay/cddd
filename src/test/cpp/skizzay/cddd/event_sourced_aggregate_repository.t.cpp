@@ -12,15 +12,26 @@
 using namespace skizzay::cddd;
 
 namespace {
+using domain_events = test::fake_event_sequence<4>;
+using event_t = std::shared_ptr<event_wrapper<domain_events>>;
+using buffer_store_t = in_memory::serial_buffer_store<event_t>;
+
 inline constexpr auto create_fake_aggregate = [](auto id_value, auto buffer) {
   return test::fake_aggregate{std::move(id_value), std::move(buffer)};
+};
+
+inline constexpr auto create_buffer = []() {
+  return mapped_event_stream_buffer<
+      event_t,
+      std::remove_cvref_t<decltype(wrap_domain_events<domain_events>)>>{
+      wrap_domain_events<domain_events>};
 };
 } // namespace
 
 SCENARIO("Event-sourced aggregate repository", "[unit][repository]") {
   GIVEN("An event-sourced aggregate repository") {
-    auto target = event_sourced_aggregate_repository{
-        in_memory::event_store{test::fake_event_sequence<4>{},
+    event_sourced_aggregate_repository target{
+        in_memory::event_store{create_buffer, buffer_store_t{},
                                test::fake_clock{}},
         create_fake_aggregate};
 

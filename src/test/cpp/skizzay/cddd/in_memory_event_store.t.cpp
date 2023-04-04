@@ -8,10 +8,18 @@
 using namespace skizzay::cddd;
 
 TEST_CASE("in-memory event store") {
-  using domain_event_sequence_t = test::fake_event_sequence<2>;
   using clock_t = test::fake_clock;
+  using event_t = std::shared_ptr<event_wrapper<test::fake_event_sequence<2>>>;
+  using buffer_store_t = in_memory::concurrent_buffer_store<event_t>;
 
-  auto target = in_memory::event_store{domain_event_sequence_t{}, clock_t{}};
+  auto create_buffer = []() {
+    return mapped_event_stream_buffer<
+        event_t, std::remove_cvref_t<decltype(wrap_domain_events<
+                                              test::fake_event_sequence<2>>)>>{
+        wrap_domain_events<test::fake_event_sequence<2>>};
+  };
+
+  in_memory::event_store target{create_buffer, buffer_store_t{}, clock_t{}};
   REQUIRE(skizzay::cddd::concepts::event_store<decltype(target)>);
 
   SECTION("event stream buffer") {

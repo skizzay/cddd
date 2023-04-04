@@ -50,37 +50,31 @@ template <typename... Ts> void load_from_history(Ts const &...) = delete;
 
 struct load_from_history_fn final {
   template <typename EventSource, concepts::versioned Aggregate>
-  requires requires(EventSource &event_source, Aggregate &aggregate,
+  requires requires(EventSource event_source, Aggregate &aggregate,
                     version_t<Aggregate> const target_version) {
-    dereference(event_source)
-        .load_from_history(dereference(aggregate), target_version);
+    event_source.load_from_history(dereference(aggregate), target_version);
   }
   constexpr void
-  operator()(EventSource &event_source, Aggregate &aggregate,
+  operator()(EventSource event_source, Aggregate &aggregate,
              version_t<Aggregate> const target_version =
                  std::numeric_limits<version_t<Aggregate>>::max()) const
-      noexcept(noexcept(dereference(event_source)
-                            .load_from_history(dereference(aggregate),
-                                               target_version))) {
-    dereference(event_source)
-        .load_from_history(dereference(aggregate), target_version);
+      noexcept(noexcept(event_source.load_from_history(dereference(aggregate),
+                                                       target_version))) {
+    event_source.load_from_history(dereference(aggregate), target_version);
   }
 
   template <typename EventSource, concepts::versioned Aggregate>
-  requires requires(EventSource &event_source, Aggregate &aggregate,
+  requires requires(EventSource event_source, Aggregate &aggregate,
                     version_t<Aggregate> const target_version) {
-    load_from_history(dereference(event_source), dereference(aggregate),
-                      target_version);
+    load_from_history(event_source, dereference(aggregate), target_version);
   }
   constexpr void
-  operator()(EventSource &event_source, Aggregate &aggregate,
+  operator()(EventSource event_source, Aggregate &aggregate,
              version_t<Aggregate> const target_version =
                  std::numeric_limits<version_t<Aggregate>>::max()) const
-      noexcept(noexcept(load_from_history(dereference(event_source),
-                                          dereference(aggregate),
+      noexcept(noexcept(load_from_history(event_source, dereference(aggregate),
                                           target_version))) {
-    load_from_history(dereference(event_source), dereference(aggregate),
-                      target_version);
+    load_from_history(event_source, dereference(aggregate), target_version);
   }
 };
 
@@ -88,11 +82,11 @@ template <typename... Ts> void load_from_snapshot(Ts const &...) = delete;
 
 struct load_from_snapshot_fn final {
   template <typename SnapshotSource, concepts::versioned Aggregate>
-  requires requires(SnapshotSource &snapshot_source, Aggregate &aggregate,
+  requires requires(SnapshotSource snapshot_source, Aggregate &aggregate,
                     version_t<Aggregate> const version) {
     snapshot_source.load_from_snapshot(aggregate, version);
   }
-  constexpr void operator()(SnapshotSource &snapshot_source,
+  constexpr void operator()(SnapshotSource snapshot_source,
                             Aggregate &aggregate,
                             version_t<Aggregate> const version) const
       noexcept(noexcept(snapshot_source.load_from_snapshot(aggregate,
@@ -101,11 +95,11 @@ struct load_from_snapshot_fn final {
   }
 
   template <typename SnapshotSource, concepts::versioned Aggregate>
-  requires requires(SnapshotSource &snapshot_source, Aggregate &aggregate,
+  requires requires(SnapshotSource snapshot_source, Aggregate &aggregate,
                     version_t<Aggregate> const version) {
     load_from_snapshot(snapshot_source, aggregate, version);
   }
-  constexpr void operator()(SnapshotSource &snapshot_source,
+  constexpr void operator()(SnapshotSource snapshot_source,
                             Aggregate &aggregate,
                             version_t<Aggregate> const version) const
       noexcept(noexcept(load_from_snapshot(snapshot_source, aggregate,
@@ -114,7 +108,7 @@ struct load_from_snapshot_fn final {
   }
 
   template <typename SnapshotSource, concepts::versioned Aggregate>
-  constexpr void operator()(SnapshotSource &snapshot_source,
+  constexpr void operator()(SnapshotSource snapshot_source,
                             Aggregate &aggregate) const
       noexcept(std::is_nothrow_invocable_v<load_from_snapshot_fn,
                                            SnapshotSource &, Aggregate &,
@@ -144,12 +138,12 @@ struct impl<T, DomainEvent> : can_apply_event<T, DomainEvent> {};
 
 template <typename T, concepts::domain_event... DomainEvents>
 struct impl<T, domain_event_sequence<DomainEvents...>>
-    : std::conjunction<can_apply_event<T, DomainEvents>...> {};
+    : std::conjunction<impl<T, DomainEvents>...> {};
 } // namespace handler_for_details_
 
 namespace concepts {
 template <typename T>
-concept event_source = std::destructible<T>;
+concept event_source = std::copyable<T>;
 
 template <typename T, typename DomainEvents>
 concept handler_for = handler_for_details_::impl<T, DomainEvents>::value;

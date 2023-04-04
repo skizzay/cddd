@@ -20,9 +20,10 @@ private:
   Key key_;
 };
 
-inline constexpr auto throw_key_not_found =
-    [] [[noreturn]] (concepts::identifier auto key) {
-  throw key_not_found{std::move(key)};
+template <typename R = void> struct throw_key_not_found final {
+  constexpr R operator()(concepts::identifier auto key) const noexcept(false) {
+    throw key_not_found{std::move(key)};
+  }
 };
 
 } // namespace skizzay::cddd

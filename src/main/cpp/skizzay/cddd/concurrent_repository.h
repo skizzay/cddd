@@ -4,6 +4,7 @@
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/key_not_found.h"
 #include "skizzay/cddd/nullable.h"
+#include "skizzay/cddd/repository.h"
 
 #include <concepts>
 #include <functional>
@@ -12,47 +13,6 @@
 #include <unordered_map>
 
 namespace skizzay::cddd {
-
-namespace concurrent_table_details_ {
-
-struct provide_null_value_fn final {
-  template <template <typename> typename Template, typename T>
-  constexpr nullable_t<T>
-  operator()(Template<T> const,
-             concepts::identifier auto const &) const noexcept {
-    return null_value<T>;
-  }
-};
-
-struct provide_nonnull_value_fn final {
-  template <template <typename> typename Template, typename T,
-            concepts::identifier Id>
-  constexpr std::invoke_result_t<nonnull_default_factory<T>, Id const &>
-  operator()(Template<T> const, Id const &id_value) const {
-    return nonnull_default_factory<T>{}(id_value);
-  }
-
-  template <template <typename> typename Template, typename T,
-            concepts::identifier Id>
-  constexpr std::invoke_result_t<nonnull_default_factory<T>>
-  operator()(Template<T> const, Id const &) const {
-    return nonnull_default_factory<T>{}();
-  }
-};
-} // namespace concurrent_table_details_
-
-inline namespace concurrent_table_fn_ {
-inline constexpr concurrent_table_details_::provide_null_value_fn
-    provide_null_value = {};
-inline constexpr auto provide_default_value = []<typename T>(T &default_value) {
-  return [&default_value]<template <typename> typename Template, typename U>
-  requires std::convertible_to<T &, U &>(Template<U> const,
-                                         concepts::identifier auto const &)
-  noexcept { return default_value; };
-};
-inline constexpr concurrent_table_details_::provide_nonnull_value_fn
-    provide_nonnull_default_value = {};
-} // namespace concurrent_table_fn_
 
 namespace concurrent_table_details_ {
 
@@ -93,12 +53,19 @@ template <typename T, concepts::identifier Id, typename Factory>
 using get_or_put_result_t = std::add_lvalue_reference_t<
     typename get_or_put_result<T, Id, Factory>::type>;
 
-template <typename T, concepts::identifier Id>
-requires(!std::is_reference_v<T>) struct impl {
+template <typename T, concepts::identifier Id,
+          typename Alloc =
+              std::allocator<std::pair<std::remove_reference_t<Id> const, T>>>
+requires std::copyable<T> && std::same_as<T, std::remove_cvref_t<T>>
+struct impl {
   using key_type = std::remove_cvref_t<Id>;
   using value_type = T;
+  using allocator_type =
+      typename std::unordered_map<key_type, value_type, std::hash<key_type>,
+                                  std::equal_to<key_type>,
+                                  Alloc>::allocator_type;
 
-  constexpr impl() = default;
+  constexpr impl(allocator_type a = {}) : m_{}, entries_{std::move(a)} {}
 
   constexpr impl(impl const &other) : m_{}, entries_{} {
     std::shared_lock l_{other.m_};
@@ -131,81 +98,53 @@ requires(!std::is_reference_v<T>) struct impl {
     return *this;
   }
 
-  [[nodiscard]] constexpr nullable_t<T const> get(key_type const &key) const
+  template <typename ValueFactory = nonnull_default_factory<T>>
+  [[nodiscard]] constexpr T get(key_type const &key,
+                                ValueFactory &&create = {}) const
       noexcept(false) {
     std::shared_lock l_{m_};
-    auto const entry = entries_.find(key);
-    if (std::end(entries_) == entry) {
-      return null_value<T const>;
-    }
-    return entry->second;
+    return skizzay::cddd::get(entries_, key,
+                              std::forward<ValueFactory>(create));
   }
 
-  [[nodiscard]] constexpr nullable_t<T>
-  get(key_type const &key) noexcept(false) {
-    std::shared_lock l_{m_};
-    auto const entry = entries_.find(key);
-    if (std::end(entries_) == entry) {
-      return null_value<T>;
-    }
-    return entry->second;
-  }
-
-  template <
-      typename Factory = concurrent_table_details_::provide_nonnull_value_fn>
-  constexpr T &get_or_add(key_type const &key, Factory create = {}) {
+  template <typename Factory = nonnull_default_factory<T>>
+  constexpr T get_or_add(key_type const &key, Factory &&create = {}) {
     std::lock_guard l_{m_};
-    if (auto const entry = entries_.find(key); std::end(entries_) != entry) {
-      return entry->second;
-    } else {
-      return unguarded_put(key, create(identity<T>{}, key));
-    }
+    return skizzay::cddd::get_or_add(entries_, key,
+                                     std::forward<Factory>(create));
   }
 
   [[nodiscard]] constexpr bool contains(key_type const &key) const noexcept {
     std::shared_lock l_{m_};
-    return entries_.find(key) != std::end(entries_);
+    return skizzay::cddd::contains(entries_, key);
   }
 
-  constexpr T &put(key_type key, T &&t) {
+  constexpr void put(key_type key, T &&t) {
     std::lock_guard l_{m_};
-    return unguarded_put(std::move(key), std::forward<T>(t));
+    skizzay::cddd::put(entries_, std::move(key), std::forward<T>(t));
   }
 
-  constexpr std::pair<T &, bool> add(key_type key, T &&t) {
+  constexpr bool add(key_type key, T &&t) {
     std::lock_guard l_{m_};
-    auto result = entries_.emplace(std::move(key), std::forward<T>(t));
-    return {result.first->second, result.second};
+    return skizzay::cddd::add(entries_, std::move(key), std::move(t));
   }
 
-  constexpr nullable_t<T> remove(key_type const &key) {
+  constexpr bool remove(key_type const &key) {
     std::lock_guard l_{m_};
-    if (auto entry = entries_.find(key); std::end(entries_) != entry) {
-      T result{std::move(entry->second)};
-      entries_.erase(entry);
-      return result;
-    } else {
-      return null_value<T>;
-    }
+    return skizzay::cddd::remove(entries_, key);
   }
 
 private:
-  template <typename U> constexpr T &unguarded_put(key_type key, U &&u) {
-    auto [entry, created] =
-        entries_.emplace(std::move(key), std::forward<U>(u));
-    if (not created) {
-      entry->second = std::forward<U>(u);
-    }
-
-    return entry->second;
-  }
-
   mutable std::shared_mutex m_;
-  std::unordered_map<key_type, T> entries_;
+  std::unordered_map<key_type, T, std::hash<key_type>, std::equal_to<key_type>,
+                     Alloc>
+      entries_;
 };
 } // namespace concurrent_table_details_
 
-template <typename T, concepts::identifier Id>
+template <typename T, concepts::identifier Id,
+          typename Alloc =
+              std::allocator<std::pair<std::remove_reference_t<Id> const, T>>>
 using concurrent_table = concurrent_table_details_::impl<T, Id>;
 
 template <concepts::identifiable T>
@@ -215,15 +154,15 @@ struct concurrent_repository
   using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::get_or_add;
   using concurrent_table<T, std::remove_cvref_t<id_t<T>>>::contains;
 
-  constexpr auto add(T &&t) {
+  constexpr bool add(T &&t) {
     auto key = id(std::as_const(t));
     return this->concurrent_table<T, std::remove_cvref_t<id_t<T>>>::add(
         std::move(key), std::forward<T>(t));
   }
 
-  constexpr T &put(T &&t) {
+  constexpr void put(T &&t) {
     auto key = id(std::as_const(t));
-    return this->concurrent_table<T, std::remove_cvref_t<id_t<T>>>::put(
+    this->concurrent_table<T, std::remove_cvref_t<id_t<T>>>::put(
         std::move(key), std::forward<T>(t));
   }
 };

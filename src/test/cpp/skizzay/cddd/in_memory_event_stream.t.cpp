@@ -36,12 +36,16 @@ struct fake_buffer {
 };
 
 struct fake_store {
-  using buffer_type = ::buffer_type;
-
   test::fake_clock &clock() noexcept { return clock_; }
 
   in_memory::event_stream<fake_store> get_event_stream() noexcept {
     return {*this};
+  }
+
+  std::vector<std::unique_ptr<event_wrapper<test::fake_event_sequence<2>>>>
+  get_event_stream_buffer() const noexcept {
+    return std::vector<
+        std::unique_ptr<event_wrapper<test::fake_event_sequence<2>>>>{};
   }
 
   concurrent_table<std::shared_ptr<fake_buffer>, std::string> &
@@ -59,8 +63,7 @@ SCENARIO("In-memory event store provides an event stream",
   fake_store store;
 
   GIVEN("an event stream provided by its store") {
-    [[maybe_unused]] skizzay::cddd::concepts::event_stream auto target =
-        get_event_stream(store);
+    skizzay::cddd::concepts::event_stream auto target = get_event_stream(store);
 
     AND_GIVEN("an empty buffer") {
       buffer_type empty_buffer;

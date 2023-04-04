@@ -31,11 +31,12 @@ struct event_sourced_aggregate_repository {
   template <concepts::identifier Id>
   requires event_sourced_aggregate_repository_details_::aggregate_provider<
       AggregateProvider, Id, EventStore>
-  constexpr concepts::aggregate_root auto get(Id const &id_value) {
-    concepts::aggregate_root auto aggregate =
-        create_aggregate_(id_value, get_event_stream_buffer(event_store_));
-    concepts::event_source auto event_source = get_event_source(event_store_);
-    load_from_history(event_source, aggregate);
+  constexpr concepts::aggregate_root auto get(Id const &id_value) const {
+    concepts::aggregate_root auto aggregate = create_aggregate_(
+        id_value, skizzay::cddd::get_event_stream_buffer(event_store_));
+    concepts::event_source auto event_source =
+        skizzay::cddd::get_event_source(event_store_);
+    skizzay::cddd::load_from_history(event_source, aggregate);
     // In case we hit something only move constructible, such as std::unique_ptr
     // We want to target copy ellision
     if constexpr (std::is_copy_constructible_v<decltype(aggregate)>) {
@@ -73,13 +74,9 @@ struct event_sourced_aggregate_repository {
            });
   }
 
-  constexpr bool contains(concepts::identifier auto const &id_value) {
+  constexpr bool contains(concepts::identifier auto const &id_value) const {
     concepts::event_source auto event_source = get_event_source(event_store_);
     return skizzay::cddd::contains(event_source, id_value);
-  }
-
-  constexpr void remove(concepts::identifier auto const &) noexcept {
-    // TODO: Implement me
   }
 
 private:
@@ -87,15 +84,18 @@ private:
                         auto calculate_expected_version) {
     concepts::version auto const expected_version =
         calculate_expected_version(aggregate_root);
-    concepts::identifier auto const &id_value = id(aggregate_root);
-    concepts::event_stream auto event_stream = get_event_stream(event_store_);
+    concepts::identifier auto const &id_value =
+        skizzay::cddd::id(aggregate_root);
+    concepts::event_stream auto event_stream =
+        skizzay::cddd::get_event_stream(event_store_);
     try {
-      commit_events(event_stream, id_value, expected_version,
-                    uncommitted_events(std::move(aggregate_root)));
+      skizzay::cddd::commit_events(
+          event_stream, id_value, expected_version,
+          skizzay::cddd::uncommitted_events(std::move(aggregate_root)));
     } catch (optimistic_concurrency_collision const &e) {
       throw e;
     } catch (...) {
-      rollback_to(event_stream, id_value, expected_version);
+      skizzay::cddd::rollback_to(event_stream, id_value, expected_version);
       throw;
     }
   }

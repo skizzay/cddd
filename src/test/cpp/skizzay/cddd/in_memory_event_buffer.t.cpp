@@ -21,7 +21,9 @@ SCENARIO("In-memory event store provides an event source",
   test::fake_clock clock;
 
   GIVEN("an event buffer") {
-    auto target = in_memory::buffer<test::fake_event_sequence<3>>{};
+    using event_t =
+        std::unique_ptr<event_wrapper<test::fake_event_sequence<3>>>;
+    auto target = in_memory::buffer<event_t>{};
 
     THEN("the version is 0") { REQUIRE(0 == skizzay::cddd::version(target)); }
 

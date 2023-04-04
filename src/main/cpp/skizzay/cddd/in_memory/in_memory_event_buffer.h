@@ -146,19 +146,21 @@ struct locked_event_range
 };
 } // namespace buffer_details_
 
-template <concepts::domain_event_sequence DomainEvents> struct buffer final {
-  using event_t = std::unique_ptr<event_wrapper<DomainEvents>>;
+template <concepts::domain_event DomainEvent>
+// We're not cleaning up memory.  Use RAII instead
+requires(!std::is_pointer_v<DomainEvent>) struct buffer final {
+  using event_t = DomainEvent;
 
-  constexpr version_t<DomainEvents> version() const noexcept {
+  constexpr version_t<DomainEvent> version() const noexcept {
     std::shared_lock l_{m_};
-    return narrow_cast<version_t<DomainEvents>>(std::size(events_),
-                                                std::terminate);
+    return narrow_cast<version_t<DomainEvent>>(std::size(events_),
+                                               std::terminate);
   }
 
   template <std::ranges::sized_range EventBuffer>
-  requires std::same_as<event_t, std::ranges::range_value_t<EventBuffer>>
+  requires std::convertible_to<std::ranges::range_value_t<EventBuffer>, event_t>
   constexpr void append(EventBuffer &&events,
-                        version_t<DomainEvents> const expected_version) {
+                        version_t<DomainEvent> const expected_version) {
     std::lock_guard l_{m_};
     concepts::version auto const actual_version = std::size(events_);
     if (expected_version == actual_version) {
@@ -174,8 +176,8 @@ template <concepts::domain_event_sequence DomainEvents> struct buffer final {
   }
 
   std::ranges::sized_range auto
-  get_events(version_t<DomainEvents> const begin_version,
-             version_t<DomainEvents> const target_version) {
+  get_events(version_t<DomainEvent> const begin_version,
+             version_t<DomainEvent> const target_version) {
     assert(begin_version <= target_version);
     std::shared_lock l_{m_};
     auto const begin_iterator = std::ranges::begin(events_);

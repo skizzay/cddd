@@ -83,16 +83,16 @@ struct get_event_stream_buffer_fn final {
   requires requires(T &t) {
     { dereference(t).get_event_stream_buffer() } -> std::ranges::sized_range;
   }
-  constexpr std::ranges::sized_range auto operator()(T &t) const
+  constexpr std::ranges::sized_range auto operator()(T const &t) const
       noexcept(noexcept(dereference(t).get_event_stream_buffer())) {
     return dereference(t).get_event_stream_buffer();
   }
 
   template <typename T>
-  requires requires(T &&t) {
+  requires requires(T &t) {
     { get_event_stream_buffer(dereference(t)) } -> std::ranges::sized_range;
   }
-  constexpr std::ranges::sized_range auto operator()(T &t) const
+  constexpr std::ranges::sized_range auto operator()(T const &t) const
       noexcept(noexcept(get_event_stream_buffer(dereference(t)))) {
     return get_event_stream_buffer(dereference(t));
   }
@@ -104,6 +104,11 @@ inline constexpr event_stream_buffer_details_::add_event_fn add_event = {};
 inline constexpr event_stream_buffer_details_::get_event_stream_buffer_fn
     get_event_stream_buffer = {};
 } // namespace event_stream_buffer_fn_
+
+template <typename T>
+using event_stream_buffer_t = std::remove_cvref_t<std::invoke_result_t<
+    event_stream_buffer_details_::get_event_stream_buffer_fn const,
+    std::add_lvalue_reference_t<T>>>;
 
 namespace concepts {
 template <typename T>

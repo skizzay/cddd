@@ -88,6 +88,16 @@ struct set_id_fn final {
     set_id(dereference(t), std::forward<Id>(id));
     return t;
   }
+
+  template <typename... Ts, concepts::identifier Id>
+  requires(
+      std::invocable<set_id_fn const, Ts &, Id> &&...) constexpr decltype(auto)
+  operator()(std::variant<Ts...> &t, Id &&id) const
+      noexcept((std::is_nothrow_invocable_v<set_id_fn const, Ts &, Id> &&
+                ...)) {
+    std::visit([this, &id](auto &t) { (*this)(t, std::forward<Id>(id)); }, t);
+    return t;
+  }
 };
 } // namespace id_details_
 
