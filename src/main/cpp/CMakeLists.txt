@@ -33,7 +33,7 @@ endif()
 if (CDDD_WITH_DYNAMODB)
 
 conan_cmake_configure(REQUIRES zlib/1.2.13 aws-sdk-cpp/1.9.234
-                      OPTIONS "aws-sdk-cpp:dynamodb=True;aws-sdk-cpp:text-to-speech=False"
+                      OPTIONS "aws-sdk-cpp/*:dynamodb=True;aws-sdk-cpp/*:text-to-speech=False"
                       SETTINGS cppstd=20
                       GENERATORS cmake_find_package)
 
