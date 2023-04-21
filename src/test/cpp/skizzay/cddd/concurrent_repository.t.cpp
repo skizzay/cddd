@@ -2,7 +2,7 @@
 
 #include "skizzay/cddd/nullable.h"
 #include "skizzay/cddd/repository.h"
-#include <catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <type_traits>
 
 namespace {

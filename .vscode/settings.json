@@ -78,7 +78,7 @@
       "source_location": "cpp"
    },
    "cmake.configureSettings": {
-      "CMAKE_TOOLCHAIN_FILE": "/home/andrew/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      // "CMAKE_TOOLCHAIN_FILE": "build/src/main/cpp/conan_toolchain.cmake"
    },
    "C_Cpp.loggingLevel": "Debug",
    "C_Cpp.clang_format_path": "/usr/bin/clang-format-12",

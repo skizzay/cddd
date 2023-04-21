@@ -4,7 +4,8 @@
 #include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/timestamp.h"
 
-#include <catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators_random.hpp>
 #include <cstddef>
 #include <string>
 

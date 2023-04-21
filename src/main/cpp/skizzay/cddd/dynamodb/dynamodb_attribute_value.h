@@ -2,6 +2,7 @@
 
 #include "skizzay/cddd/dictionary.h"
 #include "skizzay/cddd/timestamp.h"
+
 #include <aws/core/utils/memory/stl/AWSMap.h>
 #include <aws/dynamodb/model/AttributeValue.h>
 #include <charconv>
@@ -12,53 +13,64 @@
 #include <type_traits>
 
 namespace skizzay::cddd::dynamodb {
+using record = Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>;
 
-inline Aws::DynamoDB::Model::AttributeValue attribute_value(bool const value) {
-  return Aws::DynamoDB::Model::AttributeValue{}.SetB(value);
-}
-
-inline Aws::DynamoDB::Model::AttributeValue
-attribute_value(std::integral auto const value) {
-  return Aws::DynamoDB::Model::AttributeValue{}.SetN(std::to_string(value));
-}
-
-inline Aws::DynamoDB::Model::AttributeValue
-attribute_value(std::string_view const value) {
-  return Aws::DynamoDB::Model::AttributeValue{}.SetS(
-      Aws::String{value.data(), value.size()});
-}
-
-inline Aws::DynamoDB::Model::AttributeValue
-attribute_value(std::floating_point auto const value) {
-  return Aws::DynamoDB::Model::AttributeValue{}.SetN(value);
-}
-
-template <typename T>
-requires std::is_constructible_v < Aws::DynamoDB::Model::AttributeValue,
-    std::remove_reference_t<T>
-const & > inline Aws::DynamoDB::Model::AttributeValue
-          attribute_value(T const &value) {
-  return Aws::DynamoDB::Model::AttributeValue{value};
-}
-
-inline Aws::DynamoDB::Model::AttributeValue
-attribute_value(concepts::timestamp auto const timestamp) {
-  std::array<char, 32> buffer;
-  std::size_t const n = std::snprintf(buffer.data(), buffer.size(), "%zd",
-                                      timestamp.time_since_epoch().count());
-  return Aws::DynamoDB::Model::AttributeValue{}.SetN(
-      Aws::String{buffer.data(), n});
-}
-
-inline Aws::DynamoDB::Model::AttributeValue attribute_value(
-    Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> subobject) {
-  Aws::DynamoDB::Model::AttributeValue result;
-  for (auto &[key, value] : subobject) {
-    result.AddMEntry(key,
-                     std::make_shared<Aws::DynamoDB::Model::AttributeValue>(
-                         std::move(value)));
+namespace attribute_value_details_ {
+struct attibute_value_fn final {
+  inline Aws::DynamoDB::Model::AttributeValue
+  operator()(bool const value) const {
+    return Aws::DynamoDB::Model::AttributeValue{}.SetB(value);
   }
-  return result;
+
+  inline Aws::DynamoDB::Model::AttributeValue
+  operator()(std::integral auto const value) const {
+    return Aws::DynamoDB::Model::AttributeValue{}.SetN(std::to_string(value));
+  }
+
+  inline Aws::DynamoDB::Model::AttributeValue
+  operator()(std::string_view const value) const {
+    return Aws::DynamoDB::Model::AttributeValue{}.SetS(
+        Aws::String{value.data(), value.size()});
+  }
+
+  inline Aws::DynamoDB::Model::AttributeValue
+  operator()(std::floating_point auto const value) const {
+    return Aws::DynamoDB::Model::AttributeValue{}.SetN(value);
+  }
+
+  template <typename T>
+  requires std::is_constructible_v < Aws::DynamoDB::Model::AttributeValue,
+      std::remove_reference_t<T>
+  const & > inline Aws::DynamoDB::Model::AttributeValue
+            operator()(T const &value) const {
+    return Aws::DynamoDB::Model::AttributeValue{value};
+  }
+
+  inline Aws::DynamoDB::Model::AttributeValue
+  operator()(concepts::timestamp auto const timestamp) const {
+    std::array<char, 32> buffer;
+    std::size_t const n = std::snprintf(buffer.data(), buffer.size(), "%zd",
+                                        timestamp.time_since_epoch().count());
+    return Aws::DynamoDB::Model::AttributeValue{}.SetN(
+        Aws::String{buffer.data(), n});
+  }
+
+  inline Aws::DynamoDB::Model::AttributeValue
+  operator()(record subobject) const {
+    Aws::DynamoDB::Model::AttributeValue result;
+    for (auto &[key, value] : std::move(subobject)) {
+      result.AddMEntry(std::move(key),
+                       std::make_shared<Aws::DynamoDB::Model::AttributeValue>(
+                           std::move(value)));
+    }
+    return result;
+  }
+};
+} // namespace attribute_value_details_
+
+inline namespace attribute_value_fn_ {
+inline constexpr attribute_value_details_::attibute_value_fn attribute_value =
+    {};
 }
 
 namespace safe_get_item_value_details_ {
@@ -104,14 +116,12 @@ private:
 inline constexpr safe_get_item_value_details_::fn safe_get_item_value = {};
 
 template <typename T>
-T get_value_from_item(
-    Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> const &item,
-    Aws::String const &key);
+T get_value_from_item(record const &item, Aws::String const &key);
 
 template <>
-inline Aws::String get_value_from_item<Aws::String>(
-    Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> const &item,
-    Aws::String const &key) noexcept(false) {
+inline Aws::String
+get_value_from_item<Aws::String>(record const &item,
+                                 Aws::String const &key) noexcept(false) {
   auto const attribute_iter = item.find(key);
   if (std::end(item) == attribute_iter) {
     throw std::invalid_argument{"Could not find attribute for '" + key + "'"};
@@ -121,9 +131,8 @@ inline Aws::String get_value_from_item<Aws::String>(
 }
 
 template <std::integral I>
-inline I get_value_from_item(
-    Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> const &item,
-    Aws::String const &key) noexcept(false) {
+inline I get_value_from_item(record const &item,
+                             Aws::String const &key) noexcept(false) {
   auto const str_value = safe_get_item_value(
       item, key, &Aws::DynamoDB::Model::AttributeValue::GetN);
   I return_value;
@@ -138,9 +147,8 @@ inline I get_value_from_item(
 }
 
 template <concepts::timestamp Timestamp>
-inline Timestamp get_value_from_item(
-    Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> const &item,
-    Aws::String const &key) noexcept(false) {
+inline Timestamp get_value_from_item(record const &item,
+                                     Aws::String const &key) noexcept(false) {
   return Timestamp{typename Timestamp::duration{
       get_value_from_item<typename Timestamp::duration::rep>(item, key)}};
 }
