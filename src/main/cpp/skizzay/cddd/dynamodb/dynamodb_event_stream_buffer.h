@@ -2,6 +2,8 @@
 
 #include "skizzay/cddd/event_stream_buffer.h"
 
+#include <aws/dynamodb/model/Put.h>
+
 namespace skizzay::cddd::dynamodb {
 template <std::copy_constructible Transform,
           typename Alloc = std::allocator<Aws::DynamoDB::Model::Put>>

@@ -24,10 +24,18 @@ struct transformer {
 inline constexpr auto create_event_stream_buffer = []() {
   return dynamodb::event_stream_buffer<transformer>{};
 };
+
+struct dispatcher {
+  void dispatch(
+      [[maybe_unused]] dynamodb::record const &encoded_event,
+      [[maybe_unused]] skizzay::cddd::concepts::aggregate_root_of<A, B, C> auto
+          &aggregate_root) const {}
+};
 } // namespace
 
 TEST_CASE("DynamoDB event store") {
-  dynamodb::event_store target{create_event_stream_buffer};
+  dynamodb::event_store target{dynamodb::event_log_config{}, dispatcher{},
+                               create_event_stream_buffer};
 
   SECTION("event stream buffer") {
     auto event_stream_buffer = skizzay::cddd::get_event_stream_buffer(target);

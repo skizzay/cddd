@@ -47,8 +47,8 @@ struct commit_events_fn final {
 
   template <typename T, concepts::identifier Id, std::signed_integral Version,
             concepts::event_stream_buffer EventStreamBuffer>
-  requires std::invocable<commit_events_fn const, T &, Id,
-                          std::make_unsigned_t<Version>, EventStreamBuffer>
+  // requires std::invocable<commit_events_fn const, T, std::remove_cvref_t<Id>,
+  //                         std::make_unsigned_t<Version>, EventStreamBuffer>
   constexpr void operator()(T t, Id id_value, Version const expected_version,
                             EventStreamBuffer buffer) const {
     (*this)(std::move_if_noexcept(t), std::move(id_value),

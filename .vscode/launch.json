@@ -1,0 +1,24 @@
+{
+   // Use IntelliSense to learn about possible attributes.
+   // Hover to view descriptions of existing attributes.
+   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+   "version": "0.2.0",
+   "configurations": [
+      {
+         "type": "cppdbg",
+         "request": "launch",
+         "name": "Open core file",
+         "program": "/home/andrew/Documents/cddd/build/src/test/cpp/cddd_unit_tests",
+         "coreDumpPath": "${input:coreFileName}",
+         "cwd": "${workspaceFolder}",
+         "MIMode": "gdb" // or gdb, if you are using gdb
+      }
+   ],
+    "inputs": [
+      {
+        "id": "coreFileName",
+        "type": "promptString",
+        "description": "Enter core file path"
+      }
+   ]
+}

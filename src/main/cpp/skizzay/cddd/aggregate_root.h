@@ -73,13 +73,26 @@ struct uncommitted_events_size_fn final {
     return std::ranges::size(dereference(t).uncommitted_events);
   }
 };
+
+template <typename...> struct aggregate_root_of_impl;
+
+template <typename T, concepts::domain_event DomainEvent>
+struct aggregate_root_of_impl<T, DomainEvent>
+    : can_apply_event<T, DomainEvent> {};
+
+template <typename T, concepts::domain_event... DomainEvents>
+requires(0 < sizeof...(DomainEvents)) struct aggregate_root_of_impl<
+    T, domain_event_sequence<DomainEvents...>>
+    : std::conjunction<aggregate_root_of_impl<T, DomainEvents>...> {
+};
+
 } // namespace aggregate_root_details_
 
 inline namespace aggregage_root_fn_ {
-inline constexpr aggregate_root_details_::uncommitted_events_fn
+inline constexpr skizzay::cddd::aggregate_root_details_::uncommitted_events_fn
     uncommitted_events = {};
-inline constexpr aggregate_root_details_::uncommitted_events_size_fn
-    uncommitted_events_size = {};
+inline constexpr skizzay::cddd::aggregate_root_details_::
+    uncommitted_events_size_fn uncommitted_events_size = {};
 } // namespace aggregage_root_fn_
 
 namespace concepts {
@@ -87,13 +100,13 @@ namespace concepts {
 template <typename T>
 concept aggregate_root = versioned<T> && identifiable<T>;
 
-template <typename T, typename DomainEvents>
+template <typename T, typename... DomainEvents>
 concept aggregate_root_of =
-    aggregate_root<T> && domain_event_sequence<DomainEvents> &&
-    (!DomainEvents::empty) &&
-    std::same_as<std::remove_cvref_t<id_t<T>>, id_t<DomainEvents>>
-        &&std::same_as<version_t<T>, version_t<DomainEvents>>
-            &&handler_for<T, DomainEvents>;
+    aggregate_root<T> &&
+    (aggregate_root_details_::aggregate_root_of_impl<T, DomainEvents>::value
+         &&...) &&
+    std::same_as<id_value_t<T>, id_value_t<DomainEvents...>>
+        &&std::same_as<version_t<T>, version_t<DomainEvents...>>;
 } // namespace concepts
 
 // template <typename Derived, concepts::domain_event DomainEvent>

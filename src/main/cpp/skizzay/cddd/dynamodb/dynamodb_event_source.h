@@ -1,20 +1,12 @@
 #pragma once
 
 #include "skizzay/cddd/aggregate_root.h"
-#include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/dynamodb/dynamodb_attribute_value.h"
-#include "skizzay/cddd/dynamodb/dynamodb_deser.h"
-#include "skizzay/cddd/dynamodb/dynamodb_event_dispatcher.h"
-#include "skizzay/cddd/dynamodb/dynamodb_event_log_config.h"
 #include "skizzay/cddd/dynamodb/dynamodb_operation_failed_error.h"
-#include "skizzay/cddd/factory.h"
 #include "skizzay/cddd/history_load_failed.h"
 #include "skizzay/cddd/version.h"
 
-#include <aws/dynamodb/DynamoDBClient.h>
 #include <aws/dynamodb/model/QueryRequest.h>
-#include <concepts>
-#include <type_traits>
 
 namespace skizzay::cddd::dynamodb {
 template <typename E>
@@ -101,12 +93,54 @@ namespace event_source_details_ {
 template <typename Store> struct impl {
   friend Store;
 
-  constexpr void
-  load_from_history(concepts::aggregate_root auto &aggregate_root,
-                    version_t<decltype(aggregate_root)> const) {}
+  void load_from_history(
+      concepts::aggregate_root auto &aggregate_root,
+      version_t<decltype(aggregate_root)> const target_version) const {
+    auto const outcome = store_->client().get_events(query_request(
+        id(aggregate_root), version(aggregate_root) + 1, target_version));
+    if (outcome.IsSuccess()) {
+      playback_events(outcome.GetResult().GetItems(), aggregate_root);
+    } else {
+      throw history_load_error{outcome.GetError()};
+    }
+  }
+
+  bool contains(concepts::identifier auto id_value) const { return false; }
 
 private:
   constexpr impl(Store &store) noexcept : store_{&store} {}
+
+  Aws::DynamoDB::Model::QueryRequest
+  query_request(concepts::identifier auto id_value,
+                concepts::version auto const begin_version,
+                decltype(begin_version) const target_version) const {
+    return Aws::DynamoDB::Model::QueryRequest{}
+        .WithTableName(store_->config().table().get())
+        .WithConsistentRead(true)
+        .WithKeyConditionExpression(store_->query_key_condition_expression())
+        .AddExpressionAttributeNames(
+            store_->config().hash_key().name_expression,
+            store_->config().hash_key().name)
+        .AddExpressionAttributeNames(
+            store_->config().sort_key().name_expression,
+            store_->config().sort_key().name)
+        .AddExpressionAttributeValues(
+            store_->config().hash_key().value_expression,
+            attribute_value(id_value))
+        .AddExpressionAttributeValues(
+            store_->config().sort_key().value_expression + "_min",
+            attribute_value(begin_version))
+        .AddExpressionAttributeValues(
+            store_->config().sort_key().value_expression + "_max",
+            attribute_value(target_version));
+  }
+
+  constexpr void playback_events(auto const &items,
+                                 auto &aggregate_root) const {
+    std::ranges::for_each(items, [this, &aggregate_root](record const &item) {
+      store_->event_dispatcher().dispatch(item, aggregate_root);
+    });
+  }
 
   Store *store_;
 };

@@ -134,6 +134,8 @@ requires(!concepts::identifiable<T>) && requires { typename T::id_type; }
 template <typename... Ts>
 using id_t = std::common_reference_t<typename id_details_::impl<Ts>::type...>;
 
+template <typename... Ts> using id_value_t = std::remove_cvref_t<id_t<Ts...>>;
+
 namespace concepts {
 template <typename T, typename Id>
 concept identifiable_by = identifiable<T> && identifier<Id> &&
