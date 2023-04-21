@@ -2,6 +2,7 @@
 
 #include "skizzay/cddd/commit_failed.h"
 #include "skizzay/cddd/dynamodb/dynamodb_attribute_value.h"
+#include "skizzay/cddd/dynamodb/dynamodb_event_log_config.h"
 #include "skizzay/cddd/dynamodb/dynamodb_operation_failed_error.h"
 #include "skizzay/cddd/dynamodb/dynamodb_ttl.h"
 #include "skizzay/cddd/event_stream_buffer.h"
@@ -28,8 +29,9 @@ inline constexpr std::size_t dynamodb_batch_size = 25;
 
 constexpr void add_standard_field(standard_field const &field,
                                   Aws::DynamoDB::Model::Put &put,
-                                  auto const &value) {
-  put.AddItem(field.name, attribute_value(value));
+                                  auto &&value) {
+  put.AddItem(field.name,
+              attribute_value(std::forward<decltype(value)>(value)));
 }
 
 constexpr void

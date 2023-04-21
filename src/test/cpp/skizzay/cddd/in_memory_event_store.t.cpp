@@ -3,7 +3,7 @@
 #include "fakes.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_store.h"
-#include <catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 using namespace skizzay::cddd;
 

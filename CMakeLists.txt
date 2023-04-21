@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.13.0)
 project(cddd VERSION 0.0.1)
 
 option(CDDD_BUILD_TESTS "Build tests" TRUE)
-option(CDDD_WITH_KAFKA "Add support for Kafka" TRUE)
 option(CDDD_WITH_DYNAMODB "Add support for DynamoDB" TRUE)
 
 SET(CMAKE_EXPORT_COMPILE_COMMANDS 1)

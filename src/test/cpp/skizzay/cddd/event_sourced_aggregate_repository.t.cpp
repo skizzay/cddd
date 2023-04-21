@@ -6,7 +6,7 @@
 #include "skizzay/cddd/in_memory/in_memory_event_store.h"
 #include "skizzay/cddd/repository.h"
 
-#include <catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <iostream>
 
 using namespace skizzay::cddd;

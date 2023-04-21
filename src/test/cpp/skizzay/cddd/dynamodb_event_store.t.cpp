@@ -6,6 +6,7 @@
 #include "skizzay/cddd/event_stream_buffer.h"
 
 #include "fakes.h"
+#include <aws/core/utils/crypto/Factories.h>
 
 using namespace skizzay::cddd;
 
@@ -34,6 +35,7 @@ struct dispatcher {
 } // namespace
 
 TEST_CASE("DynamoDB event store") {
+  Aws::Utils::Crypto::InitCrypto();
   dynamodb::event_store target{dynamodb::event_log_config{}, dispatcher{},
                                create_event_stream_buffer};
 
@@ -81,4 +83,5 @@ TEST_CASE("DynamoDB event store") {
                                    std::move(event_stream_buffer));
     }
   }
+  Aws::Utils::Crypto::CleanupCrypto();
 }

@@ -8,7 +8,7 @@
 #include <skizzay/cddd/timestamp.h>
 #include <type_traits>
 
-#include <catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 using namespace skizzay::cddd;
 

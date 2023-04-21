@@ -3,6 +3,7 @@
 #include "skizzay/cddd/dereference.h"
 #include <chrono>
 #include <type_traits>
+#include <variant>
 
 namespace skizzay::cddd {
 template <typename> struct is_time_point : std::false_type {};

@@ -117,6 +117,10 @@ struct impl {
     return *this;
   }
 
+  impl &with_ttl(std::chrono::seconds duration) {
+    return with_ttl("ttl", "#ttl", ":ttl", std::move(duration));
+  }
+
   impl &with_max_version_field(std::string name, std::string name_expression,
                                std::string value_expression) {
     standard_field new_value{std::move(name), std::move(name_expression),
