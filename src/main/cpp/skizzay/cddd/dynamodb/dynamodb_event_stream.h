@@ -4,7 +4,6 @@
 #include "skizzay/cddd/dynamodb/dynamodb_attribute_value.h"
 #include "skizzay/cddd/dynamodb/dynamodb_event_log_config.h"
 #include "skizzay/cddd/dynamodb/dynamodb_operation_failed_error.h"
-#include "skizzay/cddd/dynamodb/dynamodb_ttl.h"
 #include "skizzay/cddd/event_stream_buffer.h"
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/narrow_cast.h"
