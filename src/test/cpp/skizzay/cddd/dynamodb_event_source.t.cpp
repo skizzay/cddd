@@ -37,33 +37,13 @@ inline constexpr auto create_event_stream_buffer = []() -> buffer_type {
 };
 
 struct fake_dispatcher {
-  void decode(dynamodb::record const &encoded_event, std::string const &field,
-              concepts::timestamp auto &value) const {
-    std::istringstream iss{encoded_event.at(field).GetN()};
-    std::chrono::seconds::rep value_rep{};
-    iss >> value_rep;
-    value =
-        std::remove_cvref_t<decltype(value)>{std::chrono::seconds{value_rep}};
-  }
-
-  void decode(dynamodb::record const &encoded_event, std::string const &field,
-              concepts::version auto &value) const {
-    std::istringstream iss{encoded_event.at(field).GetN()};
-    iss >> value;
-  }
-
-  void decode(dynamodb::record const &encoded_event, std::string const &field,
-              std::string &value) const {
-    value = encoded_event.at(field).GetS();
-  }
-
   void dispatch(dynamodb::record const &encoded_event,
                 skizzay::cddd::concepts::aggregate_root_of<A> auto
                     &aggregate_root) const {
     A a;
-    decode(encoded_event, "hk", a.id);
-    decode(encoded_event, "sk", a.version);
-    decode(encoded_event, "t", a.timestamp);
+    dynamodb::get_item_or_default_value(encoded_event, "hk", a.id);
+    dynamodb::get_item_or_default_value(encoded_event, "sk", a.version);
+    dynamodb::get_item_or_default_value(encoded_event, "t", a.timestamp);
     skizzay::cddd::apply_event(aggregate_root, a);
   }
 };

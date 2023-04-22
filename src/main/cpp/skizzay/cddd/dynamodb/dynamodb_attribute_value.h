@@ -19,7 +19,7 @@ namespace attribute_value_details_ {
 struct attibute_value_fn final {
   inline Aws::DynamoDB::Model::AttributeValue
   operator()(bool const value) const {
-    return Aws::DynamoDB::Model::AttributeValue{}.SetB(value);
+    return Aws::DynamoDB::Model::AttributeValue{}.SetBool(value);
   }
 
   inline Aws::DynamoDB::Model::AttributeValue
@@ -113,44 +113,64 @@ private:
 };
 } // namespace safe_get_item_value_details_
 
+inline namespace safe_get_item_value_fn_ {
 inline constexpr safe_get_item_value_details_::fn safe_get_item_value = {};
-
-template <typename T>
-T get_value_from_item(record const &item, Aws::String const &key);
-
-template <>
-inline Aws::String
-get_value_from_item<Aws::String>(record const &item,
-                                 Aws::String const &key) noexcept(false) {
-  auto const attribute_iter = item.find(key);
-  if (std::end(item) == attribute_iter) {
-    throw std::invalid_argument{"Could not find attribute for '" + key + "'"};
-  } else {
-    return attribute_iter->second.GetS();
-  }
 }
 
-template <std::integral I>
-inline I get_value_from_item(record const &item,
-                             Aws::String const &key) noexcept(false) {
-  auto const str_value = safe_get_item_value(
-      item, key, &Aws::DynamoDB::Model::AttributeValue::GetN);
-  I return_value;
-  auto const result = std::from_chars(
-      str_value.data(), str_value.data() + str_value.size(), return_value);
-  auto const status = std::make_error_code(result.ec);
-  if (status) {
-    throw std::system_error{status};
-  } else {
-    return return_value;
+namespace get_item_or_default_value_details_ {
+struct get_item_or_default_value_fn final {
+  void operator()(record const &item, Aws::String const &key,
+                  Aws::String &value) const noexcept {
+    auto const attribute_iter = item.find(key);
+    if (std::end(item) != attribute_iter) {
+      value = attribute_iter->second.GetS();
+    }
   }
-}
 
-template <concepts::timestamp Timestamp>
-inline Timestamp get_value_from_item(record const &item,
-                                     Aws::String const &key) noexcept(false) {
-  return Timestamp{typename Timestamp::duration{
-      get_value_from_item<typename Timestamp::duration::rep>(item, key)}};
+  void operator()(record const &item, Aws::String const &key,
+                  std::integral auto &value) const noexcept(false) {
+    auto const attribute_iter = item.find(key);
+    if (std::end(item) != attribute_iter) {
+      auto const str_value = attribute_iter->second.GetN();
+      auto const result = std::from_chars(
+          str_value.data(), str_value.data() + str_value.size(), value);
+      auto const status = std::make_error_code(result.ec);
+      if (status) {
+        throw std::system_error{status};
+      }
+    }
+  }
+
+  void operator()(record const &item, Aws::String const &key,
+                  concepts::timestamp auto &value) const noexcept {
+    using Timestamp = std::remove_reference_t<decltype(value)>;
+    typename Timestamp::duration::rep duration_value{};
+    (*this)(item, key, duration_value);
+    value = Timestamp{typename Timestamp::duration{duration_value}};
+  }
+
+  void operator()(record const &item, Aws::String const &key,
+                  bool &value) const noexcept {
+    auto const attribute_iter = item.find(key);
+    if (std::end(item) != attribute_iter) {
+      value = attribute_iter->second.GetBool();
+    }
+  }
+
+  template <std::default_initializable T>
+  T from(record const &item, Aws::String const &key) const noexcept(
+      std::is_nothrow_invocable_v<get_item_or_default_value_fn const,
+                                  record const &, Aws::String const &, T &>) {
+    T result{};
+    (*this)(item, key, result);
+    return result;
+  }
+};
+} // namespace get_item_or_default_value_details_
+
+inline namespace get_item_or_default_value_fn_ {
+inline constexpr get_item_or_default_value_details_::
+    get_item_or_default_value_fn get_item_or_default_value = {};
 }
 
 } // namespace skizzay::cddd::dynamodb

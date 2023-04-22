@@ -54,10 +54,8 @@ template <typename Store> struct impl {
     auto const outcome = store_->client().get_item(head_request(id_value));
     if (outcome.IsSuccess()) {
       auto const &item = outcome.GetResult().GetItem();
-      auto const iter = item.find(store_->config().max_version_field().name);
-      return std::end(item) == iter
-                 ? Version{}
-                 : parse_version<Version>(iter->second.GetN());
+      return get_item_or_default_value.from<Version>(
+          item, store_->config().max_version_field().name);
     } else {
       throw history_load_error{outcome.GetError()};
     }
