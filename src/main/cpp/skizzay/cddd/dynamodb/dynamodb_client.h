@@ -4,6 +4,7 @@
 #include "skizzay/cddd/version.h"
 
 #include <aws/dynamodb/DynamoDBClient.h>
+#include <aws/dynamodb/model/GetItemResult.h>
 #include <aws/dynamodb/model/QueryResult.h>
 #include <aws/dynamodb/model/TransactWriteItem.h>
 #include <aws/dynamodb/model/TransactWriteItemsResult.h>
@@ -19,6 +20,11 @@ struct basic_client {
   Aws::DynamoDB::Model::QueryOutcome
   get_events([[maybe_unused]] Aws::DynamoDB::Model::QueryRequest &&request) {
     return Aws::DynamoDB::Model::QueryResult{};
+  }
+
+  Aws::DynamoDB::Model::GetItemOutcome
+  get_item([[maybe_unused]] Aws::DynamoDB::Model::GetItemRequest &&request) {
+    return Aws::DynamoDB::Model::GetItemResult{};
   }
 };
 } // namespace skizzay::cddd::dynamodb

@@ -32,7 +32,7 @@ inline constexpr auto create_event_stream_buffer = []() -> buffer_type {
 struct fake_client {
   Aws::DynamoDB::Model::TransactWriteItemsOutcome
   commit(Aws::DynamoDB::Model::TransactWriteItemsRequest &&request) {
-    requests.emplace_back(std::move(request));
+    event_requests.emplace_back(std::move(request));
     if (should_fail) {
       return Aws::DynamoDB::Model::TransactWriteItemsOutcome{};
     } else {
@@ -41,7 +41,7 @@ struct fake_client {
   }
 
   bool should_fail = false;
-  std::vector<Aws::DynamoDB::Model::TransactWriteItemsRequest> requests;
+  std::vector<Aws::DynamoDB::Model::TransactWriteItemsRequest> event_requests;
 };
 
 struct fake_store {
@@ -59,7 +59,10 @@ struct fake_store {
     return update_condition_expression_;
   }
 
-  dynamodb::event_log_config config_;
+  dynamodb::event_log_config config_ =
+      dynamodb::event_log_config{}
+          .with_table(dynamodb::table_name{"some_table"})
+          .with_ttl(week);
   fake_client client_;
   test::fake_clock clock_;
   std::string new_condition_expression_{"new_condition_expression"};
@@ -70,7 +73,6 @@ struct fake_store {
 TEST_CASE("DynamoDB Event Stream") {
   Aws::Utils::Crypto::InitCrypto();
   fake_store store;
-  store.config_.with_ttl(week);
 
   GIVEN("an event stream provided by its store") {
     skizzay::cddd::concepts::event_stream auto target =
@@ -86,7 +88,7 @@ TEST_CASE("DynamoDB Event Stream") {
                       std::move(empty_buffer));
 
         THEN("the buffer was not committed") {
-          REQUIRE(store.client().requests.empty());
+          REQUIRE(store.client().event_requests.empty());
         }
       }
     }
@@ -104,35 +106,56 @@ TEST_CASE("DynamoDB Event Stream") {
                       std::move(full_buffer));
 
         THEN("the buffer was committed") {
-          REQUIRE(1 == std::size(store.client().requests));
-          // 1 ConditionCheck, 2 Put
-          REQUIRE(3 == std::size(
-                           store.client().requests.front().GetTransactItems()));
+          REQUIRE(1 == std::size(store.client().event_requests));
+          // 1 Max Version Record, 2 Event Records
+          REQUIRE(
+              3 ==
+              std::size(
+                  store.client().event_requests.front().GetTransactItems()));
 
-          AND_THEN("each event in the buffer is versioned") {
+          AND_THEN("each put in the buffer is versioned") {
             auto const &version_key = store.config().sort_key();
-            for (auto const &[index, items] : views::enumerate(
-                     store.client().requests.front().GetTransactItems())) {
+            for (auto const &[index, items] :
+                 views::enumerate(store.client()
+                                      .event_requests.front()
+                                      .GetTransactItems())) {
               REQUIRE(items.GetPut().GetItem().at(version_key.name).GetN() ==
                       std::to_string(index));
             }
           }
 
-          AND_THEN("each event in the buffer is timestamped") {
+          AND_THEN("each put in the buffer is timestamped") {
             auto const &timestamp_field = store.config().timestamp_field();
             for (auto const &items :
-                 store.client().requests.front().GetTransactItems()) {
+                 store.client().event_requests.front().GetTransactItems()) {
               REQUIRE(items.GetPut().GetItem().at(timestamp_field.name) ==
                       dynamodb::attribute_value(store.clock().result));
             }
           }
 
-          AND_THEN("each event in the buffer has the same id") {
+          AND_THEN("each put in the buffer has the same id") {
             auto const &id_key = store.config().hash_key();
             for (auto const &items :
-                 store.client().requests.front().GetTransactItems()) {
+                 store.client().event_requests.front().GetTransactItems()) {
               REQUIRE(items.GetPut().GetItem().at(id_key.name) ==
                       dynamodb::attribute_value(id_value));
+            }
+          }
+
+          AND_THEN("each put in the buffer has the same time-to-live") {
+            auto const &ttl_field = *store.config().ttl_field();
+            for (auto const &items :
+                 store.client().event_requests.front().GetTransactItems()) {
+              REQUIRE(items.GetPut().GetItem().at(ttl_field.name) ==
+                      dynamodb::attribute_value(store.clock().result + week));
+            }
+          }
+
+          AND_THEN("each put in the buffer has the same table") {
+            auto const &table = store.config().table().get();
+            for (auto const &items :
+                 store.client().event_requests.front().GetTransactItems()) {
+              REQUIRE(items.GetPut().GetTableName() == table);
             }
           }
 
@@ -163,52 +186,3 @@ TEST_CASE("DynamoDB Event Stream") {
 
   Aws::Utils::Crypto::CleanupCrypto();
 }
-
-// SCENARIO("Events can be streamed to DynamoDB",
-//          "[unit][dynamodb][event_store]") {
-//   Aws::SDKOptions options;
-//   dynamodb::aws_sdk_raii aws_sdk{options};
-//   Aws::Client::ClientConfiguration client_configuration("default");
-//   client_configuration.endpointOverride = "http://localhost:4566";
-//   Aws::DynamoDB::DynamoDBClient client{client_configuration};
-//   std::string const target_id = "target_id_value";
-//   dynamodb::event_log_config const event_log_config{
-//       "hk",
-//       "sk",
-//       "ts",
-//       "type",
-//       "TestEventLog",
-//       "ttl",
-//       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::years{1})};
-//   fake_clock clock;
-
-//   dynamodb::event_log_table event_log_table{client, event_log_config};
-//   fake_serializer serializer;
-
-//   random_number_generator.next();
-//   GIVEN("a DynamoDB event stream") {
-//     using target_type =
-//         dynamodb::event_stream<fake_clock, test_event<1>, test_event<2>>;
-//     target_type target{target_id, serializer, event_log_config, client,
-//     clock};
-
-//     AND_GIVEN("events have been added") {
-//       int one_or_two = 1;
-//       for (std::size_t i = 0, num_events_to_add =
-//       random_number_generator.get();
-//            i != num_events_to_add; ++i) {
-//         if (1 == one_or_two) {
-//           skizzay::cddd::add_event(target, test_event<1>{});
-//           one_or_two = 2;
-//         } else {
-//           skizzay::cddd::add_event(target, test_event<2>{});
-//           one_or_two = 1;
-//         }
-//       }
-
-//       WHEN("events are committed") {
-//         skizzay::cddd::commit_events(target, std::size_t{0});
-//       }
-//     }
-//   }
-// }

@@ -19,7 +19,7 @@ target_sources(cddd_unit_tests PRIVATE
   # skizzay/cddd/dynamodb_version_service.t.cpp
   # skizzay/cddd/dynamodb_event_dispatcher.t.cpp
   skizzay/cddd/dynamodb_event_stream.t.cpp
-  # skizzay/cddd/dynamodb_event_source.t.cpp
+  skizzay/cddd/dynamodb_event_source.t.cpp
   skizzay/cddd/dynamodb_event_store.t.cpp
   skizzay/cddd/in_memory_event_stream.t.cpp
   skizzay/cddd/in_memory_event_source.t.cpp

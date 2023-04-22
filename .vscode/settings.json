@@ -75,7 +75,8 @@
       "charconv": "cpp",
       "complex": "cpp",
       "coroutine": "cpp",
-      "source_location": "cpp"
+      "source_location": "cpp",
+      "cinttypes": "cpp"
    },
    "cmake.configureSettings": {
       // "CMAKE_TOOLCHAIN_FILE": "build/src/main/cpp/conan_toolchain.cmake"

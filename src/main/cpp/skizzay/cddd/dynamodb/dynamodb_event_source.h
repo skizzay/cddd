@@ -3,9 +3,11 @@
 #include "skizzay/cddd/aggregate_root.h"
 #include "skizzay/cddd/dynamodb/dynamodb_attribute_value.h"
 #include "skizzay/cddd/dynamodb/dynamodb_operation_failed_error.h"
+#include "skizzay/cddd/dynamodb/dynamodb_version_validation_error.h"
 #include "skizzay/cddd/history_load_failed.h"
 #include "skizzay/cddd/version.h"
 
+#include <aws/dynamodb/model/GetItemRequest.h>
 #include <aws/dynamodb/model/QueryRequest.h>
 
 namespace skizzay::cddd::dynamodb {
@@ -13,82 +15,20 @@ template <typename E>
 using history_load_error = operation_failed_error<history_load_failed, E>;
 
 namespace event_source_details_ {
-// template <concepts::domain_event... DomainEvents> struct impl {
-//   template <
-//       typename GetRequest =
-//       default_factory<Aws::DynamoDB::Model::QueryRequest>>
-//   explicit impl(event_dispatcher<DomainEvents...> &dispatcher,
-//                 event_log_config const &config,
-//                 Aws::DynamoDB::DynamoDBClient &client,
-//                 GetRequest get_request = {})
-//       : event_dispatcher_{dispatcher}, config_{config}, client_{client},
-//         get_request_{std::move_if_noexcept(get_request)} {}
-
-//   void
-//   load_from_history(concepts::aggregate_root<DomainEvents...> auto
-//   &aggregate,
-//                     version_t<decltype(aggregate)> const target_version) {
-//     auto const outcome = client_.Query(
-//         query_request(id(aggregate), version(aggregate) + 1,
-//         target_version));
-//     if (outcome.IsSuccess()) {
-//       playback_events(outcome.GetResult().GetItems(), aggregate);
-//     } else {
-//       throw history_load_error{outcome.GetError()};
-//     }
-//   }
-
-// private:
-//   Aws::DynamoDB::Model::QueryRequest
-//   query_request(id_t<DomainEvents...> id,
-//                 version_t<DomainEvents...> const begin_version,
-//                 version_t<DomainEvents...> const target_version) {
-//     return get_request_()
-//         .WithTableName(config_.table_name())
-//         .WithConsistentRead(true)
-//         .WithKeyConditionExpression(
-//             "(#pk = :pk) AND (#sk BETWEEN :sk_min AND :sk_max)")
-//         .WithExpressionAttributeNames(make_expression_attribute_names())
-//         .WithExpressionAttributeValues(make_expression_attribute_values(
-//             id, begin_version, target_version));
-//   }
-
-//   void playback_events(auto const &items, auto &aggregate) {
-//     std::ranges::for_each(
-//         items, [visitor = as_event_visitor<DomainEvents...>(aggregate),
-//                 this](auto const &item) mutable {
-//           event_dispatcher_.dispatch(item, visitor);
-//         });
-//   }
-
-//   Aws::Map<Aws::String, Aws::String> make_expression_attribute_names() const
-//   {
-//     return {{"#pk", config_.key_name()}, {"#sk", config_.version_name()}};
-//   }
-
-//   Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue>
-//   make_expression_attribute_values(
-//       auto const &id, std::unsigned_integral auto const min_version,
-//       decltype(min_version) const max_version) const {
-//     return {{":pk", attribute_value(id)},
-//             {":sk_min", attribute_value(min_version)},
-//             {":sk_max", attribute_value(max_version)}};
-//   }
-
-//   event_dispatcher<DomainEvents...> &event_dispatcher_;
-//   event_log_config const &config_;
-//   Aws::DynamoDB::DynamoDBClient &client_;
-//   std::function<Aws::DynamoDB::Model::QueryRequest()> get_request_;
-// };
-
-// template <typename GetRequest, concepts::domain_event... DomainEvents>
-// impl(event_dispatcher<DomainEvents...> &, event_log_config const &,
-//      Aws::DynamoDB::DynamoDBClient &, GetRequest &&) ->
-//      impl<DomainEvents...>;
-
-// template <typename GetRequest, concepts::domain_event... DomainEvents>
-// impl(event_dispatcher<DomainEvents...> &, event_log_config const &,
-//      Aws::DynamoDB::DynamoDBClient &) -> impl<DomainEvents...>;
+template <concepts::version Version>
+constexpr Version parse_version(std::string const &version_string) {
+  Version parsed_value = std::numeric_limits<Version>::max();
+  auto const parse_result = std::from_chars(
+      version_string.data(), version_string.data() + version_string.size(),
+      parsed_value);
+  std::error_code const result_code = std::make_error_code(parse_result.ec);
+  if (result_code) {
+    throw version_validation_error{
+        result_code, "Cannot parse valid version from : " + version_string};
+  } else {
+    return parsed_value;
+  }
+}
 
 template <typename Store> struct impl {
   friend Store;
@@ -105,10 +45,40 @@ template <typename Store> struct impl {
     }
   }
 
-  bool contains(concepts::identifier auto id_value) const { return false; }
+  bool contains(concepts::identifier auto id_value) const {
+    return head(id_value) > std::uintmax_t{};
+  }
+
+  template <concepts::version Version = std::uintmax_t>
+  Version head(concepts::identifier auto id_value) const {
+    auto const outcome = store_->client().get_item(head_request(id_value));
+    if (outcome.IsSuccess()) {
+      auto const &item = outcome.GetResult().GetItem();
+      auto const iter = item.find(store_->config().max_version_field().name);
+      return std::end(item) == iter
+                 ? Version{}
+                 : parse_version<Version>(iter->second.GetN());
+    } else {
+      throw history_load_error{outcome.GetError()};
+    }
+  }
 
 private:
   constexpr impl(Store &store) noexcept : store_{&store} {}
+
+  Aws::DynamoDB::Model::GetItemRequest
+  head_request(concepts::identifier auto id_value) const {
+    return Aws::DynamoDB::Model::GetItemRequest{}
+        .WithTableName(store_->config().table().get())
+        .WithConsistentRead(false)
+        .AddKey(store_->config().hash_key().name, attribute_value(id_value))
+        .AddKey(store_->config().sort_key().name, attribute_value(0))
+        .WithProjectionExpression(
+            store_->config().max_version_field().name_expression)
+        .AddExpressionAttributeNames(
+            store_->config().max_version_field().name_expression,
+            store_->config().max_version_field().name);
+  }
 
   Aws::DynamoDB::Model::QueryRequest
   query_request(concepts::identifier auto id_value,

@@ -345,7 +345,12 @@ template <typename Store> struct impl {
   }
 
   constexpr void rollback_to(concepts::identifier auto const &,
-                             concepts::version auto const) {}
+                             concepts::version auto const) {
+    // TODO: Query max version record.  If max version record is greater than
+    // target version, then delete all records with version greater than target
+    // version.  If the target version is zero, then also delete the max version
+    // record.
+  }
 
 private:
   constexpr impl(Store &store) noexcept : store_{&store} {}

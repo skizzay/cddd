@@ -1,145 +1,239 @@
 #include <skizzay/cddd/dynamodb/dynamodb_event_source.h>
 
-#include "skizzay/cddd/dynamodb/aws_sdk_raii.h"
-#include "skizzay/cddd/dynamodb/dynamodb_event_log_table.h"
-#include "skizzay/cddd/dynamodb/dynamodb_event_stream.h"
+#include "skizzay/cddd/dynamodb/dynamodb_event_log_config.h"
+#include "skizzay/cddd/dynamodb/dynamodb_event_stream_buffer.h"
+#include "skizzay/cddd/event_sourced.h"
 
-#include <catch.hpp>
+#include "fakes.h"
+#include <aws/dynamodb/DynamoDBClient.h>
 
 using namespace skizzay::cddd;
 
 namespace {
-struct fake_clock {
-  std::chrono::system_clock::time_point now() noexcept {
-    return result = skizzay::cddd::now(system_clock);
-  }
-
-  [[no_unique_address]] std::chrono::system_clock system_clock;
-  std::chrono::system_clock::time_point result =
-      skizzay::cddd::now(system_clock);
-};
+using A = test::fake_event<1>;
+using B = test::fake_event<2>;
+using C = test::fake_event<3>;
 
 template <std::size_t N>
-struct test_event : basic_domain_event<test_event<N>, std::string, std::size_t,
-                                       timestamp_t<fake_clock>> {
-  static test_event<N> from_item(
-      Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> const &item) {
-    test_event<N> result;
-    set_id(result, dynamodb::get_value_from_item<std::string>(item, "hk"));
-    set_timestamp(
-        result,
-        dynamodb::get_value_from_item<timestamp_t<fake_clock>>(item, "ts"));
-    set_version(result, dynamodb::get_value_from_item<std::size_t>(item, "sk"));
-    return result;
+dynamodb::record make_record(test::fake_event<N> const &event) {
+  dynamodb::record record{};
+  record["hk"] = dynamodb::attribute_value(event.id);
+  record["sk"] = dynamodb::attribute_value(event.version);
+  record["t"] = dynamodb::attribute_value(event.timestamp);
+  record["type"] = dynamodb::attribute_value(N);
+  return record;
+}
+
+struct transformer {
+  template <std::size_t N>
+  Aws::DynamoDB::Model::Put operator()(test::fake_event<N> const &event) const {
+    return Aws::DynamoDB::Model::Put{}.WithItem(make_record(event));
+  }
+};
+using buffer_type = dynamodb::event_stream_buffer<transformer>;
+
+inline constexpr auto create_event_stream_buffer = []() -> buffer_type {
+  return buffer_type{};
+};
+
+struct fake_dispatcher {
+  void decode(dynamodb::record const &encoded_event, std::string const &field,
+              concepts::timestamp auto &value) const {
+    std::istringstream iss{encoded_event.at(field).GetN()};
+    std::chrono::seconds::rep value_rep{};
+    iss >> value_rep;
+    value =
+        std::remove_cvref_t<decltype(value)>{std::chrono::seconds{value_rep}};
+  }
+
+  void decode(dynamodb::record const &encoded_event, std::string const &field,
+              concepts::version auto &value) const {
+    std::istringstream iss{encoded_event.at(field).GetN()};
+    iss >> value;
+  }
+
+  void decode(dynamodb::record const &encoded_event, std::string const &field,
+              std::string &value) const {
+    value = encoded_event.at(field).GetS();
+  }
+
+  void dispatch(dynamodb::record const &encoded_event,
+                skizzay::cddd::concepts::aggregate_root_of<A> auto
+                    &aggregate_root) const {
+    A a;
+    decode(encoded_event, "hk", a.id);
+    decode(encoded_event, "sk", a.version);
+    decode(encoded_event, "t", a.timestamp);
+    skizzay::cddd::apply_event(aggregate_root, a);
   }
 };
 
-struct fake_aggregate final {
-  explicit fake_aggregate(std::string id) : id_{std::move(id)} {}
-
-  std::string const &id() const noexcept { return id_; }
-  std::size_t version() const noexcept { return version_; }
-  timestamp_t<fake_clock> timestamp() const noexcept { return timestamp_; }
-
-  template <std::size_t N> void apply(test_event<N> const &event) {
-    CHECK(skizzay::cddd::id(event) == skizzay::cddd::id(*this));
-    this->version_ = skizzay::cddd::version(event);
-    this->timestamp_ = skizzay::cddd::timestamp(event);
-    ++number_of_events_seen;
+struct fake_client {
+  Aws::DynamoDB::Model::QueryOutcome
+  get_events(Aws::DynamoDB::Model::QueryRequest &&request) {
+    event_requests.emplace_back(std::move(request));
+    if (should_fail) {
+      return Aws::DynamoDB::Model::QueryOutcome{};
+    } else {
+      return expected_event_result;
+    }
   }
 
-  std::string id_;
-  std::size_t version_ = 0;
-  timestamp_t<fake_clock> timestamp_;
-  std::size_t number_of_events_seen = 0;
+  Aws::DynamoDB::Model::GetItemOutcome
+  get_item(Aws::DynamoDB::Model::GetItemRequest &&request) {
+    item_requests.emplace_back(std::move(request));
+    if (should_fail) {
+      return Aws::DynamoDB::Model::GetItemOutcome{};
+    } else {
+      return expected_item_result;
+    }
+  }
+
+  std::vector<Aws::DynamoDB::Model::QueryRequest> event_requests;
+  Aws::DynamoDB::Model::QueryResult expected_event_result;
+  std::vector<Aws::DynamoDB::Model::GetItemRequest> item_requests;
+  Aws::DynamoDB::Model::GetItemResult expected_item_result;
+  bool should_fail = false;
 };
 
-struct fake_serializer : dynamodb::serializer<test_event<1>, test_event<2>> {
-  Aws::DynamoDB::Model::Put serialize(test_event<1> &&) const override {
-    return {};
+struct fake_store {
+  dynamodb::event_source<fake_store> get_event_source() const noexcept {
+    return dynamodb::event_source<fake_store>{*const_cast<fake_store *>(this)};
   }
-  std::string_view
-  message_type(event_type<test_event<1>> const) const noexcept override {
-    return "test event 1";
+  dynamodb::event_log_config const &config() const noexcept { return config_; }
+  fake_client &client() noexcept { return client_; }
+  test::fake_clock &clock() noexcept { return clock_; }
+  fake_dispatcher &event_dispatcher() noexcept { return dispatcher_; }
+  std::string const &query_key_condition_expression() const noexcept {
+    return query_key_condition_expression_;
   }
 
-  Aws::DynamoDB::Model::Put serialize(test_event<2> &&) const override {
-    return {};
+  void add_event_to_expected_result(test::fake_event<1> const &event) {
+    client_.expected_event_result.AddItems(make_record(event));
+    dynamodb::record max_version_record{};
+    max_version_record["hk"] = dynamodb::attribute_value(event.id);
+    max_version_record["sk"] = dynamodb::attribute_value(0);
+    max_version_record["t"] = dynamodb::attribute_value(event.timestamp);
+    max_version_record[config().max_version_field().name] =
+        dynamodb::attribute_value(event.version);
+    client_.expected_item_result.SetItem(std::move(max_version_record));
   }
-  std::string_view
-  message_type(event_type<test_event<2>> const) const noexcept override {
-    return "test event 2";
-  }
+
+  dynamodb::event_log_config config_ = dynamodb::event_log_config{}.with_table(
+      dynamodb::table_name{"some_table"});
+  fake_client client_;
+  test::fake_clock clock_;
+  fake_dispatcher dispatcher_;
+  std::string query_key_condition_expression_{"query key condition expression"};
 };
-
-inline auto random_number_generator =
-    Catch::Generators::random(std::size_t{1}, std::size_t{50});
-
 } // namespace
 
-SCENARIO("Aggregates can be loaded from a DynamoDB event source",
-         "[unit][dynamodb][event_store]") {
-  dynamodb::event_log_config const event_log_config{
-      "hk",
-      "sk",
-      "ts",
-      "type",
-      "TestEventLog",
-      "ttl",
-      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::years{1})};
-  Aws::SDKOptions options;
-  dynamodb::aws_sdk_raii aws_sdk{options};
-  Aws::Client::ClientConfiguration client_configuration("default");
-  client_configuration.endpointOverride = "http://localhost:4566";
-  Aws::DynamoDB::DynamoDBClient client{client_configuration};
-  dynamodb::event_log_table event_log_table{client, event_log_config};
-  dynamodb::event_dispatcher<test_event<1>, test_event<2>> event_dispatcher{
-      event_log_config};
-  fake_clock clock;
-  std::string aggregate_id = "abcd";
-  fake_aggregate aggregate{aggregate_id};
+TEST_CASE("DynamoDB Event Source") {
+  fake_store store;
+  test::fake_aggregate<buffer_type> aggregate_root;
 
-  event_dispatcher.register_translator("test event 1",
-                                       test_event<1>::from_item);
-  event_dispatcher.register_translator("test event 2",
-                                       test_event<2>::from_item);
-  random_number_generator.next();
+  GIVEN("an event source provided by its store") {
+    auto target = store.get_event_source();
 
-  GIVEN("a DynamoDB event source") {
-    dynamodb::event_source target{event_dispatcher, event_log_config, client};
+    REQUIRE(skizzay::cddd::concepts::event_source<decltype(target)>);
 
-    WHEN("an aggregate is loaded from history") {
-      skizzay::cddd::load_from_history(target, aggregate);
+    THEN("the source does not contain any events") {
+      REQUIRE_FALSE(target.contains("some id"));
+    }
 
-      THEN("no events have been applied to the aggregate") {
-        CHECK(0 == aggregate.number_of_events_seen);
+    WHEN("loading an aggregate from history") {
+      skizzay::cddd::load_from_history(target, aggregate_root);
+
+      THEN("nothing was loaded into the aggregate") {
+        REQUIRE(0 == skizzay::cddd::version(aggregate_root));
       }
     }
 
-    AND_GIVEN("there are events on the stream") {
-      fake_serializer serializer;
-      dynamodb::event_stream<fake_clock, test_event<1>, test_event<2>>
-          event_stream{aggregate_id, serializer, event_log_config, client,
-                       clock};
-      std::size_t const num_events_to_add = random_number_generator.get();
-      int one_or_two = 1;
-      for (std::size_t i = 0; i != num_events_to_add; ++i) {
-        if (1 == one_or_two) {
-          skizzay::cddd::add_event(event_stream, test_event<1>{});
-          one_or_two = 2;
-        } else {
-          skizzay::cddd::add_event(event_stream, test_event<2>{});
-          one_or_two = 1;
+    WHEN("loading an aggregate from history") {
+      skizzay::cddd::load_from_history(target, aggregate_root);
+
+      THEN("nothing was loaded into the aggregate") {
+        REQUIRE(0 == skizzay::cddd::version(aggregate_root));
+      }
+    }
+
+    AND_GIVEN("events in the store") {
+      std::string const id_value = "some id";
+      std::size_t const starting_version = test::random_number_generator.next();
+      std::size_t const num_events_to_load =
+          test::random_number_generator.next();
+      std::size_t const target_version = starting_version + num_events_to_load;
+      aggregate_root.id = id_value;
+      aggregate_root.version = starting_version;
+      concepts::timestamp auto const timestamp =
+          skizzay::cddd::now(store.clock());
+      aggregate_root.id = id_value;
+      aggregate_root.version = starting_version;
+      std::ranges::for_each(
+          std::ranges::views::iota(starting_version, target_version + 1),
+          [&](std::size_t const event_version) {
+            test::fake_event<1> event;
+            event.id = id_value;
+            event.version = event_version;
+            event.timestamp = timestamp;
+            store.add_event_to_expected_result(event);
+          });
+
+      THEN("the source does contains events") {
+        REQUIRE(target.contains(id_value));
+      }
+
+      WHEN("loading an aggregate from history") {
+        skizzay::cddd::load_from_history(target, aggregate_root,
+                                         target_version);
+        THEN("events were loaded starting where the aggregate root left off") {
+          REQUIRE(skizzay::cddd::version(aggregate_root) == target_version);
         }
       }
-      skizzay::cddd::commit_events(event_stream, std::size_t{0});
 
-      WHEN("an aggregate is loaded from history") {
-        skizzay::cddd::load_from_history(target, aggregate);
+      WHEN("querying for head version") {
+        concepts::version auto const actual_head_version =
+            target.head<version_t<decltype(aggregate_root)>>(aggregate_root.id);
 
-        THEN("the events have been applied to the aggregate") {
-          CHECK(num_events_to_add == aggregate.number_of_events_seen);
-          CHECK(num_events_to_add == skizzay::cddd::version(aggregate));
+        THEN("the head version is returned") {
+          REQUIRE(actual_head_version == target_version);
+        }
+      }
+    }
+
+    AND_GIVEN("DynamoDB is in a bad state") {
+      store.client().should_fail = true;
+
+      WHEN("loading an aggregate from history") {
+        bool caught_expection = false;
+        try {
+          skizzay::cddd::load_from_history(target, aggregate_root);
+        } catch (
+            dynamodb::history_load_error<Aws::DynamoDB::DynamoDBError> const
+                &) {
+          caught_expection = true;
+        } catch (...) {
+        }
+
+        THEN("a history_load_error exception is thrown") {
+          REQUIRE(caught_expection);
+        }
+      }
+
+      WHEN("querying for head version") {
+        bool caught_expection = false;
+        try {
+          [[maybe_unused]] concepts::version auto head_version =
+              target.head(aggregate_root.id);
+        } catch (
+            dynamodb::history_load_error<Aws::DynamoDB::DynamoDBError> const
+                &) {
+          caught_expection = true;
+        } catch (...) {
+        }
+
+        THEN("a history_load_error exception is thrown") {
+          REQUIRE(caught_expection);
         }
       }
     }
