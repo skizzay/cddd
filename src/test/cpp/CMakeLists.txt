@@ -33,11 +33,21 @@ target_compile_definitions(cddd_unit_tests PUBLIC AWS_CUSTOM_MEMORY_MANAGEMENT)
 target_link_libraries(cddd_unit_tests PRIVATE cddd Catch2::Catch2 Catch2::Catch2WithMain cddd_dynamodb)
 set_property(TARGET cddd_unit_tests PROPERTY CXX_STANDARD 20)
 
+add_executable(cddd_integration_tests
+)
+target_sources(cddd_integration_tests PRIVATE
+  skizzay/cddd/dynamodb_client.t.cpp
+)
+target_compile_definitions(cddd_integration_tests PUBLIC AWS_CUSTOM_MEMORY_MANAGEMENT)
+target_link_libraries(cddd_integration_tests PRIVATE cddd Catch2::Catch2 Catch2::Catch2WithMain cddd_dynamodb)
+set_property(TARGET cddd_integration_tests PROPERTY CXX_STANDARD 20)
+
 
 
 include(CTest)
 include(Catch)
 catch_discover_tests(cddd_unit_tests)
+catch_discover_tests(cddd_integration_tests)
 
 
 if(CMAKE_COMPILER_IS_GNUCXX)

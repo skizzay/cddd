@@ -32,12 +32,29 @@ struct dispatcher {
       [[maybe_unused]] skizzay::cddd::concepts::aggregate_root_of<A, B, C> auto
           &aggregate_root) const {}
 };
+
+struct fake_client {
+  Aws::DynamoDB::Model::TransactWriteItemsOutcome
+  commit(Aws::DynamoDB::Model::TransactWriteItemsRequest &&) {
+    return Aws::DynamoDB::Model::TransactWriteItemsResult{};
+  }
+
+  Aws::DynamoDB::Model::QueryOutcome
+  get_items(Aws::DynamoDB::Model::QueryRequest &&) {
+    return Aws::DynamoDB::Model::QueryResult{};
+  }
+
+  Aws::DynamoDB::Model::GetItemOutcome
+  get_item(Aws::DynamoDB::Model::GetItemRequest &&) {
+    return Aws::DynamoDB::Model::GetItemResult{};
+  }
+};
 } // namespace
 
 TEST_CASE("DynamoDB event store") {
   Aws::Utils::Crypto::InitCrypto();
   dynamodb::event_store target{dynamodb::event_log_config{}, dispatcher{},
-                               create_event_stream_buffer};
+                               create_event_stream_buffer, fake_client{}};
 
   SECTION("event stream buffer") {
     auto event_stream_buffer = skizzay::cddd::get_event_stream_buffer(target);
@@ -46,8 +63,8 @@ TEST_CASE("DynamoDB event store") {
     REQUIRE(std::empty(event_stream_buffer));
 
     SECTION("add events to the buffer") {
-      skizzay::cddd::add_event(event_stream_buffer, test::fake_event<2>{});
-      skizzay::cddd::add_event(event_stream_buffer, test::fake_event<1>{});
+      skizzay::cddd::add_event(event_stream_buffer, B{});
+      skizzay::cddd::add_event(event_stream_buffer, A{});
 
       REQUIRE(2 == std::size(event_stream_buffer));
 
@@ -78,7 +95,7 @@ TEST_CASE("DynamoDB event store") {
     SECTION("committing event buffers") {
       auto event_stream_buffer = get_event_stream_buffer(target);
       std::string id_value = "test_id";
-      skizzay::cddd::add_event(event_stream_buffer, test::fake_event<1>{});
+      skizzay::cddd::add_event(event_stream_buffer, A{});
       skizzay::cddd::commit_events(event_stream, std::move(id_value), 0,
                                    std::move(event_stream_buffer));
     }

@@ -35,7 +35,7 @@ requires is_dynamodb_event_stream_buffer_factory_v<
 struct impl {
   constexpr impl(event_log_config config, EventDispatcher event_dispatcher,
                  EventStreamBufferFactory create_event_stream_buffer = {},
-                 Client client = {}, Clock clock = {})
+                 Client client = Client{}, Clock clock = {})
       : config_{std::move(config)}, client_{std::move_if_noexcept(client)},
         event_dispatcher_{std::move(event_dispatcher)},
         new_condition_expression_{"attribute_not_exists(" +

@@ -36,7 +36,7 @@ template <typename Store> struct impl {
   void load_from_history(
       concepts::aggregate_root auto &aggregate_root,
       version_t<decltype(aggregate_root)> const target_version) const {
-    auto const outcome = store_->client().get_events(query_request(
+    auto const outcome = store_->client().get_items(query_request(
         id(aggregate_root), version(aggregate_root) + 1, target_version));
     if (outcome.IsSuccess()) {
       playback_events(outcome.GetResult().GetItems(), aggregate_root);

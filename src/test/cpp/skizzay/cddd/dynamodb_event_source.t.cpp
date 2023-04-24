@@ -50,7 +50,7 @@ struct fake_dispatcher {
 
 struct fake_client {
   Aws::DynamoDB::Model::QueryOutcome
-  get_events(Aws::DynamoDB::Model::QueryRequest &&request) {
+  get_items(Aws::DynamoDB::Model::QueryRequest &&request) {
     event_requests.emplace_back(std::move(request));
     if (should_fail) {
       return Aws::DynamoDB::Model::QueryOutcome{};
