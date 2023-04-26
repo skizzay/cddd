@@ -23,7 +23,17 @@ set_target_properties(cddd_dynamodb PROPERTIES
    LINKER_LANGUAGE CXX
 )
 target_sources(cddd_dynamodb INTERFACE
-   dynamodb_event_store.h)
+   dynamodb_attribute_value.h
+   dynamodb_client.h
+   dynamodb_clock.h
+   dynamodb_event_log_config.h
+   dynamodb_event_source.h
+   dynamodb_event_store.h
+   dynamodb_event_stream_buffer.h
+   dynamodb_event_stream.h
+   dynamodb_operation_failed_error.h
+   dynamodb_version_validation_error.h
+)
 target_include_directories(cddd_dynamodb INTERFACE
    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/main
    $<INSTALL_INTERFACE:include/skizzay/cddd/dynamodb>
