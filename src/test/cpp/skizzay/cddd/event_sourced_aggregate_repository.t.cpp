@@ -44,21 +44,21 @@ SCENARIO("Event-sourced aggregate repository", "[unit][repository]") {
       }
 
       THEN("the uncommitted event buffer is empty") {
-        REQUIRE(std::ranges::empty(aggregate.uncommitted_events));
+        REQUIRE(std::ranges::empty(aggregate.uncommitted_events()));
       }
 
       AND_WHEN("events are applied to the aggregate") {
-        auto const apply_and_buffer = [&](auto &&event) {
-          skizzay::cddd::apply_event(
-              aggregate,
-              static_cast<std::remove_reference_t<decltype(event)> const &>(
-                  event));
-          skizzay::cddd::add_event(aggregate.uncommitted_events,
-                                   std::move(event));
-        };
-        apply_and_buffer(test::fake_event<1>{id_value, 1});
-        apply_and_buffer(test::fake_event<2>{id_value, 2});
-        apply_and_buffer(test::fake_event<3>{id_value, 3});
+        aggregate.apply_and_add_event(test::fake_event<1>{id_value, 1});
+        aggregate.apply_and_add_event(test::fake_event<2>{id_value, 2});
+        aggregate.apply_and_add_event(test::fake_event<3>{id_value, 3});
+
+        THEN("the aggregate was updated") {
+          REQUIRE(3 == skizzay::cddd::version(aggregate));
+        }
+
+        THEN("the uncommitted event buffer is not empty") {
+          REQUIRE(!std::ranges::empty(aggregate.uncommitted_events()));
+        }
 
         AND_WHEN("the aggregate is put into the repository") {
           skizzay::cddd::put(target, std::move(aggregate));
@@ -75,7 +75,7 @@ SCENARIO("Event-sourced aggregate repository", "[unit][repository]") {
             }
 
             THEN("the uncommitted event buffer is empty") {
-              REQUIRE(std::ranges::empty(aggregate.uncommitted_events));
+              REQUIRE(std::ranges::empty(aggregate.uncommitted_events()));
             }
           }
         }

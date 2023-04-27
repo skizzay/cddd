@@ -145,6 +145,8 @@ struct mapped_event_stream_buffer
     buffer_.emplace_back(std::invoke(transform_, std::move(domain_event)));
   }
 
+  constexpr void emplace_back(Value &&value) { buffer_.emplace_back(value); }
+
   template <concepts::domain_event DomainEvent>
   requires std::invocable<Transform, DomainEvent const &> &&
       std::constructible_from<
@@ -152,6 +154,8 @@ struct mapped_event_stream_buffer
   constexpr void push_back(DomainEvent const &domain_event) {
     buffer_.emplace_back(std::invoke(transform_, domain_event));
   }
+
+  constexpr void push_back(Value const &value) { buffer_.push_back(value); }
 
 private:
   std::vector<Value, Alloc> buffer_;

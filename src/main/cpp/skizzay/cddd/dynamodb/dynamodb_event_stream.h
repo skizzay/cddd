@@ -85,15 +85,11 @@ template <typename Store> struct impl {
           expected_version, std::ranges::size(event_stream_buffer), timestamp,
           id_value);
       auto puts_with_commit_info =
-          views::enumerate(event_stream_buffer) |
-          views::transform(
-              [&](std::tuple<std::size_t, Aws::DynamoDB::Model::Put &>
-                      index_and_put) {
-                add_commit_info(id_value, expected_version, timestamp,
-                                std::get<0>(index_and_put),
-                                std::get<1>(index_and_put));
-                return std::get<1>(index_and_put);
-              });
+          event_stream_buffer |
+          views::transform([&](Aws::DynamoDB::Model::Put &put) {
+            return add_commit_info(timestamp,
+                                   store_->new_condition_expression(), put);
+          });
       auto puts =
           views::concat(views::single(version_put), puts_with_commit_info);
       commit_puts_to_dynamodb(puts, expected_version);
@@ -111,25 +107,14 @@ template <typename Store> struct impl {
 private:
   constexpr impl(Store &store) noexcept : store_{&store} {}
 
-  constexpr Aws::DynamoDB::Model::Put &add_commit_info(
-      concepts::identifier auto const &id_value, std::size_t const save_version,
-      concepts::timestamp auto const timestamp,
-      std::string const &condition_expression, Aws::DynamoDB::Model::Put &put) {
-    add_standard_field(store_->config().hash_key(), put, id_value);
-    add_standard_field(store_->config().sort_key(), put, save_version);
+  constexpr Aws::DynamoDB::Model::Put &
+  add_commit_info(concepts::timestamp auto const timestamp,
+                  std::string const &condition_expression,
+                  Aws::DynamoDB::Model::Put &put) {
     add_standard_field(store_->config().timestamp_field(), put, timestamp);
     add_standard_field(store_->config().ttl_field(), put, timestamp);
     return put.WithConditionExpression(condition_expression)
         .WithTableName(store_->config().table().get());
-  }
-
-  constexpr Aws::DynamoDB::Model::Put &
-  add_commit_info(concepts::identifier auto const &id_value,
-                  concepts::version auto const expected_version,
-                  concepts::timestamp auto const timestamp,
-                  std::size_t const index, Aws::DynamoDB::Model::Put &put) {
-    return add_commit_info(id_value, expected_version + index + 1, timestamp,
-                           store_->new_condition_expression(), put);
   }
 
   constexpr Aws::DynamoDB::Model::Put
@@ -144,11 +129,11 @@ private:
     put.AddExpressionAttributeValues(
         store_->config().max_version_field().value_expression,
         attribute_value(expected_version + num_elements));
-    add_commit_info(id_value, std::size_t{0}, timestamp, condition_expression,
-                    put);
+    add_standard_field(store_->config().hash_key(), put, id_value);
+    add_standard_field(store_->config().sort_key(), put, std::size_t{0});
     add_standard_field(store_->config().max_version_field(), put,
                        expected_version + num_elements);
-    return put;
+    return add_commit_info(timestamp, condition_expression, put);
   }
 
   void commit_puts_to_dynamodb(put_range auto puts,

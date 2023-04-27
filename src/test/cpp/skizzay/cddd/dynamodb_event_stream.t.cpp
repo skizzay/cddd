@@ -17,10 +17,24 @@ using C = test::fake_event<3>;
 
 inline constexpr std::chrono::days week{7};
 
+template <std::size_t N>
+dynamodb::record make_record(test::fake_event<N> const &event) {
+  dynamodb::record record{};
+  record["hk"] = dynamodb::attribute_value(event.id);
+  record["sk"] = dynamodb::attribute_value(event.version);
+  record["type"] = dynamodb::attribute_value(N);
+  return record;
+}
+
+template <std::size_t N>
+Aws::DynamoDB::Model::Put make_put(test::fake_event<N> const &event) {
+  return Aws::DynamoDB::Model::Put{}.WithItem(make_record(event));
+}
+
 struct transformer {
   template <std::size_t N>
-  Aws::DynamoDB::Model::Put operator()(test::fake_event<N> const &) const {
-    return {};
+  Aws::DynamoDB::Model::Put operator()(test::fake_event<N> const &event) const {
+    return make_put(event);
   }
 };
 using buffer_type = dynamodb::event_stream_buffer<transformer>;
@@ -72,6 +86,7 @@ struct fake_store {
 
 TEST_CASE("DynamoDB Event Stream") {
   Aws::Utils::Crypto::InitCrypto();
+  std::string const id_value = "some_id";
   fake_store store;
 
   GIVEN("an event stream provided by its store") {
@@ -95,11 +110,10 @@ TEST_CASE("DynamoDB Event Stream") {
 
     AND_GIVEN("a populated buffer") {
       buffer_type full_buffer;
-      add_event(full_buffer, test::fake_event<1>{});
-      add_event(full_buffer, test::fake_event<2>{});
+      full_buffer.emplace_back(make_put(A{id_value, 1}));
+      full_buffer.emplace_back(make_put(B{id_value, 2}));
 
       WHEN("the buffer is committed to the stream") {
-        std::string const id_value = "some_id";
         std::size_t const expected_version = 0;
 
         commit_events(target, id_value, expected_version,
@@ -128,8 +142,9 @@ TEST_CASE("DynamoDB Event Stream") {
             auto const &timestamp_field = store.config().timestamp_field();
             for (auto const &items :
                  store.client().event_requests.front().GetTransactItems()) {
-              REQUIRE(items.GetPut().GetItem().at(timestamp_field.name) ==
-                      dynamodb::attribute_value(store.clock().result));
+              REQUIRE(
+                  items.GetPut().GetItem().at(timestamp_field.name).GetN() ==
+                  dynamodb::attribute_value(store.clock().result).GetN());
             }
           }
 
@@ -137,8 +152,8 @@ TEST_CASE("DynamoDB Event Stream") {
             auto const &id_key = store.config().hash_key();
             for (auto const &items :
                  store.client().event_requests.front().GetTransactItems()) {
-              REQUIRE(items.GetPut().GetItem().at(id_key.name) ==
-                      dynamodb::attribute_value(id_value));
+              REQUIRE(items.GetPut().GetItem().at(id_key.name).GetS() ==
+                      id_value);
             }
           }
 
@@ -146,8 +161,8 @@ TEST_CASE("DynamoDB Event Stream") {
             auto const &ttl_field = *store.config().ttl_field();
             for (auto const &items :
                  store.client().event_requests.front().GetTransactItems()) {
-              REQUIRE(items.GetPut().GetItem().at(ttl_field.name) ==
-                      dynamodb::attribute_value(store.clock().result + week));
+              REQUIRE(items.GetPut().GetItem().at(ttl_field.name).GetN() ==
+                      dynamodb::attribute_value(store.clock().result + week).GetN());
             }
           }
 

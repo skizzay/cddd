@@ -8,6 +8,8 @@
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/version.h"
 
+#include <utility>
+
 namespace skizzay::cddd {
 
 namespace aggregate_root_details_ {
@@ -109,39 +111,66 @@ concept aggregate_root_of =
         &&std::same_as<version_t<T>, version_t<DomainEvents...>>;
 } // namespace concepts
 
-// template <typename Derived, concepts::domain_event DomainEvent>
-// struct aggregate_visitor_impl : virtual event_visitor_interface<DomainEvent>
-// {
-//   void visit(DomainEvent const &domain_event) override {
-//     skizzay::cddd::apply_event(static_cast<Derived *>(this)->get_aggregate(),
-//                                domain_event);
-//   }
-// };
+template <typename Derived, concepts::event_stream_buffer EventStreamBuffer,
+          concepts::identifier Id, concepts::version Version>
+// requires std::same_as<Derived, std::decay_t<Derived>>
+struct aggregate_root_base {
+  using id_type = std::remove_cvref_t<Id>;
 
-// template <typename, typename> struct aggregate_visitor;
+  constexpr id_type const &id() const noexcept { return id_; }
 
-// template <concepts::domain_event... DomainEvents,
-//           concepts::aggregate_root_of<domain_event_sequence<DomainEvents...>>
-//               Aggregate>
-// struct aggregate_visitor<domain_event_sequence<DomainEvents...>, Aggregate>
-//     final
-//     : virtual event_visitor<domain_event_sequence<DomainEvents...>>,
-//       aggregate_visitor_impl<
-//           aggregate_visitor<domain_event_sequence<DomainEvents...>,
-//           Aggregate>, DomainEvents>... {
-//   aggregate_visitor(Aggregate &aggregate) noexcept : aggregate_{aggregate} {}
+  constexpr Version version() const noexcept { return version_; }
 
-//   Aggregate &get_aggregate() noexcept { return aggregate_; }
+  constexpr EventStreamBuffer const &uncommitted_events() const &noexcept {
+    return uncommitted_events_;
+  }
 
-// private:
-//   Aggregate &aggregate_;
-// };
+  constexpr EventStreamBuffer &&uncommitted_events() &&noexcept {
+    return std::move(uncommitted_events_);
+  }
 
-// template <concepts::domain_event_sequence DomainEvents,
-//           concepts::aggregate_root_of<DomainEvents> AggregateRoot>
-// constexpr aggregate_visitor<DomainEvents, AggregateRoot>
-// as_event_visitor(AggregateRoot &aggregate) {
-//   return {aggregate};
-// }
+  constexpr concepts::version auto uncommitted_events_size() const noexcept {
+    return std::ranges::size(uncommitted_events_);
+  }
+
+  template <concepts::domain_event DomainEvent>
+  requires concepts::aggregate_root_of<Derived, DomainEvent>
+  constexpr void apply_and_add_event(DomainEvent &&event) {
+    set_id(event, id_);
+    set_version(event, version_ + 1);
+    apply_event(*static_cast<Derived *>(this), std::as_const(event));
+    add_event(uncommitted_events_, std::forward<decltype(event)>(event));
+  }
+
+  constexpr void update(id_type const &id_value,
+                        Version const v) noexcept(false) {
+    constexpr auto validate = [](std::string const field, auto const &expected,
+                                 auto const &actual) noexcept(false) {
+      if (expected != actual) {
+        std::ostringstream message;
+        message << field << " expected: " << expected << " actual: " << actual;
+        throw std::invalid_argument{std::move(message).str()};
+      }
+    };
+
+    validate("id", id_, id_value);
+    validate("version", version_ + 1, v);
+    ++version_;
+  }
+
+protected:
+  constexpr aggregate_root_base(
+      id_type id_value, EventStreamBuffer uncommitted_events = {},
+      Version v = {}) noexcept(std::is_nothrow_move_constructible_v<id_type>
+                                   &&std::is_nothrow_move_constructible_v<
+                                       EventStreamBuffer>)
+      : id_{std::move(id_value)}, version_{v}, uncommitted_events_{std::move(
+                                                   uncommitted_events)} {}
+
+private:
+  id_type id_;
+  Version version_;
+  EventStreamBuffer uncommitted_events_;
+};
 
 } // namespace skizzay::cddd

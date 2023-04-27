@@ -24,12 +24,9 @@ template <typename Store> struct impl {
     if (not std::ranges::empty(event_stream_buffer)) {
       concepts::timestamp auto const timestamp =
           skizzay::cddd::now(store_->clock());
-      for (auto &&[i, element] : views::enumerate(event_stream_buffer)) {
-        skizzay::cddd::set_id(element, std::as_const(id_value));
-        skizzay::cddd::set_version(element, expected_version +
-                                                narrow_cast<Version>(i + 1));
-        skizzay::cddd::set_timestamp(element, timestamp);
-      }
+      std::ranges::for_each(event_stream_buffer, [timestamp](auto &event) {
+        skizzay::cddd::set_timestamp(event, timestamp);
+      });
       commit_buffered_events(std::move(id_value),
                              std::move(event_stream_buffer), expected_version);
     }

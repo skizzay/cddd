@@ -68,8 +68,9 @@ struct fake_store {
 
 SCENARIO("In-memory event store provides an event source",
          "[unit][in_memory][event_store][event_stream]") {
+  std::string const id_value = "some id";
   fake_store store;
-  test::fake_aggregate<buffer_type> aggregate_root;
+  test::fake_aggregate<buffer_type> aggregate_root{id_value};
   skizzay::cddd::now(store.clock());
 
   GIVEN("an event source provided by its store") {
@@ -86,13 +87,11 @@ SCENARIO("In-memory event store provides an event source",
     }
 
     WHEN("loading a known aggregate from history") {
-      std::string const id_value = "some id";
       std::size_t const starting_version = test::random_number_generator.next();
       std::size_t const num_events_to_load =
           test::random_number_generator.next();
       std::size_t const target_version = starting_version + num_events_to_load;
-      aggregate_root.id = id_value;
-      aggregate_root.version = starting_version;
+      aggregate_root.update(id_value, starting_version);
       store.event_buffers().put(
           id_value, std::make_shared<fake_buffer>(
                         id_value, skizzay::cddd::now(store.clock())));

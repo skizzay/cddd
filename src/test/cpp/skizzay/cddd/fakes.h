@@ -1,5 +1,6 @@
 #pragma once
 
+#include "skizzay/cddd/aggregate_root.h"
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/timestamp.h"
@@ -54,13 +55,25 @@ using fake_event_sequence =
     typename fake_event_sequence_details_::impl<domain_event_sequence<>, N,
                                                 StartAt>::type;
 
-template <std::ranges::sized_range EventBuffer> struct fake_aggregate {
+template <std::ranges::sized_range EventBuffer>
+struct fake_aggregate
+    : skizzay::cddd::aggregate_root_base<
+          fake_aggregate<EventBuffer>, EventBuffer, std::string, std::size_t> {
+  using base_type =
+      skizzay::cddd::aggregate_root_base<fake_aggregate<EventBuffer>,
+                                         EventBuffer, std::string, std::size_t>;
+
+  using base_type::base_type;
+  using base_type::id;
+  using base_type::update;
+  using base_type::version;
+
+  fake_aggregate(std::string id, EventBuffer events = {})
+      : base_type{std::move(id), std::move(events)} {}
+
   template <std::size_t N>
   requires(1 == N) || (2 == N) void apply_event(fake_event<N> const &event) {
-    if (skizzay::cddd::id(event) != id) {
-      throw std::invalid_argument{"Unexpected id encountered"};
-    }
-    version = skizzay::cddd::version(event);
+    this->update(skizzay::cddd::id(event), skizzay::cddd::version(event));
     timestamp = skizzay::cddd::timestamp(event);
   }
 
@@ -68,16 +81,10 @@ template <std::ranges::sized_range EventBuffer> struct fake_aggregate {
   requires(3 == N) ||
       (4 == N) friend void apply_event(fake_aggregate &self,
                                        fake_event<N> const &event) {
-    if (skizzay::cddd::id(event) != self.id) {
-      throw std::invalid_argument{"Unexpected id encountered"};
-    }
-    self.version = skizzay::cddd::version(event);
+    self.update(skizzay::cddd::id(event), skizzay::cddd::version(event));
     self.timestamp = skizzay::cddd::timestamp(event);
   }
 
-  std::string id;
-  EventBuffer uncommitted_events;
-  std::size_t version = {};
   timestamp_t<fake_clock> timestamp = {};
 };
 

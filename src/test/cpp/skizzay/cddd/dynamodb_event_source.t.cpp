@@ -109,8 +109,9 @@ struct fake_store {
 } // namespace
 
 TEST_CASE("DynamoDB Event Source") {
+  std::string const id_value = "some id";
   fake_store store;
-  test::fake_aggregate<buffer_type> aggregate_root;
+  test::fake_aggregate<buffer_type> aggregate_root{id_value, buffer_type{}};
 
   GIVEN("an event source provided by its store") {
     auto target = store.get_event_source();
@@ -138,17 +139,13 @@ TEST_CASE("DynamoDB Event Source") {
     }
 
     AND_GIVEN("events in the store") {
-      std::string const id_value = "some id";
-      std::size_t const starting_version = test::random_number_generator.next();
+      std::size_t const starting_version = test::random_number_generator.next() + 1;
       std::size_t const num_events_to_load =
           test::random_number_generator.next();
       std::size_t const target_version = starting_version + num_events_to_load;
-      aggregate_root.id = id_value;
-      aggregate_root.version = starting_version;
+      aggregate_root.update(id_value, starting_version - 1);
       concepts::timestamp auto const timestamp =
           skizzay::cddd::now(store.clock());
-      aggregate_root.id = id_value;
-      aggregate_root.version = starting_version;
       std::ranges::for_each(
           std::ranges::views::iota(starting_version, target_version + 1),
           [&](std::size_t const event_version) {
@@ -173,7 +170,8 @@ TEST_CASE("DynamoDB Event Source") {
 
       WHEN("querying for head version") {
         concepts::version auto const actual_head_version =
-            target.head<version_t<decltype(aggregate_root)>>(aggregate_root.id);
+            target.head<version_t<decltype(aggregate_root)>>(
+                aggregate_root.id());
 
         THEN("the head version is returned") {
           REQUIRE(actual_head_version == target_version);
@@ -204,7 +202,7 @@ TEST_CASE("DynamoDB Event Source") {
         bool caught_expection = false;
         try {
           [[maybe_unused]] concepts::version auto head_version =
-              target.head(aggregate_root.id);
+              target.head(aggregate_root.id());
         } catch (
             dynamodb::history_load_error<Aws::DynamoDB::DynamoDBError> const
                 &) {

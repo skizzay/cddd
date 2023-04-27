@@ -81,14 +81,14 @@ SCENARIO("In-memory event store provides an event stream",
     }
 
     AND_GIVEN("a populated buffer") {
+      std::string const id_value = "some_id";
       buffer_type full_buffer;
       add_event(full_buffer, wrap_domain_events<test::fake_event_sequence<2>>(
-                                 test::fake_event<1>{}));
+                                 test::fake_event<1>{id_value, 1}));
       add_event(full_buffer, wrap_domain_events<test::fake_event_sequence<2>>(
-                                 test::fake_event<2>{}));
+                                 test::fake_event<2>{id_value, 2}));
 
       WHEN("the buffer is committed to the stream") {
-        std::string const id_value = "some_id";
         std::size_t const expected_version = 0;
 
         commit_events(target, id_value, expected_version,

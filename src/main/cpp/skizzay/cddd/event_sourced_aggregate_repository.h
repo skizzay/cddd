@@ -88,16 +88,9 @@ private:
         skizzay::cddd::id(aggregate_root);
     concepts::event_stream auto event_stream =
         skizzay::cddd::get_event_stream(event_store_);
-    try {
-      skizzay::cddd::commit_events(
-          event_stream, id_value, expected_version,
-          skizzay::cddd::uncommitted_events(std::move(aggregate_root)));
-    } catch (optimistic_concurrency_collision const &e) {
-      throw e;
-    } catch (...) {
-      skizzay::cddd::rollback_to(event_stream, id_value, expected_version);
-      throw;
-    }
+    skizzay::cddd::commit_events(
+        event_stream, id_value, expected_version,
+        skizzay::cddd::uncommitted_events(std::move(aggregate_root)));
   }
 
   EventStore event_store_;
