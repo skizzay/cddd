@@ -76,7 +76,7 @@ struct uncommitted_events_size_fn final {
   }
 };
 
-template <typename...> struct aggregate_root_of_impl;
+template <typename... Ts> struct aggregate_root_of_impl : std::conjunction<aggregate_root_of_impl<Ts>...> {};
 
 template <typename T, concepts::domain_event DomainEvent>
 struct aggregate_root_of_impl<T, DomainEvent>
