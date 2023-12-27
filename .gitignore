@@ -40,3 +40,4 @@ build
 Testing
 Debug
 Release
+cmake-build-debug

@@ -1,11 +1,9 @@
 #pragma once
 
 #include "skizzay/cddd/aggregate_root.h"
-#include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_store.h"
 #include "skizzay/cddd/key_not_found.h"
-#include "skizzay/cddd/optimistic_concurrency_collision.h"
 #include "skizzay/cddd/repository.h"
 
 #include <type_traits>
@@ -33,10 +31,10 @@ struct event_sourced_aggregate_repository {
       AggregateProvider, Id, EventStore>
   constexpr concepts::aggregate_root auto get(Id const &id_value) const {
     concepts::aggregate_root auto aggregate = create_aggregate_(
-        id_value, skizzay::cddd::get_event_stream_buffer(event_store_));
+        id_value, cddd::get_event_stream_buffer(event_store_));
     concepts::event_source auto event_source =
-        skizzay::cddd::get_event_source(event_store_);
-    skizzay::cddd::load_from_history(event_source, aggregate);
+            cddd::get_event_source(event_store_);
+    cddd::load_from_history(event_source, aggregate);
     // In case we hit something only move constructible, such as std::unique_ptr
     // We want to target copy ellision
     if constexpr (std::is_copy_constructible_v<decltype(aggregate)>) {
@@ -47,36 +45,35 @@ struct event_sourced_aggregate_repository {
   }
 
   constexpr void put(concepts::aggregate_root auto &&aggregate_root) {
-    upsert(std::move(aggregate_root), [](auto const &aggregate_root) noexcept {
-      return skizzay::cddd::version(aggregate_root) -
-             skizzay::cddd::uncommitted_events_size(aggregate_root);
+    upsert(std::forward<decltype(aggregate_root)>(aggregate_root), [](auto const &aggregate_root) noexcept {
+      return cddd::version(aggregate_root) -
+             cddd::uncommitted_events_size(aggregate_root);
     });
   }
 
   // throws optimistic_concurrency_collision if aggregate_root already exists
   constexpr void add(concepts::aggregate_root auto &&aggregate_root) {
-    upsert(std::move(aggregate_root), [](auto const &) noexcept { return 0; });
+    upsert(std::forward<decltype(aggregate_root)>(aggregate_root), [](auto const &) noexcept { return 0; });
   }
 
   // throws key_not_found if aggregate_root does not exist
   constexpr void update(concepts::aggregate_root auto &&aggregate_root) {
-    upsert(std::move(aggregate_root),
+    upsert(std::forward<decltype(aggregate_root)>(aggregate_root),
            [](auto const &aggregate_root) noexcept(false) {
              auto const aggregate_root_version =
-                 skizzay::cddd::version(aggregate_root);
+                     cddd::version(aggregate_root);
              auto const buffer_size =
-                 skizzay::cddd::uncommitted_events_size(aggregate_root);
+                 cddd::uncommitted_events_size(aggregate_root);
              if (aggregate_root_version == buffer_size) {
-               throw key_not_found{skizzay::cddd::id(aggregate_root)};
-             } else {
-               return aggregate_root_version - buffer_size;
+               throw key_not_found{cddd::id(aggregate_root)};
              }
+             return aggregate_root_version - buffer_size;
            });
   }
 
   constexpr bool contains(concepts::identifier auto const &id_value) const {
     concepts::event_source auto event_source = get_event_source(event_store_);
-    return skizzay::cddd::contains(event_source, id_value);
+    return cddd::contains(event_source, id_value);
   }
 
 private:
@@ -85,12 +82,12 @@ private:
     concepts::version auto const expected_version =
         calculate_expected_version(aggregate_root);
     concepts::identifier auto const &id_value =
-        skizzay::cddd::id(aggregate_root);
+            cddd::id(aggregate_root);
     concepts::event_stream auto event_stream =
-        skizzay::cddd::get_event_stream(event_store_);
-    skizzay::cddd::commit_events(
+        cddd::get_event_stream(event_store_);
+    cddd::commit_events(
         event_stream, id_value, expected_version,
-        skizzay::cddd::uncommitted_events(std::move(aggregate_root)));
+        cddd::uncommitted_events(std::forward<decltype(aggregate_root)>(aggregate_root)));
   }
 
   EventStore event_store_;

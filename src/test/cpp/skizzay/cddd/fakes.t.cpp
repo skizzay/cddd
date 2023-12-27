@@ -2,6 +2,7 @@
 
 #include <array>
 #include <concepts>
+#include <memory>
 #include <skizzay/cddd/aggregate_root.h>
 #include <skizzay/cddd/dereference.h>
 #include <skizzay/cddd/identifier.h>

@@ -135,13 +135,13 @@ inline constexpr timestamp_details_::now_fn now = {};
 
 namespace concepts {
 template <typename T>
-concept timestamped = std::invocable < decltype(skizzay::cddd::timestamp),
+concept timestamped = std::invocable < decltype(cddd::timestamp),
         std::remove_reference_t<T>
 const & > ;
 
 template <typename T>
 concept clock = std::is_copy_constructible_v<T> && requires(T t) {
-  { skizzay::cddd::now(t) } -> concepts::timestamp;
+  { cddd::now(t) } -> timestamp;
 };
 } // namespace concepts
 
@@ -149,12 +149,12 @@ namespace timestamp_t_details_ {
 template <typename> struct impl;
 
 template <concepts::timestamped T> struct impl<T> {
-  using type = std::invoke_result_t<decltype(skizzay::cddd::timestamp),
+  using type = std::invoke_result_t<decltype(timestamp),
                                     std::remove_reference_t<T> const &>;
 };
 
 template <concepts::clock T> struct impl<T> {
-  using type = std::invoke_result_t<decltype(skizzay::cddd::now), T &>;
+  using type = std::invoke_result_t<decltype(now), T &>;
 };
 
 template <typename T>

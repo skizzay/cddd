@@ -65,14 +65,14 @@ struct impl {
                                   std::equal_to<key_type>,
                                   Alloc>::allocator_type;
 
-  constexpr impl(allocator_type a = {}) : m_{}, entries_{std::move(a)} {}
+  constexpr explicit impl(allocator_type a = {}) : entries_{std::move(a)} {}
 
-  constexpr impl(impl const &other) : m_{}, entries_{} {
+  constexpr impl(impl const &other) : entries_{} {
     std::shared_lock l_{other.m_};
     entries_ = other.entries_;
   }
 
-  constexpr impl(impl &&other) : m_{}, entries_{} {
+  constexpr impl(impl &&other) noexcept : entries_{} {
     std::lock_guard l_{other.m_};
     entries_ = std::move(other.entries_);
   }
@@ -90,7 +90,7 @@ struct impl {
     return *this;
   }
 
-  constexpr impl &operator=(impl &&other) {
+  constexpr impl &operator=(impl &&other) noexcept {
     if (this != &other) {
       std::lock_guard l_{other.m_};
       entries_ = std::move(other.entries_);

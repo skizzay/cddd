@@ -4,7 +4,6 @@
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/version.h"
 #include <functional>
-#include <memory>
 #include <variant>
 
 namespace skizzay::cddd {
@@ -39,8 +38,8 @@ struct apply_event_fn final {
                                             DomainEvents const &> &&
                 ...)) {
     std::visit(
-        [&](auto const &domain_event) noexcept {
-          std::invoke(*this, t, domain_event);
+        [&](auto const &evt) noexcept {
+          std::invoke(*this, t, evt);
         },
         domain_event);
   }

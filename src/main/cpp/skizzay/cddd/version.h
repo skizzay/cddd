@@ -4,7 +4,6 @@
 #include "skizzay/cddd/narrow_cast.h"
 #include <concepts>
 #include <exception>
-#include <functional>
 
 namespace skizzay::cddd {
 
@@ -105,18 +104,18 @@ inline constexpr version_details::set_version_fn set_version = {};
 
 namespace concepts {
 template <typename T>
-concept versioned = std::invocable < decltype(skizzay::cddd::version),
+concept versioned = std::invocable < decltype(cddd::version),
         std::remove_reference_t<T>
 const & >
     &&concepts::version<std::invoke_result_t<
-        decltype(skizzay::cddd::version), std::remove_reference_t<T> const &>>;
+        decltype(cddd::version), std::remove_reference_t<T> const &>>;
 } // namespace concepts
 
 namespace version_t_details_ {
 template <typename> struct impl;
 
 template <concepts::versioned T>
-struct impl<T> : std::invoke_result<decltype(skizzay::cddd::version),
+struct impl<T> : std::invoke_result<decltype(version),
                                     std::remove_reference_t<T> const &> {};
 
 template <typename T>

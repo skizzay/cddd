@@ -1,6 +1,5 @@
 #pragma once
 
-#include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_stream.h"
 
 namespace skizzay::cddd {
@@ -63,11 +62,11 @@ inline constexpr event_store_details_::get_event_source_fn get_event_source =
 
 namespace concepts {
 template <typename T>
-concept event_store = std::invocable<decltype(skizzay::cddd::get_event_stream),
+concept event_store = std::invocable<decltype(get_event_stream),
                                      std::add_lvalue_reference_t<T>> &&
-    std::invocable<decltype(skizzay::cddd::get_event_source),
+    std::invocable<decltype(get_event_source),
                    std::add_lvalue_reference_t<T>> &&
-    std::invocable<decltype(skizzay::cddd::get_event_stream_buffer),
+    std::invocable<decltype(get_event_stream_buffer),
                    std::add_lvalue_reference_t<T>>;
 
 template <typename T, typename DomainEvents>
@@ -78,10 +77,10 @@ concept event_store_of =
 
 template <typename T>
 using event_stream_t = std::remove_cvref_t<dereference_t<
-    std::invoke_result_t<decltype(skizzay::cddd::get_event_stream), T &>>>;
+    std::invoke_result_t<decltype(get_event_stream), T &>>>;
 
 template <typename T>
 using event_source_t = std::remove_cvref_t<dereference_t<
-    std::invoke_result_t<decltype(skizzay::cddd::get_event_source), T &>>>;
+    std::invoke_result_t<decltype(get_event_source), T &>>>;
 
 } // namespace skizzay::cddd

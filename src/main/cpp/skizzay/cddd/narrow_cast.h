@@ -7,7 +7,7 @@
 namespace skizzay::cddd {
 
 struct bad_narrow_cast : std::bad_cast {
-  char const *what() const noexcept override { return "Failed to narrow"; }
+  [[nodiscard]] char const *what() const noexcept override { return "Failed to narrow"; }
 };
 
 inline constexpr auto throw_bad_cast = []() noexcept(false) {

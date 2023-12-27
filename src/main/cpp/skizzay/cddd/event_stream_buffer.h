@@ -142,7 +142,7 @@ struct mapped_event_stream_buffer
       std::constructible_from<Value,
                               std::invoke_result_t<Transform, DomainEvent &&>>
   constexpr void emplace_back(DomainEvent &&domain_event) {
-    buffer_.emplace_back(std::invoke(transform_, std::move(domain_event)));
+    buffer_.emplace_back(std::invoke(transform_, std::forward<DomainEvent>(domain_event)));
   }
 
   constexpr void emplace_back(Value &&value) { buffer_.emplace_back(value); }

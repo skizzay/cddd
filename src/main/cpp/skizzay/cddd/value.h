@@ -4,7 +4,7 @@
 #include <utility>
 
 namespace skizzay::cddd {
-template <typename Tag, typename T>
+template <typename, typename T>
 requires std::same_as<T, std::remove_cvref_t<T>>
 struct value final {
   using value_type = T;
@@ -14,11 +14,11 @@ struct value final {
       std::is_default_constructible_v<T>
   = default;
 
-  constexpr value(value_type &&v) noexcept(
+  explicit constexpr value(value_type &&v) noexcept(
       std::is_nothrow_move_constructible_v<value_type>) requires
       std::is_move_constructible_v<value_type> : value_{std::move(v)} {}
 
-  constexpr value(value_type const &v) noexcept(
+  constexpr explicit value(value_type const &v) noexcept(
       std::is_nothrow_copy_constructible_v<value_type>) requires
       std::is_copy_constructible_v<value_type> : value_{v} {}
 

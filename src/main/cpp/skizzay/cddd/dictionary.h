@@ -1,7 +1,6 @@
 #pragma once
 
 #include <concepts>
-#include <ranges>
 
 namespace skizzay::cddd {
 template <typename T> using key_t = typename T::key_type;

@@ -5,7 +5,9 @@
 
 namespace skizzay::cddd {
 template <concepts::domain_event DomainEvent> struct event_visitor_interface {
-  virtual void visit(DomainEvent const &domain_event) = 0;
+    virtual ~event_visitor_interface() = default;
+
+    virtual void visit(DomainEvent const &domain_event) = 0;
 };
 
 template <typename> struct event_visitor;

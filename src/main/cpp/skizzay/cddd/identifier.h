@@ -108,10 +108,10 @@ constexpr inline id_details_::set_id_fn set_id = {};
 
 namespace concepts {
 template <typename T>
-concept identifiable = std::invocable < decltype(skizzay::cddd::id),
+concept identifiable = std::invocable < decltype(id),
         std::remove_reference_t<T>
 const & >
-    &&identifier<std::invoke_result_t<decltype(skizzay::cddd::id),
+    &&identifier<std::invoke_result_t<decltype(id),
                                       std::remove_reference_t<T> const &>>;
 } // namespace concepts
 
@@ -120,7 +120,7 @@ template <typename> struct impl;
 
 template <concepts::identifiable Identifiable> struct impl<Identifiable> {
   using type =
-      std::invoke_result_t<decltype(skizzay::cddd::id),
+      std::invoke_result_t<decltype(cddd::id),
                            std::remove_reference_t<Identifiable> const &>;
 };
 

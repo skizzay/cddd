@@ -47,8 +47,6 @@ struct commit_events_fn final {
 
   template <typename T, concepts::identifier Id, std::signed_integral Version,
             concepts::event_stream_buffer EventStreamBuffer>
-  // requires std::invocable<commit_events_fn const, T, std::remove_cvref_t<Id>,
-  //                         std::make_unsigned_t<Version>, EventStreamBuffer>
   constexpr void operator()(T t, Id id_value, Version const expected_version,
                             EventStreamBuffer buffer) const {
     (*this)(std::move_if_noexcept(t), std::move(id_value),
@@ -93,26 +91,28 @@ concept event_stream = std::copyable<T>;
 template <typename T, typename DomainEvents>
 concept event_stream_of =
     event_stream<T> && domain_event_sequence<DomainEvents> &&
-    std::invocable < decltype(skizzay::cddd::commit_events),
+    std::invocable < decltype(commit_events),
         std::add_lvalue_reference_t<T>,
         std::remove_reference_t<id_t<DomainEvents>>
 const &,
     version_t<DomainEvents> >
         &&event_stream_buffer_of<event_stream_buffer_t<T>, DomainEvents> &&
-            std::invocable<decltype(skizzay::cddd::rollback_to),
+            std::invocable<decltype(rollback_to),
                            std::add_lvalue_reference_t<T>, id_t<DomainEvents>,
                            std::ranges::range_size_t<event_stream_buffer_t<T>>>;
 } // namespace concepts
 
 namespace event_stream_details_ {
 template <concepts::domain_event DomainEvent> struct add_event_interace {
+  virtual ~add_event_interace() = default;
+
   virtual void add_event(DomainEvent &&domain_event) = 0;
 };
 
 template <typename Derived, concepts::domain_event DomainEvent>
 struct add_event_impl : virtual add_event_interace<DomainEvent> {
   void add_event(DomainEvent &&domain_event) override {
-    using skizzay::cddd::add_event;
+    using cddd::add_event;
     add_event(static_cast<Derived *>(this)->get_impl(),
               std::move(domain_event));
   }

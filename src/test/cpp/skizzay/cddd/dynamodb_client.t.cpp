@@ -9,12 +9,14 @@
 #include <aws/dynamodb/model/QueryRequest.h>
 #include <aws/dynamodb/model/TransactWriteItemsRequest.h>
 
+#include <utility>
+
 using namespace skizzay::cddd;
 using namespace Aws::DynamoDB::Model;
 
 namespace {
 struct aws_sdk_raii final {
-  aws_sdk_raii(Aws::SDKOptions const &options) : options_{options} {
+  explicit aws_sdk_raii(Aws::SDKOptions options) : options_{std::move(options)} {
     Aws::InitAPI(options_);
   }
 

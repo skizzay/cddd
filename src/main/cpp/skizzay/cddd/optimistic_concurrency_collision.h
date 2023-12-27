@@ -8,7 +8,7 @@ struct optimistic_concurrency_collision : commit_failed {
                                             std::size_t const version_expected)
       : commit_failed{message}, version_expected_{version_expected} {}
 
-  std::size_t version_expected() const noexcept { return version_expected_; }
+  [[nodiscard]] std::size_t version_expected() const noexcept { return version_expected_; }
 
 private:
   std::size_t version_expected_;

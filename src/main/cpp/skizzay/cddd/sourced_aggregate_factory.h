@@ -13,9 +13,9 @@ struct sourced_aggregate_factory {
   template <concepts::versioned Aggregate>
   constexpr void load_from_history(Aggregate &aggregate,
                                    version_t<Aggregate> const target_version) {
-    skizzay::cddd::load_from_snapshot(snapshot_source_, aggregate,
-                                      target_version);
-    skizzay::cddd::load_from_history(event_source_, aggregate, target_version);
+    cddd::load_from_snapshot(snapshot_source_, aggregate,
+                             target_version);
+    cddd::load_from_history(event_source_, aggregate, target_version);
   }
 
 private:

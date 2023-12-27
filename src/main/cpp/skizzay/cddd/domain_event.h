@@ -3,7 +3,6 @@
 #include "skizzay/cddd/identifier.h"
 #include "skizzay/cddd/timestamp.h"
 #include "skizzay/cddd/version.h"
-#include <concepts>
 #include <ranges>
 #include <type_traits>
 
@@ -15,9 +14,9 @@ template <typename T>
 concept domain_event = std::is_class_v<T> && identifiable<T> && versioned<T> &&
     timestamped<T> &&
     requires(T &t, id_t<T> i, timestamp_t<T> ts, version_t<T> v) {
-  {skizzay::cddd::set_id(t, i)};
-  {skizzay::cddd::set_timestamp(t, ts)};
-  {skizzay::cddd::set_version(t, v)};
+  { cddd::set_id(t, i)};
+  { cddd::set_timestamp(t, ts)};
+  { cddd::set_version(t, v)};
 };
 
 template <typename T>

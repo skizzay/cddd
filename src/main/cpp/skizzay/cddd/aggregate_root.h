@@ -2,7 +2,6 @@
 
 #include "skizzay/cddd/domain_event.h"
 #include "skizzay/cddd/domain_event_sequence.h"
-#include "skizzay/cddd/domain_event_wrapper.h"
 #include "skizzay/cddd/event_sourced.h"
 #include "skizzay/cddd/event_stream_buffer.h"
 #include "skizzay/cddd/identifier.h"
@@ -91,9 +90,9 @@ requires(0 < sizeof...(DomainEvents)) struct aggregate_root_of_impl<
 } // namespace aggregate_root_details_
 
 inline namespace aggregage_root_fn_ {
-inline constexpr skizzay::cddd::aggregate_root_details_::uncommitted_events_fn
+inline constexpr aggregate_root_details_::uncommitted_events_fn
     uncommitted_events = {};
-inline constexpr skizzay::cddd::aggregate_root_details_::
+inline constexpr aggregate_root_details_::
     uncommitted_events_size_fn uncommitted_events_size = {};
 } // namespace aggregage_root_fn_
 
@@ -113,7 +112,6 @@ concept aggregate_root_of =
 
 template <typename Derived, concepts::event_stream_buffer EventStreamBuffer,
           concepts::identifier Id, concepts::version Version>
-// requires std::same_as<Derived, std::decay_t<Derived>>
 struct aggregate_root_base {
   using id_type = std::remove_cvref_t<Id>;
 
@@ -144,7 +142,7 @@ struct aggregate_root_base {
 
   constexpr void update(id_type const &id_value,
                         Version const v) noexcept(false) {
-    constexpr auto validate = [](std::string const field, auto const &expected,
+    constexpr auto validate = [](std::string const &field, auto const &expected,
                                  auto const &actual) noexcept(false) {
       if (expected != actual) {
         std::ostringstream message;
@@ -159,7 +157,7 @@ struct aggregate_root_base {
   }
 
 protected:
-  constexpr aggregate_root_base(
+  constexpr explicit aggregate_root_base(
       id_type id_value, EventStreamBuffer uncommitted_events = {},
       Version v = {}) noexcept(std::is_nothrow_move_constructible_v<id_type>
                                    &&std::is_nothrow_move_constructible_v<

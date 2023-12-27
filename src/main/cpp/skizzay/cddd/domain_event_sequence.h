@@ -53,7 +53,7 @@ namespace domain_event_sequence_details_ {
 template <typename> struct impl : std::false_type {};
 
 template <domain_event... DomainEvents>
-struct impl<skizzay::cddd::domain_event_sequence<DomainEvents...>>
+struct impl<domain_event_sequence<DomainEvents...> >
     : std::true_type {};
 } // namespace domain_event_sequence_details_
 
