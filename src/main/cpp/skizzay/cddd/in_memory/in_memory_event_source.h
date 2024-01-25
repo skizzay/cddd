@@ -6,53 +6,55 @@
 #include "skizzay/cddd/nullable.h"
 #include "skizzay/cddd/repository.h"
 
-namespace skizzay::cddd::in_memory {
-namespace event_source_details_ {
-template <typename Store> struct impl {
-  friend Store;
+namespace skizzay::cddd::in_memory {namespace event_source_details_ {
+    template<typename Store>
+    struct impl {
+      friend Store;
 
-  template <concepts::aggregate_root AggregateRoot>
-  constexpr void
-  load_from_history(AggregateRoot &aggregate_root,
-                    version_t<AggregateRoot> const target_version) const {
-    using buffer_type = std::shared_ptr<std::remove_cvref_t<dereference_t<
-        decltype(skizzay::cddd::get(std::declval<Store const>().event_buffers(),
-                                    skizzay::cddd::id(aggregate_root)))>>>;
+      template<concepts::aggregate_root AggregateRoot>
+      constexpr void load_from_history(AggregateRoot &aggregate_root,
+                                       version_t<AggregateRoot> const target_version
+      ) const {
+        using buffer_type = std::shared_ptr<std::remove_cvref_t<dereference_t<
+          decltype(cddd::get(std::declval<Store const>().event_buffers(),
+                             cddd::id(aggregate_root)))> > >;
 
-    if (auto event_buffer = skizzay::cddd::get(
-            store_->event_buffers(), skizzay::cddd::id(aggregate_root),
+        if (auto event_buffer = cddd::get(
+            store_->event_buffers(), cddd::id(aggregate_root),
             null_factory<buffer_type>{});
-        !skizzay::cddd::is_null(event_buffer)) {
-      this->load_from_history(
-          aggregate_root,
-          dereference(event_buffer)
-              .get_events(skizzay::cddd::version(aggregate_root) + 1,
-                          target_version));
-    }
-  }
+          !cddd::is_null(event_buffer)) {
+          this->load_from_history(
+            aggregate_root,
+            dereference(event_buffer)
+            .get_events(cddd::version(aggregate_root) + 1,
+                        target_version));
+        }
+      }
 
-  constexpr bool
-  contains(concepts::identifier auto const &id_value) const noexcept {
-    return skizzay::cddd::contains(store_->event_buffers(), id_value);
-  }
+      constexpr bool contains(concepts::identifier auto const &id_value) const noexcept {
+        return cddd::contains(store_->event_buffers(), id_value);
+      }
 
-private:
-  constexpr impl(Store const &store) noexcept : store_{&store} {}
-  Store const *store_;
+    private:
+      constexpr explicit impl(Store const &store) noexcept
+        : store_{&store} {
+      }
 
-  constexpr void
-  load_from_history(auto &aggregate_root,
-                    std::ranges::sized_range auto const &events) const {
-    for (auto const &event : events) {
-      skizzay::cddd::apply_event(dereference(aggregate_root),
-                                 dereference(event));
-    }
-  }
-};
-} // namespace event_source_details_
+      Store const *store_;
 
-template <typename Store>
-// requires concepts::domain_event_sequence<typename
-// Store::domain_event_sequence>
-using event_source = event_source_details_::impl<Store>;
+      constexpr void load_from_history(auto &aggregate_root,
+                                       std::ranges::sized_range auto const &events
+      ) const {
+        for (auto const &event: events) {
+          cddd::apply_event(dereference(aggregate_root),
+                            dereference(event));
+        }
+      }
+    };
+  } // namespace event_source_details_
+
+  template<typename Store>
+  // requires concepts::domain_event_sequence<typename
+  // Store::domain_event_sequence>
+  using event_source = event_source_details_::impl<Store>;
 } // namespace skizzay::cddd::in_memory

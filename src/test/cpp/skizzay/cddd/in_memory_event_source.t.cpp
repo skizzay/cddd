@@ -48,7 +48,7 @@ struct fake_store {
   test::fake_clock &clock() noexcept { return clock_; }
 
   in_memory::event_source<fake_store> get_event_source() noexcept {
-    return {*this};
+    return in_memory::event_source{*this};
   }
 
   concurrent_table<std::shared_ptr<fake_buffer>, std::string> &
@@ -71,15 +71,15 @@ SCENARIO("In-memory event store provides an event source",
   std::string const id_value = "some id";
   fake_store store;
   test::fake_aggregate<buffer_type> aggregate_root{id_value};
-  skizzay::cddd::now(store.clock());
+  now(store.clock());
 
   GIVEN("an event source provided by its store") {
-    auto target = skizzay::cddd::get_event_source(store);
+    auto target = get_event_source(store);
 
     REQUIRE(skizzay::cddd::concepts::event_source<decltype(target)>);
 
     WHEN("loading an unknown aggregate from history") {
-      skizzay::cddd::load_from_history(target, aggregate_root);
+      load_from_history(target, aggregate_root);
 
       THEN("nothing was loaded into the aggregate") {
         REQUIRE(0 == skizzay::cddd::version(aggregate_root));
@@ -94,9 +94,9 @@ SCENARIO("In-memory event store provides an event source",
       aggregate_root.update(id_value, starting_version);
       store.event_buffers().put(
           id_value, std::make_shared<fake_buffer>(
-                        id_value, skizzay::cddd::now(store.clock())));
+                        id_value, now(store.clock())));
 
-      skizzay::cddd::load_from_history(target, aggregate_root, target_version);
+      load_from_history(target, aggregate_root, target_version);
       THEN("events were loaded starting where the aggregate root left off") {
         REQUIRE(skizzay::cddd::version(aggregate_root) == target_version);
       }

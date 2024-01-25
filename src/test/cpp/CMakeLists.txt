@@ -1,14 +1,14 @@
 
-conan_cmake_configure(REQUIRES catch2/3.3.2
-                      SETTINGS cppstd=20
-                      GENERATORS CMakeDeps CMakeToolchain)
-
-conan_cmake_autodetect(settings)
-
-conan_cmake_install(PATH_OR_REFERENCE .
-                    BUILD missing
-                    REMOTE conancenter
-                    SETTINGS ${settings})
+#conan_cmake_configure(REQUIRES catch2/3.3.2
+#                      SETTINGS cppstd=20
+#                      GENERATORS CMakeDeps CMakeToolchain)
+#
+#conan_cmake_autodetect(settings)
+#
+#conan_cmake_install(PATH_OR_REFERENCE .
+#                    BUILD missing
+#                    REMOTE conancenter
+#                    SETTINGS ${settings})
 
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR}/src/test/cpp)
 

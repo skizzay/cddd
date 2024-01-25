@@ -1,6 +1,5 @@
 #pragma once
 
-#include "skizzay/cddd/domain_event_sequence.h"
 #include "skizzay/cddd/domain_event_wrapper.h"
 #include "skizzay/cddd/narrow_cast.h"
 #include "skizzay/cddd/nullable.h"
@@ -16,16 +15,16 @@ namespace buffer_details_ {
 inline constexpr auto copy_shared_lock =
     [](std::shared_lock<std::shared_mutex> const &l) noexcept
     -> std::shared_lock<std::shared_mutex> {
-  return skizzay::cddd::is_null(l.mutex())
-             ? std::shared_lock<std::shared_mutex>{}
-             : std::shared_lock<std::shared_mutex>{*l.mutex(), std::adopt_lock};
+  return is_null(l.mutex())
+           ? std::shared_lock<std::shared_mutex>{}
+           : std::shared_lock{*l.mutex(), std::adopt_lock};
 };
 
 template <concepts::domain_event DomainEvent>
 struct locked_event_range
     : std::ranges::view_interface<locked_event_range<DomainEvent>> {
   struct iterator {
-    friend locked_event_range<DomainEvent>;
+    friend locked_event_range;
     using base_iterator = typename std::vector<DomainEvent>::iterator;
     using difference_type = std::iter_difference_t<base_iterator>;
     using value_type = std::iter_value_t<base_iterator>;
@@ -101,12 +100,12 @@ struct locked_event_range
       return *this;
     }
 
-    constexpr iterator &operator+=(std::ptrdiff_t n) {
+    constexpr iterator &operator+=(difference_type const n) {
       iter_ += n;
       return *this;
     }
 
-    constexpr iterator &operator-=(std::ptrdiff_t n) {
+    constexpr iterator &operator-=(difference_type const n) {
       iter_ -= n;
       return *this;
     }

@@ -31,6 +31,7 @@ lib
 .kdev4
 *.kdev4
 .kdev_include_paths
+.idea
 
 # conan outputs
 conanbuildinfo.cmake
@@ -40,4 +41,4 @@ build
 Testing
 Debug
 Release
-cmake-build-debug
+cmake-build-*/

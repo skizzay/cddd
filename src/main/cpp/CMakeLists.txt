@@ -1,14 +1,3 @@
-conan_cmake_configure(REQUIRES range-v3/0.12.0
-                      SETTINGS cppstd=20
-                      GENERATORS CMakeDeps CMakeToolchain)
-
-conan_cmake_autodetect(settings)
-
-conan_cmake_install(PATH_OR_REFERENCE .
-                    BUILD missing
-                    REMOTE conancenter
-                    SETTINGS ${settings})
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR}/src/main/cpp)
 find_package(range-v3 CONFIG REQUIRED)
 
 add_library(cddd INTERFACE)

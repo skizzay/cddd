@@ -1,17 +1,19 @@
-conan_cmake_configure(REQUIRES zlib/1.2.13 aws-sdk-cpp/1.9.234
-                     OPTIONS "aws-sdk-cpp/*:dynamodb=True;aws-sdk-cpp/*:text-to-speech=False"
-                     SETTINGS cppstd=20
-                     GENERATORS CMakeDeps CMakeToolchain)
-
-conan_cmake_autodetect(settings)
-
-conan_cmake_install(PATH_OR_REFERENCE .
-                  BUILD missing
-                  REMOTE conancenter
-                  SETTINGS ${settings})
+#conan_cmake_configure(REQUIRES zlib/1.2.13 aws-sdk-cpp/1.9.234
+#                     OPTIONS "aws-sdk-cpp/*:dynamodb=True;aws-sdk-cpp/*:text-to-speech=False"
+#                     SETTINGS cppstd=20
+#                     GENERATORS CMakeDeps CMakeToolchain)
+#
+#conan_cmake_autodetect(settings)
+#
+#conan_cmake_install(PATH_OR_REFERENCE .
+#                  BUILD missing
+#                  REMOTE conancenter
+#                  SETTINGS ${settings})
 
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR}/src/main/cpp/skizzay/cddd/dynamodb)
 
+find_package(ZLIB REQUIRED)
+find_package(CURL REQUIRED)
 find_package(AWSSDK REQUIRED COMPONENTS dynamodb)
 
 set(CUSTOM_MEMORY_MANAGEMENT OFF)
