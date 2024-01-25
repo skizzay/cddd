@@ -35,8 +35,8 @@ namespace skizzay::simple::cqrs {
         class event_source final {
             friend class memory_event_store;
         public:
-            constexpr std::span<std::variant<Events...> const> get_events(uuid const &id, std::size_t const begin,
-                                                                          std::size_t const end
+            constexpr std::span<std::variant<Events...> const> get_events(uuid const &id, std::uint64_t const begin,
+                                                                          std::uint64_t const end
             ) const noexcept {
                 return store_.get_events(id, begin, end);
             }
@@ -61,8 +61,8 @@ namespace skizzay::simple::cqrs {
         }
 
         [[nodiscard]]
-        constexpr std::span<std::variant<Events...> const> get_events(uuid const &id, std::size_t const begin,
-                                                                      std::size_t const end
+        constexpr std::span<std::variant<Events...> const> get_events(uuid const &id, std::uint64_t const begin,
+                                                                      std::uint64_t const end
         ) const noexcept {
             if (auto const it = events_.find(id); it != events_.end()) {
                 std::size_t const begin_index = begin - 1;

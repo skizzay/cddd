@@ -26,10 +26,10 @@ namespace skizzay::simple::cqrs {
 
         struct validate_command_fn final {
             constexpr void operator()(
-                [[maybe_unused]] auto const &state,
+                auto const &state,
                 [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                [[maybe_unused]] std::uint64_t const version,
+                command auto const &cmd
             ) const {
                 if constexpr (requires { state.validate_command(id, version, cmd); }) {
                     state.validate_command(id, version, cmd);
@@ -56,55 +56,55 @@ namespace skizzay::simple::cqrs {
 
         struct calculate_changes_fn final {
             constexpr event_range auto operator()(
-                [[maybe_unused]] auto const &state,
-                [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                auto const &state,
+                uuid const &id,
+                std::uint64_t const version,
+                command auto const &cmd
             ) const requires requires { { state.calculate_changes(id, version, cmd) } -> event_range; } {
                     return state.calculate_changes(id, version, cmd);
             }
 
             constexpr event_range auto operator()(
-                [[maybe_unused]] auto const &state,
-                [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                auto const &state,
+                uuid const &id,
+                [[maybe_unused]] std::uint64_t const version,
+                command auto const &cmd
             ) const requires requires { { state.calculate_changes(id, cmd) } -> event_range; } {
                 return state.calculate_changes(id, cmd);
             }
 
             constexpr event_range auto operator()(
-                [[maybe_unused]] auto const &state,
+                auto const &state,
                 [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                [[maybe_unused]] std::uint64_t const version,
+                command auto const &cmd
             ) const requires requires { { state.calculate_changes(cmd) } -> event_range; } {
                 return state.calculate_changes(cmd);
             }
 
             constexpr event_range auto operator()(
-                [[maybe_unused]] auto const &state,
-                [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                auto const &state,
+                uuid const &id,
+                std::uint64_t const version,
+                command auto const &cmd
             ) const requires requires { { calculate_changes(state, id, version, cmd) } -> event_range; } {
                 return calculate_changes(state, id, version, cmd);
             }
 
             constexpr event_range auto operator()(
-                [[maybe_unused]] auto const &state,
-                [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                auto const &state,
+                uuid const &id,
+                [[maybe_unused]] std::uint64_t const version,
+                command auto const &cmd
             ) const requires requires { { calculate_changes(state, id, cmd) } -> event_range; } {
                 return calculate_changes(state, id, cmd);
             }
 
             constexpr event_range auto operator()(
-                [[maybe_unused]] auto const &state,
+                auto const &state,
                 [[maybe_unused]] uuid const &id,
-                [[maybe_unused]] std::size_t const version,
-                [[maybe_unused]] command auto const &cmd
+                [[maybe_unused]] std::uint64_t const version,
+                command auto const &cmd
             ) const requires requires { { calculate_changes(state, cmd) } -> event_range; } {
                 return calculate_changes(state, cmd);
             }

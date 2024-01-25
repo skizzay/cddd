@@ -15,23 +15,23 @@ namespace skizzay::simple::cqrs {
 
         struct get_events_fn final {
             template<typename T>
-            requires requires (T &&t, uuid const &id, std::size_t const b, std::size_t const e) {
+            requires requires (T &&t, uuid const &id, std::uint64_t const b, std::uint64_t const e) {
                 { t.get_events(id, b, e) } -> event_range;
             }
-            constexpr event_range auto operator()(T &&t, uuid const &id, std::size_t const b, std::size_t const e) const {
+            constexpr event_range auto operator()(T &&t, uuid const &id, std::uint64_t const b, std::uint64_t const e) const {
                 return std::forward<T>(t).get_events(id, b, e);
             }
 
             template<typename T>
-            requires requires (T &&t, uuid const &id, std::size_t const b, std::size_t const e) {
+            requires requires (T &&t, uuid const &id, std::uint64_t const b, std::uint64_t const e) {
                 { get_events(t, id, b, e) } -> event_range;
             }
-            constexpr event_range auto operator()(T &&t, uuid const &id, std::size_t const b, std::size_t const e) const {
+            constexpr event_range auto operator()(T &&t, uuid const &id, std::uint64_t const b, std::uint64_t const e) const {
                 return get_events(std::forward<T>(t), id, b, e);
             }
 
             template<typename T>
-            constexpr event_range auto operator()(T &&t, uuid const &id, std::size_t const b) const {
+            constexpr event_range auto operator()(T &&t, uuid const &id, std::uint64_t const b) const {
                 if constexpr (requires {
                     { t.get_events(id, b) } -> event_range;
                 }) {
@@ -43,7 +43,7 @@ namespace skizzay::simple::cqrs {
                     return get_events(std::forward<T>(t), id, b);
                 }
                 else {
-                    return (*this)(std::forward<T>(t), id, b, std::numeric_limits<std::size_t>::max());
+                    return (*this)(std::forward<T>(t), id, b, std::numeric_limits<std::uint64_t>::max());
                 }
             }
 

@@ -16,7 +16,7 @@ namespace skizzay::simple::cqrs {
         requires std::is_class_v<E> && std::is_same_v<E, std::remove_cvref_t<E> >
     struct event_base {
         uuid stream_id{};
-        std::size_t sequence_number{};
+        std::uint64_t sequence_number{};
         Timestamp timestamp{};
 
         constexpr event_base() noexcept = default;
@@ -41,12 +41,12 @@ namespace skizzay::simple::cqrs {
         };
 
         struct event_sequence_number_fn final {
-            constexpr std::size_t operator()(of_event_base auto const &event) const noexcept {
+            constexpr std::uint64_t operator()(of_event_base auto const &event) const noexcept {
                 return event.sequence_number;
             }
 
             template<of_event_base... Es>
-            constexpr std::size_t operator()(std::variant<Es...> const &event) const noexcept {
+            constexpr std::uint64_t operator()(std::variant<Es...> const &event) const noexcept {
                 return std::visit(*this, event);
             }
         };

@@ -37,7 +37,7 @@ namespace skizzay::simple::cqrs {
             }
 
             [[nodiscard]] constexpr event_range auto validate_command_and_calculate_changes(uuid const &id,
-                std::size_t const version, command auto const &cmd
+                std::uint64_t const version, command auto const &cmd
             ) const {
                 return fsm_.query([&](state auto const &current) {
                     validate_command(current, id, version, cmd);
@@ -59,7 +59,7 @@ namespace skizzay::simple::cqrs {
             }
 
             [[nodiscard]] constexpr event_range auto validate_command_and_calculate_changes(uuid const &id,
-                std::size_t const version, command auto const &cmd
+                std::uint64_t const version, command auto const &cmd
             ) const {
                 validate_command(self(), id, version, cmd);
                 return calculate_changes(self(), id, version, cmd);
@@ -89,7 +89,7 @@ namespace skizzay::simple::cqrs {
             return id_;
         }
 
-        [[nodiscard]] constexpr std::size_t version() const noexcept {
+        [[nodiscard]] constexpr std::uint64_t version() const noexcept {
             return version_;
         }
 
@@ -125,7 +125,7 @@ namespace skizzay::simple::cqrs {
 
     private:
         uuid id_;
-        std::size_t version_{};
+        std::uint64_t version_{};
         std::vector<Event> uncommitted_events_{};
     };
 } // skizzay::simple::cqrs
