@@ -4,7 +4,7 @@
 
 
 #include <catch2/catch_all.hpp>
-#include <skizzay/command.h>
+#include <skizzay/cqrs/command.h>
 
 using namespace skizzay::simple::cqrs;
 

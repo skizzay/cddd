@@ -3,7 +3,7 @@
 //
 
 #include <catch2/catch_all.hpp>
-#include <skizzay/event.h>
+#include <skizzay/cqrs/event.h>
 
 using namespace skizzay::simple::cqrs;
 

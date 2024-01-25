@@ -3,7 +3,7 @@
 //
 
 #include <catch2/catch_all.hpp>
-#include <skizzay/time_point.h>
+#include <skizzay/cqrs/time_point.h>
 
 using namespace skizzay::simple::cqrs;
 

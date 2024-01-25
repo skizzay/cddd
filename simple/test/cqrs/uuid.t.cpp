@@ -5,7 +5,7 @@
 #include <catch2/catch_all.hpp>
 #include <cstddef>
 #include <iostream>
-#include <skizzay/uuid.h>
+#include <skizzay/cqrs/uuid.h>
 
 using namespace skizzay::simple::cqrs;
 
@@ -34,5 +34,12 @@ TEST_CASE("uuid can be created from a uuid string", "[uuid]") {
   REQUIRE(uuid::variant::rfc4122 == sut.variant());
   REQUIRE(7 == sut.version());
   REQUIRE(expected == sut.to_string());
+}
 
+TEST_CASE("uuid can be created from a uuid wstring", "[uuid]") {
+  constexpr std::wstring_view expected = L"647bc532-8d01-7487-ba4c-f56a4ff65ceb";
+  constexpr uuid sut = uuid::from_string(expected);
+  REQUIRE(uuid::variant::rfc4122 == sut.variant());
+  REQUIRE(7 == sut.version());
+  REQUIRE(expected == sut.to_wstring());
 }

@@ -3,7 +3,7 @@
 //
 
 #include <catch2/catch_all.hpp>
-#include <skizzay/state_machine.h>
+#include <skizzay/cqrs/state_machine.h>
 
 using namespace skizzay::simple::cqrs;
 

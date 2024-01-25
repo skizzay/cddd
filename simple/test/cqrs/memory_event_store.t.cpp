@@ -2,7 +2,7 @@
 // Created by andrew on 1/23/24.
 //
 
-#include <skizzay/memory_event_store.h>
+#include <skizzay/cqrs/memory_event_store.h>
 #include <catch2/catch_all.hpp>
 
 using namespace skizzay::simple::cqrs;

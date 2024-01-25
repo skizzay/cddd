@@ -2,7 +2,7 @@
 // Created by andrew on 1/23/24.
 //
 
-#include <skizzay/aggregate_root_factory.h>
+#include <skizzay/cqrs/aggregate_root_factory.h>
 #include <catch2/catch_all.hpp>
 
 using namespace skizzay::simple::cqrs;

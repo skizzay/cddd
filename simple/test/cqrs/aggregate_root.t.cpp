@@ -3,15 +3,14 @@
 //
 
 #include <catch2/catch_all.hpp>
-#include <skizzay/command.h>
-#include <skizzay/event.h>
-#include <skizzay/state.h>
+#include <skizzay/cqrs/aggregate_root.h>
+#include <skizzay/cqrs/command.h>
+#include <skizzay/cqrs/event.h>
+#include <skizzay/cqrs/state.h>
+#include <skizzay/cqrs/state_machine.h>
+#include <skizzay/cqrs/tag.h>
 #include <variant>
 #include <vector>
-
-#include "skizzay/aggregate_root.h"
-#include "skizzay/state_machine.h"
-#include "skizzay/tag.h"
 
 using namespace skizzay::simple::cqrs;
 

@@ -2,8 +2,8 @@
 // Created by andrew on 1/23/24.
 //
 
-#include <skizzay/command_handler.h>
-#include <skizzay/memory_event_store.h>
+#include <skizzay/cqrs/command_handler.h>
+#include <skizzay/cqrs/memory_event_store.h>
 #include <catch2/catch_all.hpp>
 
 using namespace skizzay::simple::cqrs;
