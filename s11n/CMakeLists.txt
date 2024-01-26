@@ -3,6 +3,7 @@ add_library(simple_s11n INTERFACE
         main/skizzay/s11n/file_deser.h
         main/skizzay/s11n/seek_origin.h
         main/skizzay/s11n/sink.h
+        main/skizzay/s11n/source.h
 )
 target_include_directories(simple_s11n INTERFACE
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/s11n/main>
@@ -16,6 +17,7 @@ if (CDDD_BUILD_TESTS)
 
     add_executable(simple_s11n_test
             test/s11n/encode.t.cpp
+            test/s11n/file_deser.t.cpp
     )
     set_property(TARGET simple_s11n_test PROPERTY CXX_STANDARD 23)
     target_link_libraries(simple_s11n_test

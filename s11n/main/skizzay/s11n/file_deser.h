@@ -8,7 +8,6 @@
 #include <system_error>
 #include <cstdio>
 #include <memory>
-#include <span>
 
 #include "seek_origin.h"
 
@@ -24,48 +23,73 @@ namespace skizzay::s11n { namespace file_details {
             }
         };
 
+        constexpr inline auto file_size = [](FILE *f) noexcept -> std::size_t {
+            auto const current_position = std::ftell(f);
+            std::fseek(f, 0, static_cast<int>(seek_origin::end));
+            auto const result = std::ftell(f);
+            std::fseek(f, current_position, static_cast<int>(seek_origin::beginning));
+            return result;
+        };
+
         template<typename T>
             requires std::is_class_v<T> && std::is_same_v<T, std::remove_cvref_t<T> >
         class file_sink_base {
         public:
             using offset_type = std::char_traits<char>::off_type;
 
-            [[nodiscard]] offset_type write_position() const noexcept {
+            [[nodiscard]] offset_type sink_position() const noexcept {
                 return nullptr == get_file()
                            ? 0
                            : std::ftell(get_file());
             }
 
-            void seek_write(offset_type const p, seek_origin const origin) {
+            void sink_seek(offset_type const p, seek_origin const origin) {
                 if (nullptr != get_file() && std::fseek(get_file(), p, static_cast<int>(origin))) {
                     throw_system_error();
                 }
             }
 
-            void set_buffer_size(std::size_t const n) noexcept {
+            void set_buffer_size(std::size_t const n) {
                 if (nullptr != get_file() && std::setvbuf(get_file(), nullptr, 0 == n ? _IOFBF : _IONBF, n)) {
                     throw_system_error();
                 }
             }
 
-            void flush() noexcept {
+            void flush() {
                 if (nullptr != get_file() && std::fflush(get_file())) {
                     throw_system_error();
                 }
             }
 
-            template<std::size_t N>
-            std::size_t write(std::span<std::byte const, N> bytes) {
+            template<std::ranges::sized_range R>
+                requires std::ranges::contiguous_range<R>
+            std::size_t write(R const &range) noexcept {
                 return nullptr == get_file()
                            ? 0
-                           : std::fwrite(bytes.data(), sizeof(std::byte), bytes.size(), get_file());
+                           : std::fwrite(std::ranges::data(range), sizeof(std::ranges::range_value_t<R>),
+                                         std::ranges::size(range), get_file()) * sizeof(std::ranges::range_value_t<R>);
             }
 
-            template<typename Ch=char, typename Tr=std::char_traits<Ch>>
-            std::size_t write(std::basic_string_view<Ch, Tr> const str) {
-                return nullptr == get_file()
-                           ? 0
-                           : std::fwrite(str.data(), sizeof(Ch), str.size(), get_file());
+            template<typename Ch>
+                requires std::same_as<Ch, char> || std::same_as<Ch, char8_t>
+            std::size_t write(Ch const c) noexcept {
+                if (nullptr == get_file()) {
+                    return 0;
+                }
+                if (c != std::fputc(c, get_file())) {
+                    throw_system_error();
+                }
+                return sizeof(Ch);
+            }
+
+            std::size_t write(wchar_t const c) noexcept {
+                if (nullptr == get_file()) {
+                    return 0;
+                }
+                if (static_cast<std::wint_t>(c) != std::fputwc(c, get_file())) {
+                    throw_system_error();
+                }
+                return sizeof(wchar_t);
             }
 
         protected:
@@ -81,20 +105,25 @@ namespace skizzay::s11n { namespace file_details {
         class file_source_base {
         public:
             using offset_type = std::char_traits<char>::off_type;
-
-            std::size_t read(std::span<std::byte> &bytes) {
+            template<std::ranges::sized_range R>
+                requires std::ranges::contiguous_range<R>
+            std::size_t read(R &range, std::size_t const n) noexcept {
                 return nullptr == get_file()
                            ? 0
-                           : std::fread(bytes.data(), sizeof(std::byte), bytes.size(), get_file());
+                           : std::fread(
+                               std::ranges::data(range),
+                               sizeof(std::ranges::range_value_t<R>),
+                               std::min(std::ranges::size(std::as_const(range)), n / sizeof(std::ranges::range_value_t<R>)),
+                               get_file()) * sizeof(std::ranges::range_value_t<R>);
             }
 
-            [[nodiscard]] offset_type read_position() const noexcept {
+            [[nodiscard]] offset_type source_position() const noexcept {
                 return nullptr == get_file()
                            ? 0
                            : std::ftell(get_file());
             }
 
-            void seek_read(offset_type const p, seek_origin const origin) {
+            void source_seek(offset_type const p, seek_origin const origin) {
                 if (nullptr != get_file() && std::fseek(get_file(), p, static_cast<int>(origin))) {
                     throw_system_error();
                 }
@@ -108,17 +137,24 @@ namespace skizzay::s11n { namespace file_details {
     }
 
     class file_sink : public file_details::file_sink_base<file_sink> {
+        friend class file_sink_base;
+
     public:
         file_sink() noexcept = default;
 
         explicit file_sink(char const *filename)
             : f_{std::fopen(filename, "wb+")} {
+            sink_seek(0, seek_origin::end);
         }
 
         static file_sink temporary() {
             file_sink result;
             result.f_.reset(std::tmpfile());
             return result;
+        }
+
+        [[nodiscard]] bool is_open() const noexcept {
+            return nullptr != get_file_handle();
         }
 
     private:
@@ -130,11 +166,17 @@ namespace skizzay::s11n { namespace file_details {
     };
 
     class file_source : public file_details::file_sink_base<file_source> {
+        friend class file_source_base;
+
     public:
         file_source() noexcept = default;
 
         explicit file_source(char const *filename)
             : f_{std::fopen(filename, "rb+")} {
+        }
+
+        [[nodiscard]] bool is_open() const noexcept {
+            return nullptr != get_file_handle();
         }
 
     private:
@@ -147,6 +189,9 @@ namespace skizzay::s11n { namespace file_details {
 
     class file : public file_details::file_sink_base<file>,
                  public file_details::file_source_base<file> {
+        friend class file_sink_base;
+        friend class file_source_base;
+
     public:
         file() noexcept = default;
 
@@ -158,6 +203,10 @@ namespace skizzay::s11n { namespace file_details {
             file result;
             result.f_.reset(std::tmpfile());
             return result;
+        }
+
+        [[nodiscard]] bool is_open() const noexcept {
+            return nullptr != get_file_handle();
         }
 
     private:
