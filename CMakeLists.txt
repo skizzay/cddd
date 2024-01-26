@@ -18,6 +18,7 @@ if (CDDD_BUILD_TESTS)
 endif()
 
 add_subdirectory(simple)
+add_subdirectory(s11n)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
