@@ -58,6 +58,29 @@ namespace skizzay::s11n { namespace sink_details {
             }
         };
 
+        void ensure_size(auto &, std::size_t) = delete;
+
+        struct sink_ensure_size_fn final {
+            constexpr void operator()(auto &, std::size_t const) const noexcept {
+            }
+
+            template<typename T>
+            requires requires(T &sink, std::size_t const n) {
+                { ensure_size(sink, n) };
+            }
+            constexpr decltype(auto) operator()(T &sink, std::size_t const n) const noexcept(noexcept(ensure_size(sink, n))) {
+                return ensure_size(sink, n);
+            }
+
+            template<typename T>
+            requires requires(T &sink, std::size_t const n) {
+                { sink.ensure_size(n) };
+            }
+            constexpr decltype(auto) operator()(T &sink, std::size_t const n) const noexcept(noexcept(sink.ensure_growth(n))) {
+                return sink.ensure_size(n);
+            }
+        };
+
         struct sink_position_fn final {
             template<typename T>
                 requires requires(T const &sink) {
@@ -75,6 +98,7 @@ namespace skizzay::s11n { namespace sink_details {
         constexpr inline sink_details::seek_write_fn sink_seek{};
         constexpr inline sink_details::sink_flush_fn sink_flush{};
         constexpr inline sink_details::sink_position_fn sink_position{};
+        constexpr inline sink_details::sink_ensure_size_fn sink_ensure_size{};
     }
 
     template<typename T>

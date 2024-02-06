@@ -8,13 +8,19 @@
 #include <system_error>
 #include <cstdio>
 #include <memory>
+#if __has_include(<fcntl.h>)
+#include <fcntl.h>
+constexpr inline bool has_posix_fallocate_ = _POSIX_C_SOURCE >= 200112L;
+#else
+constexpr inline bool has_posix_fallocate_ = false;
+#endif
 
 #include "seek_origin.h"
 
 // ReSharper disable once CppInconsistentNaming
 namespace skizzay::s11n { namespace file_details {
-        constexpr inline auto throw_system_error = [][[noreturn]] {
-            throw std::system_error{errno, std::system_category()};
+        constexpr inline auto throw_system_error = [][[noreturn]](int const err = errno) {
+            throw std::system_error{err, std::system_category()};
         };
 
         constexpr inline auto close_file = [](FILE *f) {
@@ -92,6 +98,17 @@ namespace skizzay::s11n { namespace file_details {
                 return sizeof(wchar_t);
             }
 
+            void ensure_size(std::size_t const n) requires has_posix_fallocate_ {
+                if (auto const fd = ::fileno(get_file()); -1 != fd) {
+                    if (auto const result = ::posix_fallocate(fd, sink_position(), n); result) {
+                        throw_system_error(result);
+                    }
+                }
+                else {
+                    throw_system_error();
+                }
+            }
+
         protected:
             using file_handle = std::unique_ptr<FILE, decltype(close_file)>;
 
@@ -105,16 +122,18 @@ namespace skizzay::s11n { namespace file_details {
         class file_source_base {
         public:
             using offset_type = std::char_traits<char>::off_type;
+
             template<std::ranges::sized_range R>
                 requires std::ranges::contiguous_range<R>
             std::size_t read(R &range, std::size_t const n) noexcept {
                 return nullptr == get_file()
                            ? 0
                            : std::fread(
-                               std::ranges::data(range),
-                               sizeof(std::ranges::range_value_t<R>),
-                               std::min(std::ranges::size(std::as_const(range)), n / sizeof(std::ranges::range_value_t<R>)),
-                               get_file()) * sizeof(std::ranges::range_value_t<R>);
+                                 std::ranges::data(range),
+                                 sizeof(std::ranges::range_value_t<R>),
+                                 std::min(std::ranges::size(std::as_const(range)),
+                                          n / sizeof(std::ranges::range_value_t<R>)),
+                                 get_file()) * sizeof(std::ranges::range_value_t<R>);
             }
 
             [[nodiscard]] offset_type source_position() const noexcept {
