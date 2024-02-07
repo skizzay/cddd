@@ -32,8 +32,18 @@ namespace {
     };
 }
 
-TEST_CASE("writing to the memmap advances the position", "[posix_memmap_sink,memmap_handle]") {
+TEST_CASE("seeking before beginning throws", "[memmap_handle]") {
     auto target = posix_memmap_sink::open_private(temp_file());
+    REQUIRE(sink<decltype(target)>);
+    REQUIRE(sink_position(target) == 0);
+
+    SECTION("seeking before beginning throws") {
+        REQUIRE_THROWS_AS(sink_seek(target, -1, seek_origin::beginning), std::out_of_range);
+    }
+}
+
+TEST_CASE("writing to the memmap advances the position", "[posix_memmap_sink,memmap_handle]") {
+    auto target = posix_memmap_sink::open_shared(temp_file());
     REQUIRE(sink<decltype(target)>);
     REQUIRE(sink_position(target) == 0);
 

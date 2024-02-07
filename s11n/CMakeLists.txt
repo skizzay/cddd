@@ -11,6 +11,7 @@ add_library(simple_s11n INTERFACE
         main/skizzay/s11n/memmap_handle.h
         main/skizzay/s11n/file_descriptor.h
         main/skizzay/s11n/throw_system_error.h
+        main/skizzay/s11n/buffer_position.h
 )
 target_include_directories(simple_s11n INTERFACE
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/s11n/main>

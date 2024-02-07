@@ -18,8 +18,8 @@ namespace skizzay::s11n { namespace source_details {
 
         struct source_read_fn final {
             template<typename T, std::ranges::contiguous_range B>
-                requires std::ranges::sized_range<B> && requires(T &source, B &buffer) {
-                    { source.read(buffer, std::ranges::size(buffer)) } -> std::unsigned_integral;
+                requires std::ranges::sized_range<B> && requires(source_read_fn const f, T &source, B &buffer) {
+                    { f(source, buffer, std::ranges::size(buffer)) } -> std::unsigned_integral;
                 }
             constexpr std::unsigned_integral auto operator()(T &source, B &buffer
             ) const noexcept(
