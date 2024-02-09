@@ -28,6 +28,7 @@ if (CDDD_BUILD_TESTS)
             test/s11n/file_deser.t.cpp
             test/s11n/buffer_reader.t.cpp
             test/s11n/memmap_handle.t.cpp
+            test/s11n/memory_buffer.t.cpp
     )
     set_property(TARGET simple_s11n_test PROPERTY CXX_STANDARD 23)
     target_link_libraries(simple_s11n_test

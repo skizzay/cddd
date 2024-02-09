@@ -4,57 +4,62 @@
 
 #ifndef MEMORY_BUFFER_H
 #define MEMORY_BUFFER_H
-#include "seek_origin.h"
+#include <span>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include "buffer_position.h"
+
 
 // ReSharper disable once CppInconsistentNaming
-namespace skizzay::s11n { namespace memory_buffer_details {
-        template<typename Impl>
-            requires std::is_class_v<Impl> && std::is_same_v<Impl, std::remove_cvref_t<Impl> >
-        class sink_base {
-        public:
-            using offset_type = std::char_traits<char>::off_type;
+namespace skizzay::s11n {
+    template<typename Alloc=std::allocator<std::byte> >
+    class memory_buffer final : public sink_base<memory_buffer<Alloc> >,
+                                public source_base<memory_buffer<Alloc> > {
+        friend sink_base<memory_buffer>;
+        friend source_base<memory_buffer>;
 
-            [[nodiscard]] offset_type sink_position() const noexcept {
-                return position_;
-            }
+    public:
+        using sink_base<memory_buffer>::sink_position;
+        using source_base<memory_buffer>::source_position;
 
-            void sink_seek(offset_type const p, seek_origin const origin) {
-                switch (origin) {
-                    case seek_origin::beginning: {
-                        if (p < 0) {
-                            throw std::ios_base::failure{"seek before beginning"};
-                        }
-                        if (p > impl_capacity()) {
-                            throw std::ios_base::failure{"seek past end"};
-                        }
-                        position_ = p;
-                        break;
-                    case seek_origin::current:
-                        if (position_ + p < 0) {
-                            throw std::ios_base::failure{"seek before beginning"};
-                        }
-                        if (position_ + p > impl_capacity()) {
-                            throw std::ios_base::failure{"seek past end"};
-                        }
-                        position_ += p;
-                        break;
-                    case seek_origin::end:
-                        if
-                        position_ = size_ + p;
-                        break;
-                    }
-                }
-            }
+        template<typename... Args>
+        explicit memory_buffer(Args &&... args
+        ) noexcept(std::is_nothrow_constructible_v<std::vector<std::byte, Alloc>, Args...>)
+            : buffer_{std::forward<Args>(args)...} {
+        }
 
-        private:
-            constexpr std::size_t impl_capacity() const noexcept {
-                return static_cast<Impl const &>(*this).sink_capacity();
-            }
-            offset_type position_{};
-        };
-    }
+        [[nodiscard]] std::size_t size() const noexcept {
+            return buffer_.size();
+        }
 
-    class memory_buffer_sink final : memory_buffer_details::sink_base<memory_buffer_sink> {
+        // ReSharper disable once CppMemberFunctionMayBeStatic
+        void flush() noexcept {
+            // No-op
+        }
+
+    private:
+        [[nodiscard]] std::span<std::byte> write_buffer() noexcept {
+            return {buffer_.data() + this->sink_position(), buffer_.size() - this->sink_position()};
+        }
+
+        [[nodiscard]] std::size_t write_capacity() const noexcept {
+            return buffer_.size();
+        }
+
+        void reserve(std::size_t const n) {
+            // Allocate at least n bytes, letting std::vector choose the growth strategy
+            // Then resize to n to capture the new capacity
+            buffer_.reserve(n);
+            buffer_.resize(n);
+        }
+
+        [[nodiscard]] std::span<std::byte const> read_buffer() const noexcept {
+            return {buffer_.data() + this->source_position(), buffer_.size() - this->source_position()};
+        }
+
+        std::vector<std::byte, Alloc> buffer_;
     };
 } // skizzay
 

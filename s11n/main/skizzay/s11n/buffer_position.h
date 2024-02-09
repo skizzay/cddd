@@ -7,7 +7,8 @@
 
 #include <cstddef>
 #include <stdexcept>
-#include <string>
+
+#include <cstring>
 
 #include "seek_origin.h"
 
@@ -20,7 +21,7 @@ namespace skizzay::s11n {
     template<position_buffer_type T>
     class buffer_position {
     public:
-        using offset_type = std::char_traits<char>::off_type;
+        using offset_type = std::make_signed_t<std::size_t>;
 
         [[nodiscard]] constexpr offset_type sink_position() const noexcept requires(T == position_buffer_type::sink) {
             return position_;
@@ -75,6 +76,90 @@ namespace skizzay::s11n {
 
         offset_type position_{};
     };
+
+    template<typename T>
+        requires std::is_class_v<T> && std::is_same_v<T, std::remove_cvref_t<T> >
+    class source_base : protected buffer_position<position_buffer_type::source> {
+    public:
+        using buffer_position::source_position;
+
+        void source_seek(offset_type const p, seek_origin const origin) {
+            seek(p, read_buffer().size(), origin);
+        }
+
+        template<std::ranges::sized_range R>
+            requires std::ranges::contiguous_range<R>
+        std::size_t read(R &range, std::ranges::range_size_t<R> const n) {
+            auto const buffer = read_buffer();
+            std::size_t const num_bytes = std::min(n * sizeof(std::ranges::range_value_t<R>),
+                                                   buffer.size());
+            std::memcpy(std::ranges::data(range), buffer.data(), num_bytes);
+            advance(num_bytes);
+            return num_bytes;
+        }
+
+    private:
+        [[nodiscard]] std::span<std::byte const> read_buffer() const noexcept {
+            return static_cast<T const *>(this)->read_buffer();
+        }
+    };
+
+        template<typename T>
+            requires std::is_class_v<T> && std::is_same_v<T, std::remove_cvref_t<T> >
+        class sink_base : protected buffer_position<position_buffer_type::sink> {
+        public:
+            using buffer_position::sink_position;
+
+            template<std::ranges::contiguous_range R>
+                requires std::ranges::sized_range<R>
+            std::size_t write(R const &range) {
+                std::size_t const num_bytes = std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>);
+                ensure_size(num_bytes);
+                std::memcpy(write_buffer().data(), std::ranges::data(range), num_bytes);
+                advance(num_bytes);
+                return num_bytes;
+            }
+
+            template<typename Ch>
+                requires (sizeof(std::byte) == sizeof(Ch))
+            std::size_t write(Ch const c) noexcept {
+                ensure_size(sizeof(Ch));
+                *reinterpret_cast<Ch *>(write_buffer().data()) = c;
+                advance(sizeof(Ch));
+                return sizeof(Ch);
+            }
+
+            std::size_t write(wchar_t const c) noexcept {
+                ensure_size(sizeof(wchar_t));
+                std::memcpy(write_buffer().data(), &c, sizeof(wchar_t));
+                advance(sizeof(wchar_t));
+                return sizeof(wchar_t);
+            }
+
+            void sink_seek(offset_type const p, seek_origin const origin) {
+                seek(p, write_capacity(), origin);
+            }
+
+            void ensure_size(std::size_t const n) {
+                if (std::size_t const requested_size = sink_position() + n;
+                    requested_size > write_capacity()) {
+                    reserve(requested_size);
+                }
+            }
+
+        private:
+            [[nodiscard]] std::span<std::byte> write_buffer() noexcept {
+                return static_cast<T *>(this)->write_buffer();
+            }
+
+            [[nodiscard]] std::size_t write_capacity() const noexcept {
+                return static_cast<T const *>(this)->write_capacity();
+            }
+
+            void reserve(std::size_t const n) {
+                static_cast<T *>(this)->reserve(n);
+            }
+        };
 } // skizzay
 
 #endif //BUFFER_POSITION_H

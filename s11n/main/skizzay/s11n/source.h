@@ -27,12 +27,15 @@ namespace skizzay::s11n { namespace source_details {
                 return (*this)(source, buffer, std::ranges::size(buffer));
             }
 
-            template<typename T, std::ranges::contiguous_range B, std::unsigned_integral I>
-                requires requires(T &source, B &buffer, I const n) {
-                    { source.read(buffer, n) } -> std::unsigned_integral;
-                }
+            template<typename T, std::ranges::contiguous_range B>
+                requires std::ranges::sized_range<B> && requires(
+                     T &source, B &buffer,
+                     std::ranges::range_size_t<B> const n
+                 ) {
+                             { source.read(buffer, n) } -> std::unsigned_integral;
+                         }
             constexpr std::unsigned_integral auto operator()(T &source, B &buffer,
-                                                             I const n
+                                                             std::ranges::range_size_t<B> const n
             ) const noexcept(
                 noexcept(source.read(buffer, n))) {
                 return source.read(buffer, n);
@@ -68,8 +71,10 @@ namespace skizzay::s11n { namespace source_details {
     }
 
     template<typename T>
-    concept source = std::is_invocable_v<decltype(source_read), T &, std::span<std::byte> &, std::span<std::byte>::size_type>
-                     && std::is_invocable_v<decltype(source_read), T &, std::vector<std::byte> &, std::vector<std::byte>::size_type>
+    concept source = std::is_invocable_v<decltype(source_read), T &, std::span<std::byte> &, std::span<
+                         std::byte>::size_type>
+                     && std::is_invocable_v<decltype(source_read), T &, std::vector<std::byte> &, std::vector<
+                         std::byte>::size_type>
                      && std::is_invocable_v<decltype(source_seek), T &, std::ptrdiff_t, seek_origin const>
                      && std::is_invocable_v<decltype(source_position), T const &>;
 }
