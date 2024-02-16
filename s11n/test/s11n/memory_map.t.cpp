@@ -2,12 +2,12 @@
 // Created by andrew on 2/5/24.
 //
 
-#include <skizzay/s11n/memory_buffer.h>
+#include <skizzay/s11n/memory_map.h>
 #include <catch2/catch_all.hpp>
 #include <random>
-#include <skizzay/s11n/io_device.h>
 
-#include <skizzay/s11n/encode.h>
+#include "skizzay/s11n/io_device.h"
+#include "skizzay/s11n/encode.h"
 
 using namespace skizzay::s11n;
 using namespace std::string_view_literals;
@@ -20,30 +20,33 @@ namespace {
         thread_local std::mt19937_64 gen{rd()};
         return std::uniform_int_distribution<I>{min, max}(gen);
     };
+
+    constexpr inline auto temp_file = []() -> std::filesystem::path {
+        auto const temp_filename_template = std::filesystem::temp_directory_path() / "s11n-XXXXXX";
+        char temp_filename[PATH_MAX];
+        std::strcpy(temp_filename, temp_filename_template.c_str());
+        mktemp(temp_filename);
+        return std::filesystem::path{temp_filename};
+    };
 }
 
-TEST_CASE("memory buffer has independent read/write points", "[memory_buffer]") {
-    auto target = memory_buffer{};
+TEST_CASE("memory map has independent read/write points", "[memory_map]") {
+    auto target = memory_map::open_private(temp_file());
     REQUIRE(has_independent_read_write_pointers_v<decltype(target)>);
 }
 
-TEST_CASE("seeking before buffer beginning throws", "[memory_buffer]") {
-    auto target = memory_buffer{};
+TEST_CASE("seeking before beginning throws", "[memory_map]") {
+    auto target = memory_map::open_private(temp_file());
     REQUIRE(sink<decltype(target)>);
     REQUIRE(write_position(target) == 0);
     REQUIRE_THROWS_AS(seek_write(target, -1, seek_origin::beginning), std::out_of_range);
 }
 
-TEST_CASE("seeking beyond end throws", "[memory_buffer]") {
-    auto target = memory_buffer{};
-    REQUIRE(sink<decltype(target)>);
-    REQUIRE(write_position(target) == 0);
-    REQUIRE_THROWS_AS(seek_write(target, 1, seek_origin::end), std::out_of_range);
-}
-
-TEST_CASE("writing to the buffer advances the position", "[memory_buffer]") {
+TEST_CASE("writing to the memmap advances the position", "[memory_map]") {
+    using skizzay::s11n::read;
     using skizzay::s11n::write;
-    auto target = memory_buffer{};
+    using skizzay::s11n::truncate;
+    auto target = memory_map::open_shared(temp_file());
     REQUIRE(sink<decltype(target)>);
     REQUIRE(write_position(target) == 0);
 
@@ -87,13 +90,14 @@ TEST_CASE("writing to the buffer advances the position", "[memory_buffer]") {
         REQUIRE(null_character_num_bytes == sizeof(char));
         REQUIRE(static_cast<std::size_t>(write_position(target)) == expected_position);
     }
+    truncate(target, write_position(target));
 }
 
-TEST_CASE("buffer can write (sink) and read (source)", "[memory_buffer]") {
-    using skizzay::s11n::write;
+TEST_CASE("Memmap can write (sink) and read (source)", "[memory_map]") {
     using skizzay::s11n::read;
-
-    auto target = memory_buffer{};
+    using skizzay::s11n::write;
+    using skizzay::s11n::truncate;
+    auto target = memory_map::open_shared(temp_file());
     REQUIRE(sink<decltype(target)>);
     REQUIRE(source<decltype(target)>);
 
@@ -118,4 +122,5 @@ TEST_CASE("buffer can write (sink) and read (source)", "[memory_buffer]") {
         REQUIRE(num_bytes_read == "Hello, World!"sv.size() + sizeof(short));
         REQUIRE(num_bytes_read == static_cast<std::size_t>(read_position(target) ));
     }
+    truncate(target, write_position(target));
 }

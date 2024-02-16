@@ -21,9 +21,8 @@ target_include_directories(simple_cqrs INTERFACE
         $<INSTALL_INTERFACE:include>
 )
 
-if (CDDD_BUILD_TESTS)
+if (BUILD_TESTING)
     find_package(Catch2 REQUIRED)
-    include(CTest)
     include(Catch)
 
     add_executable(simple_cqrs_test

@@ -2,8 +2,7 @@
 // Created by andrew on 1/22/24.
 //
 
-#ifndef EVENT_STREAM_H
-#define EVENT_STREAM_H
+#pragma once
 
 #include <utility>
 #include "event.h"
@@ -38,5 +37,3 @@ namespace skizzay::simple::cqrs {
     }
 
 } // skizzay::simple::cqrs
-
-#endif //EVENT_STREAM_H

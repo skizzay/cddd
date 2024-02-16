@@ -21,11 +21,10 @@ namespace skizzay::s11n {
                 if (bytes.size() < sizeof(I)) {
                     return 0;
                 }
-                std::array<std::byte, sizeof(I)> const bytes_to_decode{bytes.begin(), bytes.begin() + sizeof(I)};
+                std::span<std::byte, sizeof(I)> const bytes_to_decode{static_cast<std::byte *>(&out), sizeof(I)};
                 if constexpr (E != std::endian::native) {
                     std::ranges::reverse(bytes_to_decode);
                 }
-                out = std::bit_cast<I>(bytes_to_decode);
                 return sizeof(I);
             }
 

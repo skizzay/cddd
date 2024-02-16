@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <functional>
 #include <random>
+#include <span>
 
 namespace skizzay::simple::cqrs {
     class uuid {
@@ -206,6 +207,10 @@ namespace skizzay::simple::cqrs {
             return result;
         }
 
+        constexpr std::span<std::byte const, 16> bytes() const noexcept {
+            return bytes_;
+        }
+
         constexpr static uuid nil() noexcept {
             return uuid{};
         }
@@ -260,6 +265,12 @@ namespace skizzay::simple::cqrs {
         static uuid v7() noexcept {
             return v7(std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()));
+        }
+
+        constexpr static uuid from_bytes(std::span<std::byte const, 16> const bytes) noexcept {
+            uuid result{};
+            std::ranges::copy(bytes, std::ranges::data(result.bytes_));
+            return result;
         }
 
         template<typename Ch, typename Tr>

@@ -73,7 +73,7 @@ function(detect_arch ARCH)
             message(WARNING "CMake-Conan: Multiple architectures detected, this will only work if Conan recipe(s) produce fat binaries.")
         endif()
     endif()
-    if(CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS|tvOS|watchOS")
+    if(CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS|tvOS|watchOS" AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "")
         set(host_arch ${CMAKE_OSX_ARCHITECTURES})
     elseif(MSVC)
         set(host_arch ${CMAKE_CXX_COMPILER_ARCHITECTURE_ID})
@@ -277,10 +277,14 @@ macro(set_conan_compiler_if_appleclang lang command output_variable)
     if(CMAKE_${lang}_COMPILER_ID STREQUAL "AppleClang")
         execute_process(COMMAND xcrun --find ${command}
             OUTPUT_VARIABLE _xcrun_out OUTPUT_STRIP_TRAILING_WHITESPACE)
-        if (_xcrun_out STREQUAL "${CMAKE_${lang}_COMPILER}")
+        cmake_path(GET _xcrun_out PARENT_PATH _xcrun_toolchain_path)
+        cmake_path(GET CMAKE_${lang}_COMPILER PARENT_PATH _compiler_parent_path)
+        if ("${_xcrun_toolchain_path}" STREQUAL "${_compiler_parent_path}")
             set(${output_variable} "")
         endif()
-        unset(_xcrun_out)      
+        unset(_xcrun_out)
+        unset(_xcrun_toolchain_path)
+        unset(_compiler_parent_path)
     endif()
 endmacro()
 
@@ -411,12 +415,26 @@ function(conan_install)
     # Invoke "conan install" with the provided arguments
     set(CONAN_ARGS ${CONAN_ARGS} -of=${CONAN_OUTPUT_FOLDER})
     message(STATUS "CMake-Conan: conan install ${CMAKE_SOURCE_DIR} ${CONAN_ARGS} ${ARGN}")
+
+
+    # In case there was not a valid cmake executable in the PATH, we inject the
+    # same we used to invoke the provider to the PATH
+    if(DEFINED PATH_TO_CMAKE_BIN)
+        set(_OLD_PATH $ENV{PATH})
+        set(ENV{PATH} "$ENV{PATH}:${PATH_TO_CMAKE_BIN}")
+    endif()
+
     execute_process(COMMAND ${CONAN_COMMAND} install ${CMAKE_SOURCE_DIR} ${CONAN_ARGS} ${ARGN} --format=json
                     RESULT_VARIABLE return_code
                     OUTPUT_VARIABLE conan_stdout
                     ERROR_VARIABLE conan_stderr
                     ECHO_ERROR_VARIABLE    # show the text output regardless
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+    if(DEFINED PATH_TO_CMAKE_BIN)
+        set(ENV{PATH} "${_OLD_PATH}")
+    endif()
+
     if(NOT "${return_code}" STREQUAL "0")
         message(FATAL_ERROR "Conan install failed='${return_code}'")
     else()
@@ -525,11 +543,11 @@ macro(conan_provide_dependency method package_name)
         get_property(_multiconfig_generator GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
         if(NOT _multiconfig_generator)
             message(STATUS "CMake-Conan: Installing single configuration ${CMAKE_BUILD_TYPE}")
-            conan_install(${_host_profile_flags} ${_build_profile_flags} --build=missing ${generator})
+            conan_install(${_host_profile_flags} ${_build_profile_flags} ${CONAN_INSTALL_ARGS} ${generator})
         else()
             message(STATUS "CMake-Conan: Installing both Debug and Release")
-            conan_install(${_host_profile_flags} ${_build_profile_flags} -s build_type=Release --build=missing ${generator})
-            conan_install(${_host_profile_flags} ${_build_profile_flags} -s build_type=Debug --build=missing ${generator})
+            conan_install(${_host_profile_flags} ${_build_profile_flags} -s build_type=Release ${CONAN_INSTALL_ARGS} ${generator})
+            conan_install(${_host_profile_flags} ${_build_profile_flags} -s build_type=Debug ${CONAN_INSTALL_ARGS} ${generator})
         endif()
         unset(_host_profile_flags)
         unset(_build_profile_flags)
@@ -602,3 +620,11 @@ cmake_language(DEFER DIRECTORY "${CMAKE_SOURCE_DIR}" CALL conan_provide_dependen
 # Configurable variables for Conan profiles
 set(CONAN_HOST_PROFILE "default;auto-cmake" CACHE STRING "Conan host profile")
 set(CONAN_BUILD_PROFILE "default" CACHE STRING "Conan build profile")
+set(CONAN_INSTALL_ARGS "--build=missing" CACHE STRING "Command line arguments for conan install")
+
+find_program(_cmake_program NAMES cmake NO_PACKAGE_ROOT_PATH NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+if(NOT _cmake_program)
+    get_filename_component(PATH_TO_CMAKE_BIN "${CMAKE_COMMAND}" DIRECTORY)
+    set(PATH_TO_CMAKE_BIN "${PATH_TO_CMAKE_BIN}" CACHE INTERNAL "Path where the CMake executable is")
+endif()
+

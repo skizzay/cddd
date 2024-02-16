@@ -1,13 +1,14 @@
 //
-// Created by andrew on 2/5/24.
+// Created by andrew on 1/26/24.
 //
 
-#include <skizzay/s11n/memory_buffer.h>
+// ReSharper disable CppDFAConstantParameter
 #include <catch2/catch_all.hpp>
-#include <random>
+#include <skizzay/s11n/file.h>
 #include <skizzay/s11n/io_device.h>
+#include <random>
 
-#include <skizzay/s11n/encode.h>
+#include "skizzay/s11n/encode.h"
 
 using namespace skizzay::s11n;
 using namespace std::string_view_literals;
@@ -22,29 +23,11 @@ namespace {
     };
 }
 
-TEST_CASE("memory buffer has independent read/write points", "[memory_buffer]") {
-    auto target = memory_buffer{};
-    REQUIRE(has_independent_read_write_pointers_v<decltype(target)>);
-}
-
-TEST_CASE("seeking before buffer beginning throws", "[memory_buffer]") {
-    auto target = memory_buffer{};
-    REQUIRE(sink<decltype(target)>);
-    REQUIRE(write_position(target) == 0);
-    REQUIRE_THROWS_AS(seek_write(target, -1, seek_origin::beginning), std::out_of_range);
-}
-
-TEST_CASE("seeking beyond end throws", "[memory_buffer]") {
-    auto target = memory_buffer{};
-    REQUIRE(sink<decltype(target)>);
-    REQUIRE(write_position(target) == 0);
-    REQUIRE_THROWS_AS(seek_write(target, 1, seek_origin::end), std::out_of_range);
-}
-
-TEST_CASE("writing to the buffer advances the position", "[memory_buffer]") {
+TEST_CASE("writing to the file advances the position", "[file]") {
     using skizzay::s11n::write;
-    auto target = memory_buffer{};
+    auto target = file::temporary();
     REQUIRE(sink<decltype(target)>);
+    REQUIRE(target.is_open());
     REQUIRE(write_position(target) == 0);
 
     SECTION("write a 64-bit integer to file") {
@@ -89,11 +72,15 @@ TEST_CASE("writing to the buffer advances the position", "[memory_buffer]") {
     }
 }
 
-TEST_CASE("buffer can write (sink) and read (source)", "[memory_buffer]") {
-    using skizzay::s11n::write;
-    using skizzay::s11n::read;
+TEST_CASE("default constructed file sink is not open", "[file]") {
+    file const target;
+    REQUIRE_FALSE(target.is_open());
+}
 
-    auto target = memory_buffer{};
+TEST_CASE("File can write (sink) and read (source)", "[file]") {
+    using skizzay::s11n::read;
+    using skizzay::s11n::write;
+    auto target = file::temporary();
     REQUIRE(sink<decltype(target)>);
     REQUIRE(source<decltype(target)>);
 
@@ -105,7 +92,7 @@ TEST_CASE("buffer can write (sink) and read (source)", "[memory_buffer]") {
 
     SECTION("reading less than the number of bytes written") {
         std::array<std::byte, 5> buffer{};
-        auto const num_bytes_read = read(target, buffer, buffer.size());
+        auto const num_bytes_read = read(target, buffer);
         REQUIRE(num_bytes_read == buffer.size());
         REQUIRE(buffer == std::array<std::byte, 5>{std::byte{'H'}, std::byte{'e'}, std::byte{'l'}, std::byte{'l'},
                 std::byte{'o'}});
@@ -114,7 +101,7 @@ TEST_CASE("buffer can write (sink) and read (source)", "[memory_buffer]") {
 
     SECTION("reading more than number of bytes written") {
         std::vector<std::byte> buffer(100);
-        auto const num_bytes_read = read(target, buffer, buffer.size());
+        auto const num_bytes_read = read(target, buffer);
         REQUIRE(num_bytes_read == "Hello, World!"sv.size() + sizeof(short));
         REQUIRE(num_bytes_read == static_cast<std::size_t>(read_position(target) ));
     }

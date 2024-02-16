@@ -4,7 +4,6 @@
 
 #ifndef EVENT_STORE_H
 #define EVENT_STORE_H
-#include <cstddef>
 #include "event.h"
 
 namespace skizzay::simple::cqrs {
