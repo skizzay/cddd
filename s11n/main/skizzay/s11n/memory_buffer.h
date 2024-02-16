@@ -29,8 +29,8 @@ namespace skizzay::s11n {
             return static_cast<std::int64_t>(buffer_.size());
         }
 
-        constexpr void seek_write(std::signed_integral auto const p, seek_origin const origin) {
-            this->buffer_position<position_buffer_type::write>::seek(p, size(), origin);
+        constexpr std::int64_t seek_write(std::signed_integral auto const p, seek_origin const origin) {
+            return this->buffer_position<position_buffer_type::write>::seek(p, size(), origin);
         }
 
         constexpr std::unsigned_integral auto write(void const * const data, std::unsigned_integral auto const n) {
@@ -69,8 +69,8 @@ namespace skizzay::s11n {
             return read_position() == write_position();
         }
 
-        constexpr void seek_read(std::signed_integral auto const p, seek_origin const origin) {
-            this->buffer_position<position_buffer_type::read>::seek(p, size(), origin);
+        constexpr std::int64_t seek_read(std::signed_integral auto const p, seek_origin const origin) {
+            return this->buffer_position<position_buffer_type::read>::seek(p, size(), origin);
         }
 
         constexpr std::unsigned_integral auto read(void * const data, std::unsigned_integral auto const n) noexcept {

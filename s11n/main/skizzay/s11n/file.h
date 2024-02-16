@@ -24,7 +24,9 @@ namespace skizzay::s11n {
     class file {
     public:
         file() noexcept = default;
+
         file(file const &) = delete;
+
         file(file &&other) noexcept
             : fd_{std::exchange(other.fd_, -1)} {
         }
@@ -40,9 +42,11 @@ namespace skizzay::s11n {
             }
         }
 
-        file & operator = (file const &) = delete;
+        file &operator =(file const &) = delete;
+
         // ReSharper disable once CppSpecialFunctionWithoutNoexceptSpecification
-        file & operator = (file &&other) { // NOLINT(*-noexcept-move-constructor)
+        file &operator =(file &&other) {
+            // NOLINT(*-noexcept-move-constructor)
             if (this != &other) {
                 if (is_open()) {
                     close();
@@ -85,8 +89,8 @@ namespace skizzay::s11n {
             return position();
         }
 
-        void seek_write(std::signed_integral auto const p, seek_origin const origin) {
-            seek(p, origin);
+        std::int64_t seek_write(std::signed_integral auto const p, seek_origin const origin) {
+            return seek(p, origin);
         }
 
         [[nodiscard]] auto size() const {
@@ -118,7 +122,8 @@ namespace skizzay::s11n {
         }
 
         // ReSharper disable once CppMemberFunctionMayBeConst
-        void flush() { // NOLINT(*-make-member-function-const)
+        void flush() {
+            // NOLINT(*-make-member-function-const)
             if (::fsync(fd_)) {
                 throw_system_error();
             }
@@ -132,11 +137,11 @@ namespace skizzay::s11n {
             return read_position() == size();
         }
 
-        void seek_read(std::signed_integral auto const p, seek_origin const origin) {
-            seek(p, origin);
+        std::int64_t seek_read(std::signed_integral auto const p, seek_origin const origin) {
+            return seek(p, origin);
         }
 
-        std::unsigned_integral auto read(void * const data, std::unsigned_integral auto const n) {
+        std::unsigned_integral auto read(void *const data, std::unsigned_integral auto const n) {
             std::signed_integral auto const result = ::read(fd_, data, n);
             if (result < 0) {
                 throw_system_error();
@@ -164,8 +169,8 @@ namespace skizzay::s11n {
             return ::lseek(fd_, 0, SEEK_CUR);
         }
 
-        void seek(std::signed_integral auto const p, seek_origin const origin) {
-            if (int const whence = [](seek_origin const o) noexcept {
+        std::int64_t seek(std::signed_integral auto const p, seek_origin const origin) {
+            int const whence = [](seek_origin const o) noexcept {
                 switch (o) {
                     case seek_origin::beginning:
                         return SEEK_SET;
@@ -176,9 +181,12 @@ namespace skizzay::s11n {
                     default:
                         std::unreachable();
                 }
-            }(origin); ::lseek(fd_, p, whence) < 0) {
+            }(origin);
+            std::int64_t const result = ::lseek(fd_, p, whence);
+            if (result < 0) {
                 throw_system_error();
             }
+            return result;
         }
 
         int fd_{-1};

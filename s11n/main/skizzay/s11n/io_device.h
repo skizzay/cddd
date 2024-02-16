@@ -6,6 +6,8 @@
 
 #include <concepts>
 #include <cstdint>
+#include <memory>
+
 #include "boolean.h"
 #include "range_of_bytes.h"
 #include "seek_origin.h"
@@ -323,7 +325,7 @@ namespace skizzay::s11n { namespace io_device_details {
         struct seek_read_fn final {
             template<typename T, std::signed_integral I>
                 requires requires(T &t, I const p, seek_origin const o) {
-                    { t.seek_read(p, o) };
+                    { t.seek_read(p, o) } -> std::signed_integral;
                 }
             constexpr decltype(auto) operator()(T &t, I const p, seek_origin const o) const {
                 return t.seek_read(p, o);
@@ -331,7 +333,7 @@ namespace skizzay::s11n { namespace io_device_details {
 
             template<typename T, std::signed_integral I>
                 requires requires(T &t, I const p, seek_origin const o) {
-                    { seek_read(t, p, o) };
+                    { seek_read(t, p, o) } -> std::signed_integral;
                 }
             constexpr decltype(auto) operator()(T &t, I const p, seek_origin const o) const {
                 return seek_read(t, p, o);
@@ -366,28 +368,28 @@ namespace skizzay::s11n { namespace io_device_details {
         struct write_fn final {
             template<typename T, std::unsigned_integral I>
                 requires requires(T &t, void const *p, I n) {
-                    { t.write(p, n) };
+                    { t.write(p, n) } -> std::convertible_to<std::size_t>;
                 }
-            constexpr decltype(auto) operator()(T &t, void const *const p, I const n) const {
+            constexpr std::size_t operator()(T &t, void const *const p, I const n) const {
                 return t.write(p, n);
             }
 
             template<typename T, std::unsigned_integral I>
                 requires requires(T &t, void const *p, I n) {
-                    { write(t, p, n) };
+                    { write(t, p, n) } -> std::convertible_to<std::size_t>;
                 }
-            constexpr decltype(auto) operator()(T &t, void const *const p, I const n) const {
+            constexpr std::size_t operator()(T &t, void const *const p, I const n) const {
                 return write(t, p, n);
             }
 
             template<typename T, range_of_bytes R>
-            constexpr decltype(auto) operator()(T &t, R const &r) const {
+            constexpr std::size_t operator()(T &t, R const &r) const {
                 return (*this)(t, std::ranges::data(r),
                                sizeof(std::ranges::range_value_t<R>) * std::ranges::size(r));
             }
 
             template<typename T, range_of_bytes R>
-            constexpr decltype(auto) operator()(T &t, R const &r, std::ranges::range_size_t<R> const n) const {
+            constexpr std::size_t operator()(T &t, R const &r, std::ranges::range_size_t<R> const n) const {
                 return (*this)(t, std::ranges::data(r),
                                sizeof(std::ranges::range_value_t<R>) * std::min(n, std::ranges::size(r)));
             }
@@ -396,7 +398,7 @@ namespace skizzay::s11n { namespace io_device_details {
                 requires std::same_as<Ch, char> || std::same_as<Ch, wchar_t> || std::same_as<Ch, char8_t>
                          || std::same_as<Ch, char16_t> || std::same_as<Ch, char32_t> || std::same_as<Ch, std::byte>
                          || std::same_as<Ch, signed char> || std::same_as<Ch, unsigned char>
-            constexpr decltype(auto) operator()(T &t, Ch const (&p)[N]) const {
+            constexpr std::size_t operator()(T &t, Ch const (&p)[N]) const {
                 return (*this)(t, std::ranges::data(p), sizeof(Ch) * (N - 1));
             }
         };
@@ -496,4 +498,140 @@ namespace skizzay::s11n { namespace io_device_details {
             { T::are_read_write_pointers_independent() } -> boolean;
         }
     inline constexpr bool has_independent_read_write_pointers_v<T> = T::are_read_write_pointers_independent();
-} // skizzay
+
+    struct base_source {
+        virtual ~base_source() = default;
+
+        [[nodiscard]] virtual bool at_eof() const = 0;
+
+        virtual std::size_t read(void *, std::size_t) = 0;
+    };
+
+    struct base_random_access_source : base_source {
+        [[nodiscard]] virtual std::int64_t read_position() const = 0;
+
+        [[nodiscard]] virtual std::size_t read_remaining() const = 0;
+
+        [[nodiscard]] virtual std::int64_t size() const = 0;
+
+        virtual std::int64_t seek_read(std::int64_t, seek_origin) = 0;
+    };
+
+    template<source S>
+        requires (!std::derived_from<S, base_source>) && (!std::derived_from<S, base_random_access_source>)
+    std::unique_ptr<base_source> as_base_source(S &&s) {
+        struct impl final : base_source {
+            S s;
+
+            explicit impl(S &&s) noexcept(std::is_nothrow_move_constructible_v<S>)
+                : s(std::move(s)) {
+            }
+
+            [[nodiscard]] bool at_eof() const override { return s11n::at_eof(s); }
+
+            std::size_t read(void *p, std::size_t n) override {
+                return s11n::read(s, p, n);
+            }
+        };
+        return std::make_unique<impl>(std::forward<S>(s));
+    }
+
+    template<random_access_source S>
+        requires (!std::derived_from<S, base_source>) && (!std::derived_from<S, base_random_access_source>)
+    std::unique_ptr<base_random_access_source> as_base_source(S &&s) {
+        struct impl final : base_random_access_source {
+            S s;
+
+            explicit impl(S &&s) noexcept(std::is_nothrow_move_constructible_v<S>)
+                : s(std::move(s)) {
+            }
+
+            [[nodiscard]] bool at_eof() const override { return s11n::at_eof(s); }
+
+            std::size_t read(void *p, std::size_t n) override {
+                return s11n::read(s, p, n);
+            }
+
+            [[nodiscard]] std::int64_t read_position() const override { return s11n::read_position(s); }
+
+            [[nodiscard]] std::size_t read_remaining() const override { return s11n::read_remaining(s); }
+
+            [[nodiscard]] std::int64_t size() const override { return s11n::size(s); }
+
+            std::int64_t seek_read(std::int64_t p, seek_origin o) override {
+                return s11n::seek_read(s, p, o);
+            }
+        };
+        return std::make_unique<impl>(std::forward<S>(s));
+    }
+
+    struct base_sink {
+        virtual ~base_sink() = default;
+
+        virtual void flush() = 0;
+
+        virtual std::size_t write(void const *, std::size_t) = 0;
+    };
+
+    struct base_random_access_sink : base_sink {
+        [[nodiscard]] virtual std::int64_t write_position() const = 0;
+
+        [[nodiscard]] virtual std::int64_t size() const = 0;
+
+        virtual std::int64_t seek_write(std::int64_t, seek_origin) = 0;
+
+        virtual void truncate(std::int64_t) = 0;
+
+        virtual void reserve(std::size_t) = 0;
+    };
+
+    template<sink S>
+    requires (!std::derived_from<S, base_sink>) && (!std::derived_from<S, base_random_access_sink>)
+    [[nodiscard]] std::unique_ptr<base_sink> as_base_sink(S &&s) {
+        struct impl final : base_sink {
+            S s;
+
+            explicit impl(S &&s) noexcept(std::is_nothrow_move_constructible_v<S>)
+                : s(std::move(s)) {
+            }
+
+            void flush() override { s11n::flush(s); }
+
+            std::size_t write(void const *p, std::size_t n) override {
+                return s11n::write(s, p, n);
+            }
+        };
+        return std::make_unique<impl>(std::forward<S>(s));
+    }
+
+    template<random_access_sink S>
+    requires (!std::derived_from<S, base_sink>) && (!std::derived_from<S, base_random_access_sink>)
+    [[nodiscard]] std::unique_ptr<base_random_access_sink> as_base_sink(S &&s) {
+        struct impl final : base_random_access_sink {
+            S s;
+
+            explicit impl(S &&s) noexcept(std::is_nothrow_move_constructible_v<S>)
+                : s(std::move(s)) {
+            }
+
+            void flush() override { s11n::flush(s); }
+
+            std::size_t write(void const *p, std::size_t n) override {
+                return s11n::write(s, p, n);
+            }
+
+            [[nodiscard]] std::int64_t write_position() const override { return s11n::write_position(s); }
+
+            [[nodiscard]] std::int64_t size() const override { return s11n::size(s); }
+
+            std::int64_t seek_write(std::int64_t p, seek_origin o) override {
+                return s11n::seek_write(s, p, o);
+            }
+
+            void truncate(std::int64_t n) override { s11n::truncate(s, n); }
+
+            void reserve(std::size_t n) override { s11n::reserve(s, n); }
+        };
+        return std::make_unique<impl>(std::forward<S>(s));
+    }
+} // skizzay::s11n
