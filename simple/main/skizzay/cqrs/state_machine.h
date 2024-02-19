@@ -9,12 +9,15 @@
 
 #include "event.h"
 #include "state.h"
+#include "type_sequence.h"
 
 
 namespace skizzay::simple::cqrs {
     template<state... States>
     class state_machine {
     public:
+        using states_sequence = type_sequence<States...>;
+
         template<state S>
         requires (std::same_as<S, States> || ...)
         [[nodiscard]] constexpr bool is_state() const noexcept {

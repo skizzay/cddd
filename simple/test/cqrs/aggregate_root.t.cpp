@@ -17,7 +17,6 @@ using namespace skizzay::simple::cqrs;
 namespace {
     template<int N>
     struct test_command : command_base<test_command<N>> {
-        using command_base<test_command>::command_base;
         [[nodiscard]] static constexpr int value() noexcept { return N; }
     };
 
@@ -84,7 +83,7 @@ TEST_CASE("aggregate root can handle commands", "[aggregate_root]") {
         aggregate_root<event_type, state_machine<test_state<1>, test_state<2>>> ar{uuid::v4()};
 
         // Act
-        ar.handle_command(test_command<2>{ar.id()});
+        ar.handle_command(test_command<2>{{ar.id()}});
 
         // Assert
         REQUIRE(ar.is_state<test_state<2>>());

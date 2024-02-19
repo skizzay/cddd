@@ -23,8 +23,6 @@ namespace {
 
     template<int N>
     struct fake_command : command_base<fake_command<N>> {
-        using command_base<fake_command>::command_base;
-
         [[nodiscard]] constexpr int value() const noexcept {
             return N;
         }
@@ -58,7 +56,7 @@ namespace {
 TEST_CASE("command handler can exactly know which aggregate root to create", "[command_handler]") {
     event_store store{};
     auto target = command_handler{fake_factory{}, store.as_event_stream()};
-    fake_command<1> const cmd{uuid::v4(), std::chrono::system_clock::now()};
+    fake_command<1> const cmd{{uuid::v4(), std::chrono::system_clock::now()}};
 
     target.handle(cmd);
 }
@@ -66,7 +64,7 @@ TEST_CASE("command handler can exactly know which aggregate root to create", "[c
 TEST_CASE("command handler can be told which aggregate root to create", "[command_handler]") {
     event_store store{};
     auto target = command_handler{fake_factory{}, store.as_event_stream()};
-    fake_command<1> const cmd{uuid::v4(), std::chrono::system_clock::now()};
+    fake_command<1> const cmd{{uuid::v4(), std::chrono::system_clock::now()}};
 
     target.handle<fake_aggregate_root>(cmd);
 }

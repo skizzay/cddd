@@ -15,6 +15,7 @@ include(CTest)
 add_subdirectory(s11n)
 add_subdirectory(simple)
 add_subdirectory(file_journal)
+add_subdirectory(gtd)
 
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

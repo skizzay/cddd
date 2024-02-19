@@ -10,12 +10,17 @@
 
 #include "command.h"
 #include "event.h"
+#include "exceptions.h"
 
 namespace skizzay::simple::cqrs {
 
     template<typename S>
     requires std::is_class_v<S> && std::is_same_v<S, std::remove_cvref_t<S> >
     struct state_base {
+        // ReSharper disable once CppMemberFunctionMayBeStatic
+        [[noreturn]] S on_event(event auto const &) {
+            throw unexpected_event{"Unexpected event for current state"};
+        }
     };
 
     namespace state_details_ {

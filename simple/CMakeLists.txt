@@ -15,6 +15,8 @@ add_library(simple_cqrs INTERFACE
         main/skizzay/cqrs/memory_event_store.h
         main/skizzay/cqrs/factory.h
         main/skizzay/cqrs/tag.h
+        main/skizzay/cqrs/exceptions.h
+        main/skizzay/cqrs/type_sequence.h
 )
 target_include_directories(simple_cqrs INTERFACE
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/simple/main>

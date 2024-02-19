@@ -5,6 +5,9 @@
 #ifndef EVENT_H
 #define EVENT_H
 
+#include <chrono>
+#include <concepts>
+#include <type_traits>
 #include <variant>
 
 #include "time_point.h"

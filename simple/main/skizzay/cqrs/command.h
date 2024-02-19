@@ -17,10 +17,6 @@ namespace skizzay::simple::cqrs {
     struct command_base {
         uuid aggregate_id{};
         Timestamp timestamp{};
-
-        constexpr command_base() noexcept = default;
-        constexpr explicit command_base(uuid const &id, Timestamp const t={}) noexcept : aggregate_id{id}, timestamp{t} {
-        }
     };
 
     namespace command_details_ {

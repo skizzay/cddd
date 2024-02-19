@@ -14,6 +14,7 @@ add_library(simple_s11n INTERFACE
         main/skizzay/s11n/boolean.h
         main/skizzay/s11n/write_transaction.h
 )
+set_property(TARGET simple_s11n PROPERTY CXX_STANDARD 23)
 target_include_directories(simple_s11n INTERFACE
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/s11n/main>
         $<INSTALL_INTERFACE:include>

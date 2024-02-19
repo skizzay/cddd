@@ -11,11 +11,38 @@
 #include "event.h"
 #include "state.h"
 #include "state_machine.h"
+#include "type_sequence.h"
 #include "uuid.h"
 
-namespace skizzay::simple::cqrs {
+namespace skizzay::simple::cqrs { namespace aggregate_root_details_ {
+        template<typename, typename>
+        struct calculate_changes_result_type_impl;
 
-    namespace aggregate_root_details_ {
+        template<command C, state S>
+            requires std::is_invocable_v<decltype(calculate_changes), S const &, uuid const &, std::uint64_t, C const &>
+        struct calculate_changes_result_type_impl<C, S> {
+            using type = type_sequence<std::invoke_result_t<decltype(calculate_changes), S const &, uuid const &,
+                std::uint64_t,
+                C const &> >;
+        };
+
+        template<command C, state S>
+        struct calculate_changes_result_type_impl<C, S> {
+            using type = type_sequence<>;
+        };
+
+        template<typename, typename>
+        struct calculate_changes_result_type;
+
+        template<command C, state... Ss>
+        struct calculate_changes_result_type<C, type_sequence<Ss...> > {
+            using type = typename type_sequence<>::concat_t<typename calculate_changes_result_type_impl<C, Ss>::type
+                ...>::common_type_t;
+        };
+
+        template<typename Command, typename States>
+        using calculate_changes_result_type_t = typename calculate_changes_result_type<Command, States>::type;
+
         template<typename>
         struct impl_storage;
 
@@ -24,6 +51,10 @@ namespace skizzay::simple::cqrs {
         struct impl_storage<FSM> {
             [[nodiscard]] constexpr decltype(auto) current_state() const noexcept {
                 return fsm_.current_state();
+            }
+
+            constexpr decltype(auto) query(auto &&fn) const noexcept(noexcept(fsm_.query(std::forward<decltype(fn)>(fn)))) {
+                return fsm_.query(std::forward<decltype(fn)>(fn));
             }
 
             template<state S>
@@ -39,10 +70,17 @@ namespace skizzay::simple::cqrs {
             [[nodiscard]] constexpr event_range auto validate_command_and_calculate_changes(uuid const &id,
                 std::uint64_t const version, command auto const &cmd
             ) const {
-                return fsm_.query([&](state auto const &current) {
-                    validate_command(current, id, version, cmd);
-                    return calculate_changes(current, id, version, cmd);
-                });
+                return fsm_.query([&](state auto const &current
+            ) -> calculate_changes_result_type_t<decltype(cmd), typename FSM::states_sequence> {
+                        if constexpr (std::is_invocable_v<decltype(calculate_changes), decltype(current) const &, uuid
+                            const &, std::uint64_t, decltype(cmd) const &>) {
+                            validate_command(current, id, version, cmd);
+                            return calculate_changes(current, id, version, cmd);
+                        }
+                        else {
+                            throw unexpected_command{"Unexpected command for current state"};
+                        }
+                    });
             }
 
         private:
